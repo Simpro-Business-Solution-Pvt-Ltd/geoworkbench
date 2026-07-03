@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.domains.auth import service
 from app.domains.auth.schemas import (
     LoginRequest,
+    MobileEntraTokenRequest,
     MobileOtpOut,
     MobileOtpRequest,
     MobileOtpVerifyRequest,
@@ -308,6 +309,18 @@ def request_mobile_otp(payload: MobileOtpRequest, db: Session = Depends(get_db))
 def verify_mobile_otp(payload: MobileOtpVerifyRequest, db: Session = Depends(get_db)) -> TokenOut:
     try:
         user, session = service.verify_mobile_otp(db, payload.username, payload.otp, payload.push_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    return TokenOut(token=session.token, user=user, expires_at=session.expires_at.isoformat())
+
+
+@router.post("/mobile/entra-session", response_model=TokenOut)
+def mobile_entra_session(
+    payload: MobileEntraTokenRequest,
+    db: Session = Depends(get_db),
+) -> TokenOut:
+    try:
+        user, session = service.login_with_entra_access_token(db, payload.access_token)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     return TokenOut(token=session.token, user=user, expires_at=session.expires_at.isoformat())

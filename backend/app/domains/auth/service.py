@@ -416,6 +416,17 @@ def login_with_entra_code(db: Session, code: str, state: str) -> tuple[User, Aut
     return user, create_session(db, user, "web_entra")
 
 
+def login_with_entra_access_token(db: Session, access_token: str) -> tuple[User, AuthSession]:
+    if not access_token:
+        raise ValueError("Missing Entra access token")
+    profile = _extract_entra_profile({"access_token": access_token})
+    user = _get_or_create_entra_user(db, profile)
+    user.last_login_at = datetime.now(timezone.utc)
+    db.add(user)
+    db.commit()
+    return user, create_session(db, user, "mobile_entra")
+
+
 def ensure_demo_users(db: Session) -> None:
     ensure_roles(db)
     existing_admin = db.scalar(select(User).where(User.username == "geologist"))

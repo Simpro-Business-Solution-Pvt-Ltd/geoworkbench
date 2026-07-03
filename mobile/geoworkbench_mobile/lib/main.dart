@@ -1,79 +1,129 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:msal_auth/msal_auth.dart';
 
 import 'api_client.dart';
+
+const _entraClientId = '6436ce6e-987d-45ba-a829-6fa9e3fe6c2d';
+const _entraTenantId = '4fe5f48f-b0d0-419f-b334-1dfeabf3de7e';
+const _entraAuthority = 'https://login.microsoftonline.com/$_entraTenantId';
+const _androidRedirectUri =
+    'msauth://com.example.geoworkbench_mobile/tJiJE8rvGkwLupt0szXiUw8Sndg%3D';
+const _entraScopes = <String>['https://graph.microsoft.com/user.read'];
 
 void main() {
   runApp(const GeoWorkbenchMobileApp());
 }
 
-class GeoWorkbenchMobileApp extends StatelessWidget {
+class GeoWorkbenchMobileApp extends StatefulWidget {
   const GeoWorkbenchMobileApp({super.key});
 
   @override
+  State<GeoWorkbenchMobileApp> createState() => _GeoWorkbenchMobileAppState();
+}
+
+class _GeoWorkbenchMobileAppState extends State<GeoWorkbenchMobileApp> {
+  ThemeMode _themeMode = ThemeMode.light;
+
+  @override
   Widget build(BuildContext context) {
-    const primary = Color(0xff123f3a);
-    const accent = Color(0xffd49a2a);
-    const surface = Color(0xfff3f7f3);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'GeoWorkbench Field',
-      theme: ThemeData(
-        scaffoldBackgroundColor: surface,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: primary,
-          primary: primary,
-          secondary: accent,
-          surface: const Color(0xffffffff),
-          tertiary: const Color(0xff2f7d6f),
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: surface,
-          foregroundColor: Color(0xff10201d),
-          elevation: 0,
-          centerTitle: false,
-        ),
-        cardTheme: CardThemeData(
-          color: Colors.white,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(color: Color(0xffdce6e1)),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xfff8faf8),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xffd6e1dc)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xffd6e1dc)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: primary, width: 1.5),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
+      themeMode: _themeMode,
+      theme: _buildTheme(Brightness.light),
+      darkTheme: _buildTheme(Brightness.dark),
+      home: FieldSyncScreen(
+        themeMode: _themeMode,
+        onThemeModeChanged: (mode) => setState(() => _themeMode = mode),
+      ),
+    );
+  }
+
+  ThemeData _buildTheme(Brightness brightness) {
+    const primary = Color(0xffc8102e);
+    const teal = Color(0xff0f9f8f);
+    final isDark = brightness == Brightness.dark;
+    final scheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: brightness,
+      primary: primary,
+      secondary: teal,
+      tertiary: const Color(0xff1d7eea),
+      surface: isDark ? const Color(0xff151b20) : Colors.white,
+    );
+    final borderColor =
+        isDark ? const Color(0xff313b48) : const Color(0xffdde4ec);
+    final fillColor =
+        isDark ? const Color(0xff11161c) : const Color(0xfff8fafc);
+    return ThemeData(
+      scaffoldBackgroundColor:
+          isDark ? const Color(0xff0f1418) : const Color(0xfff4f7fb),
+      colorScheme: scheme,
+      useMaterial3: true,
+      appBarTheme: AppBarTheme(
+        backgroundColor: isDark ? const Color(0xff151b20) : Colors.white,
+        foregroundColor:
+            isDark ? const Color(0xffeef4f7) : const Color(0xff111827),
+        elevation: 0,
+        centerTitle: false,
+        surfaceTintColor: Colors.transparent,
+      ),
+      cardTheme: CardThemeData(
+        color: isDark ? const Color(0xff151b20) : Colors.white,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: borderColor),
         ),
       ),
-      home: const FieldSyncScreen(),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: fillColor,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: primary, width: 1.5),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(46),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: primary),
+      ),
+      chipTheme: ChipThemeData(
+        side: BorderSide(color: borderColor),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      ),
     );
   }
 }
 
 class FieldSyncScreen extends StatefulWidget {
-  const FieldSyncScreen({super.key});
+  const FieldSyncScreen({
+    super.key,
+    required this.themeMode,
+    required this.onThemeModeChanged,
+  });
+
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeModeChanged;
 
   @override
   State<FieldSyncScreen> createState() => _FieldSyncScreenState();
@@ -88,7 +138,8 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
   final _projectName = TextEditingController(text: 'Demo Coal Block');
   final _siteCode = TextEditingController(text: 'MOBILE-SITE');
   final _emptyBoreholeCode = TextEditingController(text: 'MOBILE-BH-001');
-  final _emptyBoreholeTitle = TextEditingController(text: 'Mobile field borehole');
+  final _emptyBoreholeTitle =
+      TextEditingController(text: 'Mobile field borehole');
   final _emptyTotalDepth = TextEditingController(text: '0');
   final _state = TextEditingController(text: 'Jharkhand');
   final _runFromDepth = TextEditingController(text: '525.0');
@@ -102,10 +153,12 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
   final _grainSize = TextEditingController();
   final _loggedColor = TextEditingController(text: 'BLACK');
   final _rqd = TextEditingController(text: '70');
-  final _structuralFeatures = TextEditingController(text: 'Banded, dull to bright');
+  final _structuralFeatures =
+      TextEditingController(text: 'Banded, dull to bright');
   final _coreDip = TextEditingController();
   final _seamName = TextEditingController(text: 'LOCAL');
-  final _remarks = TextEditingController(text: 'Android demo interval from field app');
+  final _remarks =
+      TextEditingController(text: 'Android demo interval from field app');
   String _fileType = 'excel';
   String _cameraType = 'corebox_image';
   int _sourceBoreholeId = 6;
@@ -131,8 +184,10 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
     ),
   ];
 
-  GeoWorkbenchApi get _api => GeoWorkbenchApi(_baseUrl.text.trim(), token: _authToken);
+  GeoWorkbenchApi get _api =>
+      GeoWorkbenchApi(_baseUrl.text.trim(), token: _authToken);
   final _imagePicker = ImagePicker();
+  SingleAccountPca? _msalPca;
 
   bool get _canSyncInterval =>
       !_busy &&
@@ -179,7 +234,8 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
     super.dispose();
   }
 
-  double _number(TextEditingController controller) => double.parse(controller.text.trim());
+  double _number(TextEditingController controller) =>
+      double.parse(controller.text.trim());
 
   double? _optionalNumber(TextEditingController controller) {
     final text = controller.text.trim();
@@ -187,7 +243,8 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
     return double.parse(text);
   }
 
-  Future<Map<String, dynamic>?> _run(String label, Future<Map<String, dynamic>> Function() action) async {
+  Future<Map<String, dynamic>?> _run(
+      String label, Future<Map<String, dynamic>> Function() action) async {
     setState(() {
       _busy = true;
       _busyLabel = label;
@@ -322,8 +379,52 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
     }
   }
 
+  Future<SingleAccountPca> _getMsalPca() async {
+    final existing = _msalPca;
+    if (existing != null) return existing;
+    final pca = await SingleAccountPca.create(
+      clientId: _entraClientId,
+      androidConfig: AndroidConfig(
+        configFilePath: 'assets/msal_config.json',
+        redirectUri: _androidRedirectUri,
+      ),
+      appleConfig: AppleConfig(
+        authority: _entraAuthority,
+        authorityType: AuthorityType.aad,
+        broker: Broker.safariBrowser,
+      ),
+    );
+    _msalPca = pca;
+    return pca;
+  }
+
+  Future<void> _openEntraLogin() async {
+    await _run(
+      'Signing in with Entra ID',
+      () async {
+        final pca = await _getMsalPca();
+        final result = await pca.acquireToken(
+          scopes: _entraScopes,
+          prompt: Prompt.whenRequired,
+          authority: _entraAuthority,
+          loginHint: _username.text.trim().contains('@')
+              ? _username.text.trim()
+              : null,
+        );
+        final session = await GeoWorkbenchApi(_baseUrl.text.trim())
+            .createMobileEntraSession(accessToken: result.accessToken);
+        session['message'] = 'Signed in with Entra ID.';
+        return session;
+      },
+    );
+    if (_authToken != null) {
+      setState(() => _openSection = 'create-empty');
+    }
+  }
+
   void _prepareNextInterval() {
-    final nextFrom = _number(_lithologyFromDepth) + _number(_lithologyThickness);
+    final nextFrom =
+        _number(_lithologyFromDepth) + _number(_lithologyThickness);
     final nextRunTo = nextFrom + 3;
     setState(() {
       _runFromDepth.text = nextFrom.toStringAsFixed(2);
@@ -366,6 +467,23 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
     setState(() {});
   }
 
+  Future<void> _signOut() async {
+    try {
+      await _msalPca?.signOut();
+    } on MsalException {
+      // Local session state still needs to be cleared if the MSAL cache is absent.
+    }
+    setState(() {
+      _authToken = null;
+      _displayName = null;
+      _role = null;
+      _devOtp = null;
+      _otp.clear();
+      _openSection = 'auth';
+      _status = 'Signed out. Field sync actions are locked.';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -374,409 +492,691 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
         title: Row(
           children: [
             SizedBox(
-              height: 38,
-              width: 132,
+              height: 32,
+              width: 118,
               child: Image.asset(
                 'assets/branding/simpro-logo.png',
                 fit: BoxFit.contain,
               ),
             ),
-            const SizedBox(width: 10),
-            const Expanded(
+            const SizedBox(width: 8),
+            Expanded(
               child: Text(
-                'GeoWorkbench Field Sync',
+                'GeoWorkbench Field',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
             ),
           ],
         ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _FieldHeaderCard(
-            boreholeCode: _createdBoreholeId == null
-                ? _emptyBoreholeCode.text.trim()
-                : 'Central id $_createdBoreholeId',
-            siteCode: _siteCode.text.trim(),
-            currentDepth: _lithologyFromDepth.text.trim(),
-            userLabel: _displayName ?? 'Not signed in',
-            roleLabel: _role?.replaceAll('_', ' ') ?? 'field authorization pending',
-            busy: _busy,
-            busyLabel: _busyLabel,
+        actions: [
+          IconButton(
+            tooltip: widget.themeMode == ThemeMode.dark
+                ? 'Use light theme'
+                : 'Use dark theme',
+            onPressed: () => widget.onThemeModeChanged(
+              widget.themeMode == ThemeMode.dark
+                  ? ThemeMode.light
+                  : ThemeMode.dark,
+            ),
+            icon: Icon(widget.themeMode == ThemeMode.dark
+                ? Icons.light_mode
+                : Icons.dark_mode),
           ),
-          const SizedBox(height: 14),
-          _Section(
-            id: 'auth',
-            openId: _openSection,
-            onToggle: _toggleSection,
-            title: 'Secure Field Login',
-            icon: Icons.verified_user,
-            children: [
-              TextField(
-                controller: _username,
-                decoration: const InputDecoration(labelText: 'Username'),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _busy ? null : _requestOtp,
-                      icon: const Icon(Icons.password),
-                      label: Text(_busy && _busyLabel == 'Requesting OTP' ? 'Requesting...' : 'Request OTP'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _otp,
-                      decoration: InputDecoration(
-                        labelText: 'OTP',
-                        helperText: _devOtp == null ? 'Push/dev OTP' : 'Dev OTP: $_devOtp',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              FilledButton.icon(
-                onPressed: _busy || _otp.text.trim().isEmpty ? null : _verifyOtp,
-                icon: const Icon(Icons.login),
-                label: Text(_busy && _busyLabel == 'Signing in' ? 'Signing in...' : 'Sign in to sync'),
-              ),
-              if (_authToken != null)
-                Text('Signed in as ${_displayName ?? _username.text} (${_role ?? 'field user'})'),
-            ],
-          ),
-          _Section(
-            id: 'backend',
-            openId: _openSection,
-            onToggle: _toggleSection,
-            title: 'Backend',
-            icon: Icons.cloud_sync,
-            children: [
-              TextField(
-                controller: _baseUrl,
-                decoration: const InputDecoration(labelText: 'API base URL'),
-              ),
-            ],
-          ),
-          _Section(
-            id: 'create-empty',
-            openId: _openSection,
-            onToggle: _toggleSection,
-            title: 'Create Empty Borehole',
-            icon: Icons.add_location_alt,
-            children: [
-              TextField(
-                controller: _projectCode,
-                decoration: const InputDecoration(labelText: 'Project code'),
-              ),
-              TextField(
-                controller: _projectName,
-                decoration: const InputDecoration(labelText: 'Project name'),
-              ),
-              TextField(
-                controller: _siteCode,
-                decoration: const InputDecoration(labelText: 'Site / block code'),
-              ),
-              TextField(
-                controller: _emptyBoreholeCode,
-                decoration: const InputDecoration(labelText: 'Borehole code'),
-              ),
-              TextField(
-                controller: _emptyBoreholeTitle,
-                decoration: const InputDecoration(labelText: 'Title'),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _emptyTotalDepth,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Current depth'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _state,
-                      decoration: const InputDecoration(labelText: 'State'),
-                    ),
-                  ),
-                ],
-              ),
-              FilledButton.icon(
-                onPressed: _busy || _authToken == null
-                    ? null
-                    : () => _run(
-                          'Creating empty borehole',
-                          () => _api.createEmptyBorehole(
-                            projectCode: _projectCode.text.trim(),
-                            projectName: _projectName.text.trim(),
-                            siteCode: _siteCode.text.trim(),
-                            boreholeCode: _emptyBoreholeCode.text.trim(),
-                            title: _emptyBoreholeTitle.text.trim(),
-                            totalDepth: _optionalNumber(_emptyTotalDepth) ?? 0,
-                            state: _state.text.trim(),
-                          ),
-                        ),
-                icon: const Icon(Icons.add_location_alt),
-                label: Text(_busy && _busyLabel == 'Creating empty borehole'
-                    ? 'Creating...'
-                    : 'Create Empty Borehole'),
-              ),
-            ],
-          ),
-          _Section(
-            id: 'clone',
-            openId: _openSection,
-            onToggle: _toggleSection,
-            title: 'Create Demo Borehole Copy',
-            icon: Icons.copy_all,
-            children: [
-              DropdownButtonFormField<int>(
-                initialValue: _sourceBoreholeId,
-                decoration: const InputDecoration(labelText: 'Source borehole'),
-                items: const [
-                  DropdownMenuItem(value: 6, child: Text('CTSJ-30-P-02')),
-                  DropdownMenuItem(value: 7, child: Text('CTSJ-30-P-02-AI-TEST')),
-                ],
-                onChanged: (value) => setState(() => _sourceBoreholeId = value ?? 6),
-              ),
-              TextField(
-                controller: _newCode,
-                decoration: const InputDecoration(labelText: 'New borehole code'),
-              ),
-              FilledButton.icon(
-                onPressed: _busy || _authToken == null
-                    ? null
-                    : () => _run(
-                          'Creating mobile demo copy',
-                          () => _api.createDemoCopy(
-                            sourceBoreholeId: _sourceBoreholeId,
-                            newCode: _newCode.text.trim(),
-                          ),
-                        ),
-                icon: const Icon(Icons.sync),
-                label: Text(_busy && _busyLabel == 'Creating mobile demo copy'
-                    ? 'Cloning...'
-                    : 'Clone Existing Borehole'),
-              ),
-            ],
-          ),
-          _Section(
-            id: 'field-entry',
-            openId: _openSection,
-            onToggle: _toggleSection,
-            title: 'Structured Field Log Entry',
-            icon: Icons.edit_note,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _runFromDepth,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Run from'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _runToDepth,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Run to'),
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _lithologyFromDepth,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Lithology from'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _lithologyThickness,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Thickness'),
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _recovery,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Recovery m'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _recoveryPercent,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Recovery %'),
-                    ),
-                  ),
-                ],
-              ),
-              TextField(
-                controller: _lithology,
-                decoration: const InputDecoration(labelText: 'Lithology code'),
-              ),
-              TextField(
-                controller: _lithologyLabel,
-                decoration: const InputDecoration(labelText: 'Lithology label'),
-              ),
-              TextField(
-                controller: _grainSize,
-                decoration: const InputDecoration(labelText: 'Grain size'),
-              ),
-              TextField(
-                controller: _loggedColor,
-                decoration: const InputDecoration(labelText: 'Colour'),
-              ),
-              TextField(
-                controller: _rqd,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'RQD %'),
-              ),
-              TextField(
-                controller: _structuralFeatures,
-                decoration: const InputDecoration(labelText: 'Structural / sedimentary features'),
-                minLines: 2,
-                maxLines: 3,
-              ),
-              TextField(
-                controller: _coreDip,
-                decoration: const InputDecoration(labelText: 'Core dip'),
-              ),
-              TextField(
-                controller: _seamName,
-                decoration: const InputDecoration(labelText: 'Seam'),
-              ),
-              TextField(
-                controller: _remarks,
-                decoration: const InputDecoration(labelText: 'Remarks'),
-                minLines: 2,
-                maxLines: 3,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Additional runtime parameters',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _busy ? null : _addRuntimeParameter,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add'),
-                  ),
-                ],
-              ),
-              for (final entry in _runtimeParameters.indexed)
-                _RuntimeParameterRow(
-                  key: ValueKey(entry.$2.id),
-                  parameter: entry.$2,
-                  onRemove: _busy ? null : () => _removeRuntimeParameter(entry.$1),
+          if (_authToken == null)
+            IconButton(
+              tooltip: 'API settings',
+              onPressed: () => setState(() => _openSection =
+                  _openSection == 'backend' ? 'auth' : 'backend'),
+              icon: const Icon(Icons.settings_outlined),
+            )
+          else
+            PopupMenuButton<String>(
+              tooltip: 'Profile',
+              icon: CircleAvatar(
+                radius: 15,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                child: Text(
+                  (_displayName ?? _username.text).trim().isEmpty
+                      ? 'F'
+                      : (_displayName ?? _username.text)
+                          .trim()[0]
+                          .toUpperCase(),
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w800),
                 ),
-              FilledButton.icon(
-                onPressed: _canSyncInterval ? _syncStructuredInterval : null,
-                icon: const Icon(Icons.upload),
-                label: Text(_busy && _busyLabel == 'Submitting field interval'
-                    ? 'Syncing...'
-                    : 'Sync Field Interval'),
               ),
-            ],
-          ),
-          _Section(
-            id: 'upload',
-            openId: _openSection,
-            onToggle: _toggleSection,
-            title: 'Upload Field File',
-            icon: Icons.drive_folder_upload,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: _fileType,
-                decoration: const InputDecoration(labelText: 'File type'),
-                items: const [
-                  DropdownMenuItem(value: 'excel', child: Text('Excel workbook')),
-                  DropdownMenuItem(value: 'las', child: Text('Geophysical LAS')),
-                  DropdownMenuItem(value: 'geophysical_pdf', child: Text('Geophysical PDF')),
-                  DropdownMenuItem(value: 'corebox_image', child: Text('Corebox image')),
-                  DropdownMenuItem(value: 'site_photo', child: Text('Site photo')),
-                ],
-                onChanged: (value) => setState(() => _fileType = value ?? 'excel'),
-              ),
-              FilledButton.icon(
-                onPressed: _busy || _authToken == null || _createdBoreholeId == null ? null : _pickAndUpload,
-                icon: const Icon(Icons.attach_file),
-                label: Text(_busy && _busyLabel.startsWith('Uploading')
-                    ? 'Uploading...'
-                    : 'Upload File'),
-              ),
-              DropdownButtonFormField<String>(
-                initialValue: _cameraType,
-                decoration: const InputDecoration(labelText: 'Camera capture type'),
-                items: const [
-                  DropdownMenuItem(value: 'corebox_image', child: Text('Corebox image')),
-                  DropdownMenuItem(value: 'site_photo', child: Text('Site photo')),
-                ],
-                onChanged: (value) => setState(() => _cameraType = value ?? 'corebox_image'),
-              ),
-              FilledButton.icon(
-                onPressed: _busy || _authToken == null || _createdBoreholeId == null ? null : _captureAndUpload,
-                icon: const Icon(Icons.photo_camera),
-                label: Text(_busy && _busyLabel.startsWith('Uploading captured')
-                    ? 'Uploading photo...'
-                    : 'Capture & Upload Photo'),
-              ),
-            ],
-          ),
-          _Section(
-            id: 'status',
-            openId: _openSection,
-            onToggle: _toggleSection,
-            title: 'Sync status',
-            icon: _busy ? Icons.sync : Icons.task_alt,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_busy) ...[
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  Expanded(child: Text(_status)),
-                ],
-              ),
-              if (_createdBoreholeId != null)
-                Text('Central borehole id: $_createdBoreholeId'),
-            ],
-          ),
+              onSelected: (value) {
+                if (value == 'backend') {
+                  setState(() => _openSection = 'backend');
+                }
+                if (value == 'signout') _signOut();
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  enabled: false,
+                  child: _IdentityMenuHeader(
+                    displayName: _displayName ?? _username.text,
+                    role: _role?.replaceAll('_', ' ') ?? 'Not signed in',
+                    signedIn: _authToken != null,
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                    value: 'backend', child: Text('API settings')),
+                const PopupMenuItem(value: 'signout', child: Text('Sign out')),
+              ],
+            ),
+          const SizedBox(width: 6),
         ],
       ),
+      body: _authToken == null ? _buildLoginPage() : _buildFieldWorkflow(),
+    );
+  }
+
+  Widget _buildLoginPage() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _LoginHeroCard(
+          busy: _busy,
+          busyLabel: _busyLabel,
+          status: _status,
+        ),
+        const SizedBox(height: 14),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Sign in',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Use Entra ID or mobile OTP to start field capture.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _openEntraLogin,
+                  icon: const Icon(Icons.login),
+                  label: Text(_busy && _busyLabel == 'Signing in with Entra ID'
+                      ? 'Opening Entra ID...'
+                      : 'Sign in with Entra ID'),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: _LoginDivider(label: 'or use mobile OTP'),
+                ),
+                TextField(
+                  controller: _username,
+                  decoration: const InputDecoration(labelText: 'Username'),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _requestOtp,
+                  icon: const Icon(Icons.password),
+                  label: Text(_busy && _busyLabel == 'Requesting OTP'
+                      ? 'Requesting OTP...'
+                      : 'Request OTP'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _otp,
+                  decoration: InputDecoration(
+                    labelText: 'OTP',
+                    suffixIcon: _devOtp == null
+                        ? null
+                        : IconButton(
+                            tooltip: 'Paste OTP',
+                            onPressed: () =>
+                                setState(() => _otp.text = _devOtp!),
+                            icon: const Icon(Icons.content_paste),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed:
+                      _busy || _otp.text.trim().isEmpty ? null : _verifyOtp,
+                  icon: const Icon(Icons.login),
+                  label: Text(_busy && _busyLabel == 'Signing in'
+                      ? 'Signing in...'
+                      : 'Sign in to sync'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _Section(
+          id: 'backend',
+          openId: _openSection,
+          onToggle: _toggleSection,
+          title: 'API Settings',
+          icon: Icons.cloud_sync,
+          children: [
+            TextField(
+              controller: _baseUrl,
+              decoration: const InputDecoration(labelText: 'API base URL'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFieldWorkflow() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _FieldHeaderCard(
+          boreholeCode: _createdBoreholeId == null
+              ? _emptyBoreholeCode.text.trim()
+              : 'Central id $_createdBoreholeId',
+          siteCode: _siteCode.text.trim(),
+          currentDepth: _lithologyFromDepth.text.trim(),
+          userLabel: _displayName ?? _username.text,
+          roleLabel: _role?.replaceAll('_', ' ') ?? 'field user',
+          busy: _busy,
+          busyLabel: _busyLabel,
+        ),
+        const SizedBox(height: 14),
+        _SignedInNotice(
+          displayName: _displayName ?? _username.text,
+          role: _role?.replaceAll('_', ' ') ?? 'field user',
+        ),
+        const SizedBox(height: 12),
+        _Section(
+          id: 'backend',
+          openId: _openSection,
+          onToggle: _toggleSection,
+          title: 'API Settings',
+          icon: Icons.cloud_sync,
+          children: [
+            TextField(
+              controller: _baseUrl,
+              decoration: const InputDecoration(labelText: 'API base URL'),
+            ),
+          ],
+        ),
+        _buildFieldSections(),
+      ],
+    );
+  }
+
+  Widget _buildFieldSections() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Section(
+          id: 'create-empty',
+          openId: _openSection,
+          onToggle: _toggleSection,
+          title: 'Create Empty Borehole',
+          icon: Icons.add_location_alt,
+          children: [
+            TextField(
+              controller: _projectCode,
+              decoration: const InputDecoration(labelText: 'Project code'),
+            ),
+            TextField(
+              controller: _projectName,
+              decoration: const InputDecoration(labelText: 'Project name'),
+            ),
+            TextField(
+              controller: _siteCode,
+              decoration: const InputDecoration(labelText: 'Site / block code'),
+            ),
+            TextField(
+              controller: _emptyBoreholeCode,
+              decoration: const InputDecoration(labelText: 'Borehole code'),
+            ),
+            TextField(
+              controller: _emptyBoreholeTitle,
+              decoration: const InputDecoration(labelText: 'Title'),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _emptyTotalDepth,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: 'Current depth'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _state,
+                    decoration: const InputDecoration(labelText: 'State'),
+                  ),
+                ),
+              ],
+            ),
+            FilledButton.icon(
+              onPressed: _busy || _authToken == null
+                  ? null
+                  : () => _run(
+                        'Creating empty borehole',
+                        () => _api.createEmptyBorehole(
+                          projectCode: _projectCode.text.trim(),
+                          projectName: _projectName.text.trim(),
+                          siteCode: _siteCode.text.trim(),
+                          boreholeCode: _emptyBoreholeCode.text.trim(),
+                          title: _emptyBoreholeTitle.text.trim(),
+                          totalDepth: _optionalNumber(_emptyTotalDepth) ?? 0,
+                          state: _state.text.trim(),
+                        ),
+                      ),
+              icon: const Icon(Icons.add_location_alt),
+              label: Text(_busy && _busyLabel == 'Creating empty borehole'
+                  ? 'Creating...'
+                  : 'Create Empty Borehole'),
+            ),
+          ],
+        ),
+        _Section(
+          id: 'clone',
+          openId: _openSection,
+          onToggle: _toggleSection,
+          title: 'Create Demo Borehole Copy',
+          icon: Icons.copy_all,
+          children: [
+            DropdownButtonFormField<int>(
+              initialValue: _sourceBoreholeId,
+              decoration: const InputDecoration(labelText: 'Source borehole'),
+              items: const [
+                DropdownMenuItem(value: 6, child: Text('CTSJ-30-P-02')),
+                DropdownMenuItem(value: 7, child: Text('CTSJ-30-P-02-AI-TEST')),
+              ],
+              onChanged: (value) =>
+                  setState(() => _sourceBoreholeId = value ?? 6),
+            ),
+            TextField(
+              controller: _newCode,
+              decoration: const InputDecoration(labelText: 'New borehole code'),
+            ),
+            FilledButton.icon(
+              onPressed: _busy || _authToken == null
+                  ? null
+                  : () => _run(
+                        'Creating mobile demo copy',
+                        () => _api.createDemoCopy(
+                          sourceBoreholeId: _sourceBoreholeId,
+                          newCode: _newCode.text.trim(),
+                        ),
+                      ),
+              icon: const Icon(Icons.sync),
+              label: Text(_busy && _busyLabel == 'Creating mobile demo copy'
+                  ? 'Cloning...'
+                  : 'Clone Existing Borehole'),
+            ),
+          ],
+        ),
+        _Section(
+          id: 'field-entry',
+          openId: _openSection,
+          onToggle: _toggleSection,
+          title: 'Structured Field Log Entry',
+          icon: Icons.edit_note,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _runFromDepth,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Run from'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _runToDepth,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Run to'),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _lithologyFromDepth,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: 'Lithology from'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _lithologyThickness,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Thickness'),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _recovery,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Recovery m'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _recoveryPercent,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Recovery %'),
+                  ),
+                ),
+              ],
+            ),
+            TextField(
+              controller: _lithology,
+              decoration: const InputDecoration(labelText: 'Lithology code'),
+            ),
+            TextField(
+              controller: _lithologyLabel,
+              decoration: const InputDecoration(labelText: 'Lithology label'),
+            ),
+            TextField(
+              controller: _grainSize,
+              decoration: const InputDecoration(labelText: 'Grain size'),
+            ),
+            TextField(
+              controller: _loggedColor,
+              decoration: const InputDecoration(labelText: 'Colour'),
+            ),
+            TextField(
+              controller: _rqd,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'RQD %'),
+            ),
+            TextField(
+              controller: _structuralFeatures,
+              decoration: const InputDecoration(
+                  labelText: 'Structural / sedimentary features'),
+              minLines: 2,
+              maxLines: 3,
+            ),
+            TextField(
+              controller: _coreDip,
+              decoration: const InputDecoration(labelText: 'Core dip'),
+            ),
+            TextField(
+              controller: _seamName,
+              decoration: const InputDecoration(labelText: 'Seam'),
+            ),
+            TextField(
+              controller: _remarks,
+              decoration: const InputDecoration(labelText: 'Remarks'),
+              minLines: 2,
+              maxLines: 3,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Additional runtime parameters',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _busy ? null : _addRuntimeParameter,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add'),
+                ),
+              ],
+            ),
+            for (final entry in _runtimeParameters.indexed)
+              _RuntimeParameterRow(
+                key: ValueKey(entry.$2.id),
+                parameter: entry.$2,
+                onRemove:
+                    _busy ? null : () => _removeRuntimeParameter(entry.$1),
+              ),
+            FilledButton.icon(
+              onPressed: _canSyncInterval ? _syncStructuredInterval : null,
+              icon: const Icon(Icons.upload),
+              label: Text(_busy && _busyLabel == 'Submitting field interval'
+                  ? 'Syncing...'
+                  : 'Sync Field Interval'),
+            ),
+          ],
+        ),
+        _Section(
+          id: 'upload',
+          openId: _openSection,
+          onToggle: _toggleSection,
+          title: 'Upload Field File',
+          icon: Icons.drive_folder_upload,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _fileType,
+              decoration: const InputDecoration(labelText: 'File type'),
+              items: const [
+                DropdownMenuItem(value: 'excel', child: Text('Excel workbook')),
+                DropdownMenuItem(value: 'las', child: Text('Geophysical LAS')),
+                DropdownMenuItem(
+                    value: 'geophysical_pdf', child: Text('Geophysical PDF')),
+                DropdownMenuItem(
+                    value: 'corebox_image', child: Text('Corebox image')),
+                DropdownMenuItem(
+                    value: 'site_photo', child: Text('Site photo')),
+              ],
+              onChanged: (value) =>
+                  setState(() => _fileType = value ?? 'excel'),
+            ),
+            FilledButton.icon(
+              onPressed:
+                  _busy || _authToken == null || _createdBoreholeId == null
+                      ? null
+                      : _pickAndUpload,
+              icon: const Icon(Icons.attach_file),
+              label: Text(_busy && _busyLabel.startsWith('Uploading')
+                  ? 'Uploading...'
+                  : 'Upload File'),
+            ),
+            DropdownButtonFormField<String>(
+              initialValue: _cameraType,
+              decoration:
+                  const InputDecoration(labelText: 'Camera capture type'),
+              items: const [
+                DropdownMenuItem(
+                    value: 'corebox_image', child: Text('Corebox image')),
+                DropdownMenuItem(
+                    value: 'site_photo', child: Text('Site photo')),
+              ],
+              onChanged: (value) =>
+                  setState(() => _cameraType = value ?? 'corebox_image'),
+            ),
+            FilledButton.icon(
+              onPressed:
+                  _busy || _authToken == null || _createdBoreholeId == null
+                      ? null
+                      : _captureAndUpload,
+              icon: const Icon(Icons.photo_camera),
+              label: Text(_busy && _busyLabel.startsWith('Uploading captured')
+                  ? 'Uploading photo...'
+                  : 'Capture & Upload Photo'),
+            ),
+          ],
+        ),
+        _Section(
+          id: 'status',
+          openId: _openSection,
+          onToggle: _toggleSection,
+          title: 'Sync status',
+          icon: _busy ? Icons.sync : Icons.task_alt,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_busy) ...[
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(child: Text(_status)),
+              ],
+            ),
+            if (_createdBoreholeId != null)
+              Text('Central borehole id: $_createdBoreholeId'),
+          ],
+        ),
+      ],
     );
   }
 
   void _toggleSection(String id) {
     setState(() => _openSection = _openSection == id ? '' : id);
+  }
+}
+
+class _LoginHeroCard extends StatelessWidget {
+  const _LoginHeroCard({
+    required this.busy,
+    required this.busyLabel,
+    required this.status,
+  });
+
+  final bool busy;
+  final String busyLabel;
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            scheme.primary,
+            Color.lerp(scheme.primary, scheme.secondary, 0.5)!,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.primary.withValues(alpha: isDark ? 0.22 : 0.16),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.terrain, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'GeoWorkbench Field',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Secure mobile capture for borehole logging',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.82),
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+              ),
+              child: Row(
+                children: [
+                  if (busy) ...[
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ] else ...[
+                    const Icon(Icons.lock_outline,
+                        color: Colors.white, size: 19),
+                  ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      busy && busyLabel.isNotEmpty
+                          ? busyLabel
+                          : status == 'Ready'
+                              ? 'Please sign in to continue'
+                              : status,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -802,6 +1202,319 @@ class _RuntimeParameterInput {
   }
 }
 
+class _IdentityMenuHeader extends StatelessWidget {
+  const _IdentityMenuHeader({
+    required this.displayName,
+    required this.role,
+    required this.signedIn,
+  });
+
+  final String displayName;
+  final String role;
+  final bool signedIn;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 220,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            displayName.isEmpty ? 'Field user' : displayName,
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            signedIn ? role : 'Sign in required',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IdentityAccessCard extends StatelessWidget {
+  const _IdentityAccessCard({
+    required this.signedIn,
+    required this.displayName,
+    required this.role,
+    required this.baseUrl,
+    required this.onOpenLogin,
+    required this.onSignOut,
+  });
+
+  final bool signedIn;
+  final String displayName;
+  final String role;
+  final String baseUrl;
+  final VoidCallback onOpenLogin;
+  final VoidCallback? onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: signedIn
+                        ? scheme.primary
+                        : scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    signedIn ? Icons.verified_user : Icons.lock_outline,
+                    color: signedIn ? Colors.white : scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        signedIn ? displayName : 'Field identity locked',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                      ),
+                      Text(
+                        signedIn
+                            ? role
+                            : 'Authenticate before creating boreholes or syncing files',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _AccessChip(
+                  icon: Icons.api,
+                  label: Uri.tryParse(baseUrl)?.host ?? baseUrl,
+                ),
+                _AccessChip(
+                  icon: signedIn ? Icons.cloud_done : Icons.cloud_off,
+                  label: signedIn ? 'Token active' : 'No token',
+                ),
+                _AccessChip(
+                  icon: Icons.admin_panel_settings,
+                  label: signedIn ? 'Mobile capture allowed' : 'Actions locked',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onOpenLogin,
+                    icon: Icon(signedIn ? Icons.manage_accounts : Icons.login),
+                    label: Text(signedIn ? 'Manage login' : 'Sign in'),
+                  ),
+                ),
+                if (onSignOut != null) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onSignOut,
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Sign out'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccessChip extends StatelessWidget {
+  const _AccessChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: scheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SignedInNotice extends StatelessWidget {
+  const _SignedInNotice({
+    required this.displayName,
+    required this.role,
+  });
+
+  final String displayName;
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.verified, color: scheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$displayName · $role',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginMethodBanner extends StatelessWidget {
+  const _LoginMethodBanner({
+    required this.signedIn,
+    required this.displayName,
+    required this.role,
+  });
+
+  final bool signedIn;
+  final String displayName;
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            signedIn ? Icons.verified_user : Icons.security,
+            color: signedIn ? scheme.primary : scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  signedIn
+                      ? 'Signed in as $displayName'
+                      : 'Choose an identity provider',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                Text(
+                  signedIn
+                      ? role
+                      : 'Entra ID for enterprise SSO, or push OTP for site users.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginDivider extends StatelessWidget {
+  const _LoginDivider({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Divider()),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ),
+        const Expanded(child: Divider()),
+      ],
+    );
+  }
+}
+
 class _FieldHeaderCard extends StatelessWidget {
   const _FieldHeaderCard({
     required this.boreholeCode,
@@ -824,24 +1537,28 @@ class _FieldHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [Color(0xff123f3a), Color(0xff245f54)],
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary,
+            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.52)!,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xff123f3a).withValues(alpha: 0.16),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: colorScheme.primary.withValues(alpha: isDark ? 0.22 : 0.16),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -864,7 +1581,7 @@ class _FieldHeaderCard extends StatelessWidget {
                       Text(
                         'Field capture workspace',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: const Color(0xffbfe9dd),
+                              color: Colors.white.withValues(alpha: 0.78),
                             ),
                       ),
                       Text(
@@ -926,12 +1643,15 @@ class _FieldHeaderCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                   ] else ...[
-                    Icon(Icons.check_circle, size: 18, color: colorScheme.secondary),
+                    Icon(Icons.check_circle,
+                        size: 18, color: colorScheme.secondary),
                     const SizedBox(width: 8),
                   ],
                   Expanded(
                     child: Text(
-                      busy && busyLabel.isNotEmpty ? busyLabel : 'Ready for field sync',
+                      busy && busyLabel.isNotEmpty
+                          ? busyLabel
+                          : 'Ready for field sync',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -973,7 +1693,7 @@ class _HeaderMetric extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: const Color(0xffbfe9dd),
+                  color: Colors.white.withValues(alpha: 0.74),
                 ),
           ),
           const SizedBox(height: 3),
@@ -1104,21 +1824,26 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Card(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
             leading: Container(
-              width: 42,
-              height: 42,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(13),
+                color: isOpen
+                    ? scheme.primary.withValues(alpha: 0.12)
+                    : scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, color: Theme.of(context).colorScheme.primary),
+              child: Icon(icon,
+                  color: isOpen ? scheme.primary : scheme.onSurfaceVariant),
             ),
             title: Text(
               title,
@@ -1126,20 +1851,25 @@ class _Section extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
             ),
-            trailing: Icon(isOpen ? Icons.expand_less : Icons.expand_more),
+            trailing: Icon(
+              isOpen ? Icons.expand_less : Icons.expand_more,
+              color: isOpen ? scheme.primary : scheme.onSurfaceVariant,
+            ),
             onTap: () => onToggle(id),
           ),
           if (isOpen)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: children.map(
-                  (child) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: child,
-                  ),
-                ).toList(),
+                children: children
+                    .map(
+                      (child) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: child,
+                      ),
+                    )
+                    .toList(),
               ),
             ),
         ],

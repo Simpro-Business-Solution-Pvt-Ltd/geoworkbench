@@ -12,7 +12,8 @@ class GeoWorkbenchApi {
 
   Map<String, String> get _jsonHeaders => {
         'Content-Type': 'application/json',
-        if (token != null && token!.isNotEmpty) 'Authorization': 'Bearer $token',
+        if (token != null && token!.isNotEmpty)
+          'Authorization': 'Bearer $token',
       };
 
   Future<Map<String, dynamic>> requestMobileOtp({
@@ -40,6 +41,19 @@ class GeoWorkbenchApi {
         'username': username,
         'otp': otp,
         'push_token': 'android-demo-device',
+      }),
+    );
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> createMobileEntraSession({
+    required String accessToken,
+  }) async {
+    final response = await http.post(
+      _uri('/api/auth/mobile/entra-session'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'access_token': accessToken,
       }),
     );
     return _decode(response);
@@ -134,7 +148,8 @@ class GeoWorkbenchApi {
             'from_depth': lithologyFromDepth,
             'to_depth': toDepth,
             'lithology_code': lithologyCode,
-            'lithology_label': lithologyLabel.isEmpty ? lithologyCode : lithologyLabel,
+            'lithology_label':
+                lithologyLabel.isEmpty ? lithologyCode : lithologyLabel,
             'logged_color': loggedColor,
             'seam_name': seamName,
             'recovery': recovery,
@@ -171,7 +186,8 @@ class GeoWorkbenchApi {
   }
 
   Map<String, dynamic> _decode(http.Response response) {
-    final body = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
+    final body =
+        response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
     if (response.statusCode >= 400) {
       throw Exception('HTTP ${response.statusCode}: $body');
     }

@@ -121,3 +121,7 @@ class MobileOtpVerifyRequest(BaseModel):
     username: str
     otp: str
     push_token: str | None = None
+
+
+class MobileEntraTokenRequest(BaseModel):
+    access_token: str

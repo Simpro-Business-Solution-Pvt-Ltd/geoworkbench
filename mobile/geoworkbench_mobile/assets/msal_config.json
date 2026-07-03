@@ -1,0 +1,13 @@
+{
+  "client_id": "",
+  "authorization_user_agent": "BROWSER",
+  "redirect_uri": "",
+  "account_mode": "SINGLE",
+  "broker_redirect_uri_registered": false,
+  "authorities": [
+    {
+      "type": "AAD",
+      "authority_url": "https://login.microsoftonline.com/common"
+    }
+  ]
+}
