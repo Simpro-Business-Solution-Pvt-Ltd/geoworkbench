@@ -21,7 +21,6 @@ def default_borehole_layout() -> dict:
                 {"widgetId": "interval-details", "x": 9, "y": 1, "w": 3, "h": 6},
                 {"widgetId": "curve-catalog", "x": 9, "y": 7, "w": 3, "h": 3},
                 {"widgetId": "export-panel", "x": 9, "y": 10, "w": 3, "h": 3},
-                {"widgetId": "data-arrival", "x": 0, "y": 10, "w": 9, "h": 3},
             ],
         },
         "widgets": {
@@ -47,7 +46,6 @@ def default_borehole_layout() -> dict:
                 "settings": {"showCoverage": True},
             },
             "export-panel": {"type": "exportPanel", "title": "Export", "settings": {"showReadiness": True}},
-            "data-arrival": {"type": "dataArrival", "title": "Data Arrival", "settings": {"allowUpload": True}},
             "log-widget": {
                 "type": "logWidget",
                 "title": "Borehole Log",

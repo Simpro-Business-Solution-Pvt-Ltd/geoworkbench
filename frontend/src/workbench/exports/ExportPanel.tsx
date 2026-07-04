@@ -18,7 +18,7 @@ const EXPORT_FORMATS = [
   { value: "corrected_lithology_csv", label: "Corrected log CSV" },
   { value: "curves_las", label: "Curve LAS" },
   { value: "curves_csv", label: "Curve CSV" },
-  { value: "minex_demo", label: "Minex template preview" },
+  { value: "minex_demo", label: "Minex-compatible Excel" },
 ];
 
 export function ExportPanel({ data, readiness, jobs, creating, approving, onCreate, onApprove }: Props) {

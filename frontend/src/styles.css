@@ -2351,6 +2351,75 @@ button.active {
   box-shadow: 0 28px 70px var(--gw-shadow);
 }
 
+.merge-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(560px, 94vw);
+  max-height: 82vh;
+  overflow: hidden;
+  border: 1px solid var(--gw-border);
+  border-radius: 8px;
+  background: var(--gw-surface);
+  box-shadow: 0 28px 70px var(--gw-shadow);
+}
+
+.merge-dialog > header,
+.merge-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--gw-border);
+  background: var(--gw-surface-alt);
+  padding: 12px 14px;
+}
+
+.merge-dialog-actions {
+  border-top: 1px solid var(--gw-border);
+  border-bottom: 0;
+  justify-content: flex-end;
+}
+
+.merge-dialog > header div,
+.merge-dialog-body {
+  display: grid;
+  gap: 10px;
+}
+
+.merge-dialog > header strong {
+  color: var(--gw-text);
+  font-size: 18px;
+}
+
+.merge-dialog > header span {
+  color: var(--gw-muted);
+  font-size: 12px;
+}
+
+.merge-dialog-body {
+  overflow: auto;
+  padding: 14px;
+}
+
+.merge-dialog-body label {
+  display: grid;
+  gap: 6px;
+  color: var(--gw-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.merge-dialog-body select,
+.merge-dialog-body input {
+  width: 100%;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  color: var(--gw-text);
+  padding: 9px 10px;
+  font: inherit;
+}
+
 .mapping-dialog > header {
   display: flex;
   align-items: center;
@@ -2391,6 +2460,48 @@ button.active {
   color: var(--gw-text);
   font-size: 11px;
   white-space: pre-wrap;
+}
+
+.import-profile-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.import-profile-editor label {
+  display: grid;
+  gap: 6px;
+  color: var(--gw-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.import-profile-editor input,
+.import-profile-editor textarea {
+  width: 100%;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  color: var(--gw-text);
+  padding: 9px 10px;
+  font: inherit;
+}
+
+.import-profile-editor textarea {
+  min-height: 280px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+
+.mapping-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mapping-error {
+  color: var(--gw-danger);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .mapping-grid,

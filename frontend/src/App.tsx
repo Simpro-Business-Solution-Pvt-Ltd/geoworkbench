@@ -37,6 +37,7 @@ import {
   mergeSourceFileIntoBorehole,
   listBoreholes,
   listExportJobs,
+  listExportProfiles,
   listImportProfiles,
   listUsers,
   processSourceFile,
@@ -49,6 +50,8 @@ import {
   uploadSourceFile,
   resetDisplayLayout,
   updateDisplayLayout,
+  updateExportProfile,
+  updateImportProfile,
   updateAiSuggestionStatus,
   updateInterval,
   updateRole,
@@ -131,6 +134,7 @@ export function App() {
   const isAuthed = Boolean(session);
   const boreholes = useQuery({ queryKey: ["boreholes"], queryFn: listBoreholes, enabled: isAuthed });
   const importProfiles = useQuery({ queryKey: ["importProfiles"], queryFn: listImportProfiles, enabled: isAuthed });
+  const exportProfiles = useQuery({ queryKey: ["exportProfiles"], queryFn: listExportProfiles, enabled: isAuthed });
   const diagnostics = useQuery({
     queryKey: ["diagnosticsHealth"],
     queryFn: getDiagnosticsHealth,
@@ -258,9 +262,27 @@ export function App() {
         file_type: payload.file_type,
         original_name: payload.original_name,
         storage_path: payload.storage_path ?? `registered://${payload.original_name}`,
-        file_metadata: payload.file_metadata ?? { registration_mode: "simulated" },
+        file_metadata: payload.file_metadata ?? { registration_mode: "manual_registration" },
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workbench", activeId] }),
+  });
+  const saveImportProfile = useMutation({
+    mutationFn: (payload: { profileId: number; name: string; description: string; mapping: Record<string, unknown> }) =>
+      updateImportProfile(payload.profileId, {
+        name: payload.name,
+        description: payload.description,
+        mapping: payload.mapping,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["importProfiles"] }),
+  });
+  const saveExportProfile = useMutation({
+    mutationFn: (payload: { profileId: number; name: string; description: string; mapping: Record<string, unknown> }) =>
+      updateExportProfile(payload.profileId, {
+        name: payload.name,
+        description: payload.description,
+        mapping: payload.mapping,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["exportProfiles"] }),
   });
   const uploadFile = useMutation({
     mutationFn: (payload: { file_type: string; file: File }) =>
@@ -284,7 +306,15 @@ export function App() {
     },
   });
   const mergeSourceFile = useMutation({
-    mutationFn: (sourceFileId: number) => mergeSourceFileIntoBorehole(sourceFileId),
+    mutationFn: (payload: {
+      sourceFileId: number;
+      options?: {
+        interval_mode?: string;
+        curve_mode?: string;
+        from_depth?: number | null;
+        to_depth?: number | null;
+      };
+    }) => mergeSourceFileIntoBorehole(payload.sourceFileId, payload.options),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
       queryClient.invalidateQueries({ queryKey: ["boreholes"] });
@@ -681,7 +711,7 @@ export function App() {
           onUploadSourceFile={(payload) => uploadFile.mutate(payload)}
           onProcessSourceFile={(sourceFileId) => processFile.mutate(sourceFileId)}
           onImportBoreholeFile={(sourceFileId) => importBoreholeFile.mutate(sourceFileId)}
-          onMergeSourceFile={(sourceFileId) => mergeSourceFile.mutate(sourceFileId)}
+          onMergeSourceFile={(sourceFileId) => mergeSourceFile.mutate({ sourceFileId })}
           onSaveInterval={(patch) => saveInterval.mutate(patch)}
           onSelectImage={(image) => setSelectedImage(image)}
         />
@@ -697,16 +727,20 @@ export function App() {
           processing={processFile.isPending}
           importing={importBoreholeFile.isPending}
           merging={mergeSourceFile.isPending}
+          savingProfile={saveImportProfile.isPending}
           onRegisterSourceFile={(payload) =>
             registerSourceFile.mutate({
               file_type: payload.file_type,
               original_name: payload.original_name,
+              storage_path: payload.storage_path,
+              file_metadata: payload.file_metadata,
             })
           }
+          onSaveImportProfile={(payload) => saveImportProfile.mutate(payload)}
           onUploadSourceFile={(payload) => uploadFile.mutate(payload)}
           onProcessSourceFile={(sourceFileId) => processFile.mutate(sourceFileId)}
           onImportBoreholeFile={(sourceFileId) => importBoreholeFile.mutate(sourceFileId)}
-          onMergeSourceFile={(sourceFileId) => mergeSourceFile.mutate(sourceFileId)}
+          onMergeSourceFile={(sourceFileId, options) => mergeSourceFile.mutate({ sourceFileId, options })}
           onOpenWorkbench={() => setView("workbench")}
         />
       )}
@@ -717,10 +751,13 @@ export function App() {
           data={runtimeWorkbenchData}
           readiness={exportReadiness.data}
           jobs={exportJobs.data}
+          exportProfiles={exportProfiles.data}
           creating={createExport.isPending}
           approving={approveExport.isPending}
+          savingProfile={saveExportProfile.isPending}
           onCreate={(exportType) => createExport.mutate(exportType)}
           onApprove={() => approveExport.mutate()}
+          onSaveExportProfile={(payload) => saveExportProfile.mutate(payload)}
           onOpenWorkbench={() => setView("workbench")}
         />
       )}

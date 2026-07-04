@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -156,6 +156,9 @@ class Borehole(Base):
 
 class LithologyInterval(Base):
     __tablename__ = "lithology_intervals"
+    __table_args__ = (
+        Index("ix_lithology_borehole_depth", "borehole_id", "from_depth", "to_depth"),
+    )
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
     borehole_id: Mapped[int] = mapped_column(ForeignKey("boreholes.id"), index=True)
@@ -174,6 +177,7 @@ class LithologyInterval(Base):
     remark: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_box: Mapped[int | None] = mapped_column(Integer, nullable=True)
     image_file: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    attributes: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     borehole: Mapped[Borehole] = relationship(back_populates="lithology_intervals")
 
@@ -271,6 +275,19 @@ class ImportProfile(Base):
     )
 
 
+class ExportProfile(Base):
+    __tablename__ = "export_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    export_type: Mapped[str] = mapped_column(String(80), index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mapping: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class SourceFile(Base):
     __tablename__ = "source_files"
 
@@ -324,6 +341,9 @@ class ExportJob(Base):
 
 class SeamInterval(Base):
     __tablename__ = "seam_intervals"
+    __table_args__ = (
+        Index("ix_seam_borehole_depth", "borehole_id", "from_depth", "to_depth"),
+    )
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
     borehole_id: Mapped[int] = mapped_column(ForeignKey("boreholes.id"), index=True)
@@ -335,12 +355,16 @@ class SeamInterval(Base):
     lithology_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     lithology_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
     image_box: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attributes: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     borehole: Mapped[Borehole] = relationship(back_populates="seam_intervals")
 
 
 class Curve(Base):
     __tablename__ = "curves"
+    __table_args__ = (
+        Index("ix_curves_borehole_key", "borehole_id", "key"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     borehole_id: Mapped[int] = mapped_column(ForeignKey("boreholes.id"), index=True)
@@ -349,6 +373,7 @@ class Curve(Base):
     unit: Mapped[str] = mapped_column(String(40))
     source_type: Mapped[str] = mapped_column(String(40), default="synthetic")
     color: Mapped[str] = mapped_column(String(32))
+    curve_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     borehole: Mapped[Borehole] = relationship(back_populates="curves")
     samples: Mapped[list["CurveSample"]] = relationship(
@@ -358,6 +383,9 @@ class Curve(Base):
 
 class CurveSample(Base):
     __tablename__ = "curve_samples"
+    __table_args__ = (
+        Index("ix_curve_samples_curve_depth", "curve_id", "depth"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     curve_id: Mapped[int] = mapped_column(ForeignKey("curves.id"), index=True)
@@ -369,6 +397,9 @@ class CurveSample(Base):
 
 class CoreImage(Base):
     __tablename__ = "core_images"
+    __table_args__ = (
+        Index("ix_core_images_borehole_depth", "borehole_id", "from_depth", "to_depth"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     borehole_id: Mapped[int] = mapped_column(ForeignKey("boreholes.id"), index=True)
@@ -377,6 +408,7 @@ class CoreImage(Base):
     file_path: Mapped[str] = mapped_column(String(255))
     from_depth: Mapped[float | None] = mapped_column(Float, nullable=True)
     to_depth: Mapped[float | None] = mapped_column(Float, nullable=True)
+    image_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     borehole: Mapped[Borehole] = relationship(back_populates="core_images")
 

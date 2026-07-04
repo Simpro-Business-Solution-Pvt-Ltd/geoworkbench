@@ -119,6 +119,12 @@ def main() -> None:
                 continue
             target = core_root / "core-strips" / borehole.code / f"{image.box_number:03d}.jpg"
             strip_metadata = extract_strip(source, target)
+            image.image_metadata = {
+                **(image.image_metadata or {}),
+                "strip_image": str(target.relative_to(settings.repo_root)),
+                "strip_processing": strip_metadata,
+            }
+            db.add(image)
             manifest["boxes"].append(
                 {
                     "box_number": image.box_number,
@@ -132,6 +138,7 @@ def main() -> None:
             generated += 1
         manifest_path = core_root / "core-strips" / borehole.code / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        db.commit()
         print(f"Generated {generated} core strip image(s); skipped {skipped}.")
         print(f"Wrote {manifest_path}.")
     finally:

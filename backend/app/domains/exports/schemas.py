@@ -21,5 +21,21 @@ class ExportJobOut(BaseModel):
     summary: dict | None
 
 
+class ExportProfileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    export_type: str
+    description: str | None
+    mapping: dict
+
+
+class ExportProfilePatch(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    mapping: dict | None = None
+
+
 class ExportRequest(BaseModel):
     export_type: str = "corrected_lithology_csv"

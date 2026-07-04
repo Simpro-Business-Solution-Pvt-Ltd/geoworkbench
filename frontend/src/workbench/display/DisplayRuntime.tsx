@@ -1,4 +1,4 @@
-import type { FormEvent, PointerEvent, ReactNode } from "react";
+import type { PointerEvent, ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 
 import type {
@@ -144,9 +144,6 @@ function renderWidget(widgetId: string, widget: NonNullable<DisplayLayout["setti
   if (widget.type === "curveCatalog") {
     return <CurveCatalogWidget title={widget.title} data={props.data} />;
   }
-  if (widget.type === "dataArrival") {
-    return <DataArrivalWidget title={widget.title} {...props} />;
-  }
   if (widget.type === "intervalDetails") {
     return <IntervalDetailsWidget title={widget.title} {...props} />;
   }
@@ -258,98 +255,6 @@ function ValidationWidget(props: Props) {
             <strong>{issue.severity}</strong>
             <span>{issue.message}</span>
           </button>
-        ))}
-      </div>
-    </RuntimeWidgetFrame>
-  );
-}
-
-function DataArrivalWidget({ title, ...props }: Props & { title: string }) {
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const fileType = String(form.get("file_type") || "excel");
-    const file = form.get("file");
-    if (file instanceof File && file.name) {
-      props.onUploadSourceFile({ file_type: fileType, file });
-      event.currentTarget.reset();
-      return;
-    }
-    const fileName = String(form.get("original_name") || "").trim();
-    if (fileName) {
-      props.onRegisterSourceFile({ file_type: fileType, original_name: fileName });
-    }
-    event.currentTarget.reset();
-  };
-
-  return (
-    <RuntimeWidgetFrame title={title}>
-      <form className="source-file-form" onSubmit={submit}>
-        <select name="file_type" defaultValue="excel">
-          <option value="excel">Excel</option>
-          <option value="las">LAS</option>
-          <option value="images">Images</option>
-          <option value="mobile_form">Mobile form</option>
-        </select>
-        <input name="file" type="file" />
-        <input name="original_name" placeholder="or register filename" />
-        <button type="submit" disabled={props.sourceRegistering || props.sourceUploading}>
-          {props.sourceUploading ? "Uploading..." : "Add"}
-        </button>
-      </form>
-      <div className="arrival-list runtime-arrival-list">
-        {props.data.source_files.map((item) => (
-          <div key={`source-file:${item.id}`} className="arrival-item">
-            <strong>{item.file_type} file</strong>
-            <span>{item.status}</span>
-            <small>{item.original_name}</small>
-            <button
-              type="button"
-              disabled={props.sourceProcessing || item.status === "parsed"}
-              onClick={() => props.onProcessSourceFile(item.id)}
-            >
-              {item.status === "parsed" ? "Parsed" : "Process"}
-            </button>
-            {item.borehole_id === props.data.id && (
-              <button
-                type="button"
-                disabled={props.sourceMerging || ["merged", "mapping_required"].includes(item.status)}
-                onClick={() => props.onMergeSourceFile(item.id)}
-              >
-                {item.status === "merged" ? "Merged" : "Merge"}
-              </button>
-            )}
-            {item.file_type === "excel" && (
-              <button
-                type="button"
-                disabled={props.sourceImporting}
-                onClick={() => props.onImportBoreholeFile(item.id)}
-              >
-                Import borehole
-              </button>
-            )}
-          </div>
-        ))}
-        {props.data.source_imports.map((item) => (
-          <div key={`import:${item.id}`} className="arrival-item">
-            <strong>{item.import_type}</strong>
-            <span>{item.status}</span>
-            <small>{item.source_name}</small>
-          </div>
-        ))}
-        {props.data.field_submissions.map((item) => (
-          <div key={`submission:${item.id}`} className="arrival-item">
-            <strong>{item.submission_type}</strong>
-            <span>{item.status}</span>
-            <small>{item.submitted_by ?? "field user"}</small>
-          </div>
-        ))}
-        {props.importProfiles?.map((profile) => (
-          <div key={`profile:${profile.id}`} className="arrival-item">
-            <strong>{profile.name}</strong>
-            <span>{profile.profile_type}</span>
-            <small>{profile.description}</small>
-          </div>
         ))}
       </div>
     </RuntimeWidgetFrame>

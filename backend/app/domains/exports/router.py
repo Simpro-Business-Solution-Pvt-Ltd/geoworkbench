@@ -4,9 +4,36 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.domains.exports import service
-from app.domains.exports.schemas import ExportJobOut, ExportReadinessOut, ExportRequest
+from app.domains.exports.schemas import (
+    ExportJobOut,
+    ExportProfileOut,
+    ExportProfilePatch,
+    ExportReadinessOut,
+    ExportRequest,
+)
 
 router = APIRouter()
+
+
+@router.get("/profiles", response_model=list[ExportProfileOut])
+def list_export_profiles(db: Session = Depends(get_db)) -> list[ExportProfileOut]:
+    return service.list_export_profiles(db)
+
+
+@router.patch("/profiles/{profile_id}", response_model=ExportProfileOut)
+def update_export_profile(
+    profile_id: int, payload: ExportProfilePatch, db: Session = Depends(get_db)
+) -> ExportProfileOut:
+    try:
+        return service.update_export_profile(
+            db,
+            profile_id,
+            name=payload.name,
+            description=payload.description,
+            mapping=payload.mapping,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/boreholes/{borehole_id}/readiness", response_model=ExportReadinessOut)

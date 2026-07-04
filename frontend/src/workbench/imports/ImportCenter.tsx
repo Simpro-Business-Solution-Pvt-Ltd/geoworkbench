@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import type { BoreholeWorkbench, ImportProfile, SourceFile } from "../../api/types";
 
@@ -10,6 +10,7 @@ type Props = {
   processing: boolean;
   importing: boolean;
   merging: boolean;
+  savingProfile: boolean;
   onRegisterSourceFile: (payload: {
     file_type: string;
     original_name: string;
@@ -19,60 +20,31 @@ type Props = {
   onUploadSourceFile: (payload: { file_type: string; file: File }) => void;
   onProcessSourceFile: (sourceFileId: number) => void;
   onImportBoreholeFile: (sourceFileId: number) => void;
-  onMergeSourceFile: (sourceFileId: number) => void;
+  onMergeSourceFile: (
+    sourceFileId: number,
+    options?: {
+      interval_mode?: string;
+      curve_mode?: string;
+      from_depth?: number | null;
+      to_depth?: number | null;
+    },
+  ) => void;
+  onSaveImportProfile: (payload: {
+    profileId: number;
+    name: string;
+    description: string;
+    mapping: Record<string, unknown>;
+  }) => void;
   onOpenWorkbench: () => void;
 };
 
-const ARRIVAL_STEPS = [
-  "Receive source",
+const IMPORT_STEPS = [
+  "Register source",
   "Detect template",
   "Parse and preview",
   "Validate",
   "Merge",
   "Audit",
-];
-
-const TEMPLATE_CAPABILITIES = [
-  "Excel lithology workbook mapping",
-  "LAS curve import",
-  "Mobile interval form contract",
-  "Corebox image batch association",
-  "PDF/geophysical export registration",
-  "Conflict-aware merge policies",
-];
-
-const CANONICAL_FIELDS = [
-  { group: "Borehole", fields: "project, site, code, title, total_depth, collar metadata" },
-  { group: "Lithology intervals", fields: "from_depth, to_depth, lithology_code, label, color, remarks" },
-  { group: "Seams", fields: "name, from_depth, to_depth, thickness, lithology context" },
-  { group: "Quality", fields: "recovery, recovery_percent, rqd, structural_features" },
-  { group: "Curves", fields: "curve key, unit, source_type, depth-indexed samples" },
-  { group: "Core images", fields: "box number, depth range, original image, processed strip metadata" },
-  { group: "Provenance", fields: "source file, import batch, parser summary, merge status" },
-];
-
-const DEMO_ARRIVALS = [
-  {
-    label: "New borehole Excel",
-    file_type: "excel",
-    original_name: "IMPORT-DEMO-01-CTSJ-template.xlsx",
-    storage_path: "sample-data/import-demo/IMPORT-DEMO-01-CTSJ-template.xlsx",
-    detail: "Creates a new borehole using the supported CTSJ Excel template.",
-  },
-  {
-    label: "Corrected Excel merge",
-    file_type: "excel",
-    original_name: "IMPORT-DEMO-02-corrected-section.xlsx",
-    storage_path: "sample-data/import-demo/IMPORT-DEMO-02-corrected-section.xlsx",
-    detail: "Profiles a corrected interval workbook and demonstrates merge review.",
-  },
-  {
-    label: "Curve CSV mapping",
-    file_type: "csv",
-    original_name: "IMPORT-DEMO-03-curve-samples.csv",
-    storage_path: "sample-data/import-demo/IMPORT-DEMO-03-curve-samples.csv",
-    detail: "Shows column preview and mapping-required flow for incoming tabular data.",
-  },
 ];
 
 export function ImportCenter({
@@ -83,22 +55,22 @@ export function ImportCenter({
   processing,
   importing,
   merging,
+  savingProfile,
   onRegisterSourceFile,
   onUploadSourceFile,
   onProcessSourceFile,
   onImportBoreholeFile,
   onMergeSourceFile,
+  onSaveImportProfile,
   onOpenWorkbench,
 }: Props) {
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
   const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
+  const [mergeSource, setMergeSource] = useState<SourceFile | null>(null);
   const [templatePage, setTemplatePage] = useState(0);
   const selectedProfile =
     importProfiles?.find((profile) => profile.id === selectedProfileId) ?? importProfiles?.[0] ?? null;
-  const templateCards = [
-    ...(importProfiles ?? []).map((profile) => ({ type: "profile" as const, profile })),
-    ...TEMPLATE_CAPABILITIES.map((capability) => ({ type: "planned" as const, capability })),
-  ];
+  const templateCards = (importProfiles ?? []).map((profile) => ({ type: "profile" as const, profile }));
   const templatePageSize = 4;
   const templatePageCount = Math.max(1, Math.ceil(templateCards.length / templatePageSize));
   const safeTemplatePage = Math.min(templatePage, templatePageCount - 1);
@@ -128,11 +100,7 @@ export function ImportCenter({
       <div className="workflow-center-header">
         <div>
           <span>Import Center</span>
-          <h1>{data.code} data arrivals</h1>
-          <p>
-            Bring mobile forms, Excel, LAS, PDFs, and corebox images into one controlled import
-            pipeline before the geologist reviews the corrected log.
-          </p>
+          <h1>{data.code} source package</h1>
         </div>
         <button type="button" onClick={onOpenWorkbench}>
           Open workbench
@@ -140,7 +108,7 @@ export function ImportCenter({
       </div>
 
       <div className="workflow-flow">
-        {ARRIVAL_STEPS.map((step, index) => (
+        {IMPORT_STEPS.map((step, index) => (
           <div key={step} className="workflow-flow-step">
             <b>{index + 1}</b>
             <span>{step}</span>
@@ -151,7 +119,7 @@ export function ImportCenter({
       <div className="workflow-center-grid">
         <section className="workflow-panel primary">
           <div className="workflow-panel-header">
-            <strong>New Arrival</strong>
+            <strong>Register Source</strong>
             <span>{uploading ? "Uploading..." : registering ? "Registering..." : "Ready"}</span>
           </div>
           <form className="import-upload-form" onSubmit={submit}>
@@ -160,7 +128,7 @@ export function ImportCenter({
               <select name="file_type" defaultValue="excel">
                 <option value="excel">Excel lithology workbook</option>
                 <option value="las">LAS geophysical log</option>
-                <option value="pdf">Geophysical PDF/export</option>
+                <option value="geophysical_pdf">Geophysical PDF</option>
                 <option value="images">Corebox image batch</option>
                 <option value="mobile_form">Mobile interval form</option>
               </select>
@@ -174,33 +142,9 @@ export function ImportCenter({
               <input name="original_name" placeholder="e.g. CTSJ-02 P-27 COMPOSITE.las" />
             </label>
             <button type="submit" disabled={uploading || registering}>
-              {uploading || registering ? "Adding source..." : "Add source arrival"}
+              {uploading || registering ? "Adding source..." : "Add source"}
             </button>
           </form>
-          <div className="demo-arrival-actions">
-            <strong>Demo arrivals</strong>
-            {DEMO_ARRIVALS.map((item) => (
-              <button
-                key={item.storage_path}
-                type="button"
-                disabled={registering}
-                title={item.detail}
-                onClick={() =>
-                  onRegisterSourceFile({
-                    file_type: item.file_type,
-                    original_name: item.original_name,
-                    storage_path: item.storage_path,
-                    file_metadata: {
-                      registration_mode: "demo_fixture",
-                      demo_detail: item.detail,
-                    },
-                  })
-                }
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
         </section>
 
         <section className="workflow-panel template-registry-panel">
@@ -229,28 +173,21 @@ export function ImportCenter({
             )}
           </div>
           <div className="template-list">
-            {visibleTemplateCards.map((item) =>
-              item.type === "profile" ? (
-                <button
-                  type="button"
-                  key={`profile:${item.profile.id}`}
-                  className={`template-card ${selectedProfile?.id === item.profile.id ? "selected" : ""}`}
-                  onClick={() => {
-                    setSelectedProfileId(item.profile.id);
-                    setMappingDialogOpen(true);
-                  }}
-                >
-                  <strong>{item.profile.name}</strong>
-                  <span>{item.profile.profile_type.replaceAll("_", " ")}</span>
-                  <small>{item.profile.description ?? "Mapping profile"}</small>
-                </button>
-              ) : (
-                <article key={`planned:${item.capability}`} className="template-card planned">
-                  <strong>{item.capability}</strong>
-                  <span>Planned template capability</span>
-                </article>
-              ),
-            )}
+            {visibleTemplateCards.map((item) => (
+              <button
+                type="button"
+                key={`profile:${item.profile.id}`}
+                className={`template-card ${selectedProfile?.id === item.profile.id ? "selected" : ""}`}
+                onClick={() => {
+                  setSelectedProfileId(item.profile.id);
+                  setMappingDialogOpen(true);
+                }}
+              >
+                <strong>{item.profile.name}</strong>
+                <span>{item.profile.profile_type.replaceAll("_", " ")}</span>
+                <small>{item.profile.description ?? "Mapping profile"}</small>
+              </button>
+            ))}
           </div>
         </section>
 
@@ -280,7 +217,7 @@ export function ImportCenter({
                   <button
                     type="button"
                     disabled={merging || ["merged", "mapping_required"].includes(item.status)}
-                    onClick={() => onMergeSourceFile(item.id)}
+                    onClick={() => setMergeSource(item)}
                   >
                     {item.status === "merged" ? "Merged" : "Merge"}
                   </button>
@@ -317,7 +254,7 @@ export function ImportCenter({
         <section className="workflow-panel">
           <div className="workflow-panel-header">
             <strong>Mobile Submissions</strong>
-            <span>{data.field_submissions.length} arrivals</span>
+            <span>{data.field_submissions.length} batches</span>
           </div>
           <div className="workflow-mini-list">
             {data.field_submissions.map((item) => (
@@ -332,45 +269,224 @@ export function ImportCenter({
         </section>
       </div>
       {mappingDialogOpen && selectedProfile && (
-        <TemplateMappingDialog profile={selectedProfile} onClose={() => setMappingDialogOpen(false)} />
+        <TemplateMappingDialog
+          profile={selectedProfile}
+          saving={savingProfile}
+          onClose={() => setMappingDialogOpen(false)}
+          onSave={onSaveImportProfile}
+        />
+      )}
+      {mergeSource && (
+        <MergeOptionsDialog
+          sourceFile={mergeSource}
+          merging={merging}
+          onClose={() => setMergeSource(null)}
+          onMerge={(options) => {
+            onMergeSourceFile(mergeSource.id, options);
+            setMergeSource(null);
+          }}
+        />
       )}
     </section>
   );
 }
 
-function TemplateMappingDialog({ profile, onClose }: { profile: ImportProfile; onClose: () => void }) {
+function MergeOptionsDialog({
+  sourceFile,
+  merging,
+  onClose,
+  onMerge,
+}: {
+  sourceFile: SourceFile;
+  merging: boolean;
+  onClose: () => void;
+  onMerge: (options: {
+    interval_mode?: string;
+    curve_mode?: string;
+    from_depth?: number | null;
+    to_depth?: number | null;
+  }) => void;
+}) {
+  const isIntervalSource = sourceFile.file_type === "excel" || sourceFile.original_name.toLowerCase().endsWith(".xlsx");
+  const isCurveSource =
+    sourceFile.file_type === "las" ||
+    sourceFile.file_type === "geophysical_pdf" ||
+    sourceFile.original_name.toLowerCase().endsWith(".las") ||
+    sourceFile.original_name.toLowerCase().endsWith(".pdf");
+  const parseSummary = sourceFile.file_metadata?.parse_summary as Record<string, unknown> | undefined;
+  const summary = parseSummary?.summary as Record<string, unknown> | undefined;
+  const defaultFrom = numberOrBlank(summary?.min_depth);
+  const defaultTo = numberOrBlank(summary?.max_depth);
+  const [intervalMode, setIntervalMode] = useState("replace_overlapping_range");
+  const [curveMode, setCurveMode] = useState("replace_curves_by_key");
+  const [fromDepth, setFromDepth] = useState(defaultFrom);
+  const [toDepth, setToDepth] = useState(defaultTo);
+
+  return (
+    <div className="mapping-dialog-backdrop" role="dialog" aria-modal="true">
+      <div className="merge-dialog">
+        <header>
+          <div>
+            <strong>Merge Source</strong>
+            <span>{sourceFile.original_name}</span>
+          </div>
+          <button type="button" onClick={onClose}>
+            Close
+          </button>
+        </header>
+        <div className="merge-dialog-body">
+          {isIntervalSource && (
+            <label>
+              Interval merge
+              <select value={intervalMode} onChange={(event) => setIntervalMode(event.target.value)}>
+                <option value="replace_overlapping_range">Replace overlapping depth range</option>
+                <option value="append_new_depths">Append only new depth rows</option>
+              </select>
+            </label>
+          )}
+          {isCurveSource && (
+            <label>
+              Curve merge
+              <select value={curveMode} onChange={(event) => setCurveMode(event.target.value)}>
+                <option value="replace_curves_by_key">Replace curves with same key</option>
+                <option value="append_new_curves">Append only new curves</option>
+              </select>
+            </label>
+          )}
+          {isIntervalSource && (
+            <div className="export-depth-range">
+              <label>
+                From depth
+                <input value={fromDepth} onChange={(event) => setFromDepth(event.target.value)} />
+              </label>
+              <label>
+                To depth
+                <input value={toDepth} onChange={(event) => setToDepth(event.target.value)} />
+              </label>
+            </div>
+          )}
+        </div>
+        <footer className="merge-dialog-actions">
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={merging}
+            onClick={() =>
+              onMerge({
+                interval_mode: isIntervalSource ? intervalMode : undefined,
+                curve_mode: isCurveSource ? curveMode : undefined,
+                from_depth: isIntervalSource ? optionalNumber(fromDepth) : undefined,
+                to_depth: isIntervalSource ? optionalNumber(toDepth) : undefined,
+              })
+            }
+          >
+            {merging ? "Merging..." : "Apply merge"}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function numberOrBlank(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? String(value) : "";
+}
+
+function optionalNumber(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function TemplateMappingDialog({
+  profile,
+  saving,
+  onClose,
+  onSave,
+}: {
+  profile: ImportProfile;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (payload: {
+    profileId: number;
+    name: string;
+    description: string;
+    mapping: Record<string, unknown>;
+  }) => void;
+}) {
+  const [name, setName] = useState(profile.name);
+  const [description, setDescription] = useState(profile.description ?? "");
+  const [mappingText, setMappingText] = useState(JSON.stringify(profile.mapping, null, 2));
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setName(profile.name);
+    setDescription(profile.description ?? "");
+    setMappingText(JSON.stringify(profile.mapping, null, 2));
+    setError(null);
+  }, [profile]);
+
+  const save = () => {
+    try {
+      const mapping = JSON.parse(mappingText) as Record<string, unknown>;
+      setError(null);
+      onSave({ profileId: profile.id, name: name.trim(), description: description.trim(), mapping });
+    } catch {
+      setError("Mapping JSON is not valid.");
+    }
+  };
+
   return (
     <div className="mapping-dialog-backdrop" role="dialog" aria-modal="true">
       <div className="mapping-dialog">
         <header>
           <div>
             <strong>{profile.name}</strong>
-            <span>Source template mapping into canonical GeoWorkbench storage</span>
+            <span>{profile.profile_type.replaceAll("_", " ")}</span>
           </div>
           <button type="button" onClick={onClose}>
             Close
           </button>
         </header>
         <div className="mapping-dialog-body">
-          <TemplateMappingPreview profile={profile} />
-          <section className="template-mapping-preview">
-            <div className="workflow-panel-header compact">
-              <strong>Canonical GeoWorkbench Data Model</strong>
-              <span>target storage after import/merge</span>
-            </div>
-            <div className="canonical-field-grid">
-              {CANONICAL_FIELDS.map((item) => (
-                <article key={item.group}>
-                  <strong>{item.group}</strong>
-                  <span>{item.fields}</span>
-                </article>
-              ))}
+          <section className="template-mapping-preview import-profile-editor">
+            <label>
+              Template name
+              <input value={name} onChange={(event) => setName(event.target.value)} />
+            </label>
+            <label>
+              Description
+              <input value={description} onChange={(event) => setDescription(event.target.value)} />
+            </label>
+            <label>
+              Mapping JSON
+              <textarea
+                value={mappingText}
+                spellCheck={false}
+                onChange={(event) => setMappingText(event.target.value)}
+              />
+            </label>
+            {error && <span className="mapping-error">{error}</span>}
+            <div className="mapping-dialog-actions">
+              <button type="button" onClick={save} disabled={saving || !name.trim()}>
+                {saving ? "Saving..." : "Save template"}
+              </button>
             </div>
           </section>
+          <TemplateMappingPreview profile={{ ...profile, name, description, mapping: safeMapping(mappingText) }} />
         </div>
       </div>
     </div>
   );
+}
+
+function safeMapping(mappingText: string): Record<string, unknown> {
+  try {
+    return JSON.parse(mappingText) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
 
 function TemplateMappingPreview({ profile }: { profile: ImportProfile }) {

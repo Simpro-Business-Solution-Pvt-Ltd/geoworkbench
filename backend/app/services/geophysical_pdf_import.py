@@ -276,17 +276,29 @@ def digitize_pinnacle_composite_pdf(pdf_path: Path) -> dict:
     return {**profile, "parser": "pinnacle_composite_pdf_digitized", "digitized_curves": curves}
 
 
-def import_digitized_pdf_curves(db: Session, borehole: Borehole, pdf_path: Path) -> dict:
+def import_digitized_pdf_curves(
+    db: Session,
+    borehole: Borehole,
+    pdf_path: Path,
+    *,
+    replace_existing: bool = True,
+) -> dict:
     result = digitize_pinnacle_composite_pdf(pdf_path)
+    existing_keys = {
+        curve.key
+        for curve in db.scalars(select(Curve).where(Curve.borehole_id == borehole.id))
+    }
     for curve_data in result["digitized_curves"]:
         existing = db.scalar(
             select(Curve)
             .where(Curve.borehole_id == borehole.id)
             .where(Curve.key == curve_data["key"])
         )
-        if existing is not None:
+        if existing is not None and replace_existing:
             db.delete(existing)
             db.flush()
+        if existing is not None and not replace_existing and curve_data["key"] in existing_keys:
+            continue
         curve = Curve(
             borehole_id=borehole.id,
             key=curve_data["key"],
@@ -337,6 +349,7 @@ def import_digitized_pdf_curves(db: Session, borehole: Borehole, pdf_path: Path)
             for curve in result["digitized_curves"]
         ],
         "limitations": result["limitations"],
+        "replace_existing": replace_existing,
     }
     db.add(source_import)
     db.commit()

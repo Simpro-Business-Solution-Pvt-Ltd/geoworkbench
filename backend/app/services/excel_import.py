@@ -510,6 +510,13 @@ def import_normalized_dataset(
                 rqd=item.get("rqd"),
                 structural_features=item.get("structuralFeatures"),
                 remark=item.get("remark"),
+                attributes={
+                    "lithology_source": item.get("lithologySource"),
+                    "grain_size": item.get("grainSize"),
+                    "core_dip": item.get("coreDip"),
+                    "rqd_source": item.get("rqdSource"),
+                    "rqd_piece_lengths": item.get("rqdPieceLengths"),
+                },
             )
         )
     for item in dataset["seamIntervals"]:
@@ -523,6 +530,7 @@ def import_normalized_dataset(
                 thickness=item.get("thickness"),
                 lithology_code=item.get("lithologyCode"),
                 lithology_label=item.get("lithologyLabel"),
+                attributes={"source_row": item.get("sourceRow")},
             )
         )
 

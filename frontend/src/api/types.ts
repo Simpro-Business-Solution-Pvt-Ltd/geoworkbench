@@ -92,6 +92,7 @@ export type LithologyInterval = {
   remark: string | null;
   image_box: number | null;
   image_file: string | null;
+  attributes?: Record<string, unknown> | null;
 };
 
 export type SeamInterval = {
@@ -103,6 +104,7 @@ export type SeamInterval = {
   lithology_code: string | null;
   lithology_label: string | null;
   image_box: number | null;
+  attributes?: Record<string, unknown> | null;
 };
 
 export type CurveSample = {
@@ -117,6 +119,7 @@ export type Curve = {
   unit: string;
   source_type: string;
   color: string;
+  curve_metadata?: Record<string, unknown> | null;
   samples: CurveSample[];
 };
 
@@ -130,6 +133,7 @@ export type CoreImage = {
   original_url: string;
   strip_url: string | null;
   strip_metadata?: Record<string, unknown> | null;
+  image_metadata?: Record<string, unknown> | null;
 };
 
 export type DisplayLayout = {
@@ -284,6 +288,14 @@ export type ExportJob = {
   file_path: string;
   file_name: string;
   summary: Record<string, unknown> | null;
+};
+
+export type ExportProfile = {
+  id: number;
+  name: string;
+  export_type: string;
+  description: string | null;
+  mapping: Record<string, unknown>;
 };
 
 export type BoreholeWorkbench = {

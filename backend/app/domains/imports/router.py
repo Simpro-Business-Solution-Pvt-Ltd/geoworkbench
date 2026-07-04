@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.domains.imports import service
 from app.domains.imports.schemas import (
+    ImportProfilePatch,
     ImportProfileOut,
     SourceFileCreate,
     SourceFileImportOut,
     SourceFileMergeOut,
+    SourceFileMergeRequest,
     SourceFileOut,
     SourceFileProcessOut,
     SourceFileStatusPatch,
@@ -19,6 +21,22 @@ router = APIRouter()
 @router.get("/profiles", response_model=list[ImportProfileOut])
 def list_profiles(db: Session = Depends(get_db)) -> list[ImportProfileOut]:
     return service.list_import_profiles(db)
+
+
+@router.patch("/profiles/{profile_id}", response_model=ImportProfileOut)
+def update_profile(
+    profile_id: int, payload: ImportProfilePatch, db: Session = Depends(get_db)
+) -> ImportProfileOut:
+    try:
+        return service.update_import_profile(
+            db,
+            profile_id,
+            name=payload.name,
+            description=payload.description,
+            mapping=payload.mapping,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/source-files", response_model=list[SourceFileOut])
@@ -88,11 +106,15 @@ def import_source_file_as_borehole(
 
 @router.post("/source-files/{source_file_id}/merge", response_model=SourceFileMergeOut)
 def merge_source_file_into_borehole(
-    source_file_id: int, db: Session = Depends(get_db)
+    source_file_id: int,
+    payload: SourceFileMergeRequest | None = None,
+    db: Session = Depends(get_db),
 ) -> SourceFileMergeOut:
     try:
         source_file, borehole_id, status, summary = service.merge_source_file_into_borehole(
-            db, source_file_id
+            db,
+            source_file_id,
+            merge_options=payload.model_dump(exclude_none=True) if payload else None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

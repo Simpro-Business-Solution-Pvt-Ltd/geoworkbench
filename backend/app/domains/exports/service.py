@@ -7,7 +7,51 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
-from app.db.models import AiSuggestion, Borehole, Curve, ExportJob, SourceFile
+from app.db.models import AiSuggestion, Borehole, Curve, ExportJob, ExportProfile, SourceFile
+
+
+DEFAULT_EXPORT_PROFILES = [
+    ExportProfile(
+        name="Corrected Lithology Excel",
+        export_type="corrected_lithology_xlsx",
+        description="Corrected lithology interval workbook.",
+        mapping={
+            "sheet": "Corrected Lithology",
+            "columns": [
+                {"source": "borehole.code", "target": "Borehole"},
+                {"source": "lithology.source_row", "target": "Source Row"},
+                {"source": "lithology.from_depth", "target": "From Depth"},
+                {"source": "lithology.to_depth", "target": "To Depth"},
+                {"source": "lithology.thickness", "target": "Thickness"},
+                {"source": "lithology.lithology_code", "target": "Lithology Code"},
+                {"source": "lithology.lithology_label", "target": "Lithology Label"},
+                {"source": "lithology.seam_name", "target": "Seam"},
+                {"source": "lithology.recovery_percent", "target": "Recovery %"},
+                {"source": "lithology.rqd_percent", "target": "RQD %"},
+                {"source": "lithology.structural_features", "target": "Structural Features"},
+                {"source": "lithology.remark", "target": "Remarks"},
+            ],
+        },
+    ),
+    ExportProfile(
+        name="Corrected Lithology CSV",
+        export_type="corrected_lithology_csv",
+        description="Delimited interval table for analytics or package import.",
+        mapping={"columns": ["borehole_code", "from_depth", "to_depth", "lithology_code", "seam_name", "rqd_percent"]},
+    ),
+    ExportProfile(
+        name="Curve LAS",
+        export_type="curves_las",
+        description="LAS 2.0 curve export.",
+        mapping={"depth": "DEPT.M", "curve_section": "~Curve Information", "sample_section": "~ASCII"},
+    ),
+    ExportProfile(
+        name="Curve CSV",
+        export_type="curves_csv",
+        description="Wide depth-indexed curve table.",
+        mapping={"depth_column": "depth", "curve_columns": "curve.key"},
+    ),
+]
 
 
 def _load_borehole(db: Session, borehole_id: int) -> Borehole:
@@ -26,6 +70,45 @@ def _load_borehole(db: Session, borehole_id: int) -> Borehole:
     if borehole is None:
         raise ValueError("Borehole not found")
     return borehole
+
+
+def ensure_default_export_profiles(db: Session) -> None:
+    changed = False
+    for profile in DEFAULT_EXPORT_PROFILES:
+        existing = db.scalar(select(ExportProfile).where(ExportProfile.name == profile.name))
+        if existing is None:
+            db.add(profile)
+            changed = True
+    if changed:
+        db.commit()
+
+
+def list_export_profiles(db: Session) -> list[ExportProfile]:
+    ensure_default_export_profiles(db)
+    return list(db.scalars(select(ExportProfile).order_by(ExportProfile.export_type, ExportProfile.name)))
+
+
+def update_export_profile(
+    db: Session,
+    profile_id: int,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    mapping: dict | None = None,
+) -> ExportProfile:
+    profile = db.get(ExportProfile, profile_id)
+    if profile is None:
+        raise ValueError("Export profile not found")
+    if name is not None:
+        profile.name = name
+    if description is not None:
+        profile.description = description
+    if mapping is not None:
+        profile.mapping = mapping
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
 
 
 def export_readiness(db: Session, borehole_id: int) -> dict:

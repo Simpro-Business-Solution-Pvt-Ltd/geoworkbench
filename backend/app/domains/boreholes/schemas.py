@@ -38,6 +38,7 @@ class LithologyIntervalOut(BaseModel):
     remark: str | None
     image_box: int | None
     image_file: str | None
+    attributes: dict | None = None
 
 
 class LithologyIntervalPatch(BaseModel):
@@ -66,6 +67,7 @@ class SeamIntervalOut(BaseModel):
     lithology_code: str | None
     lithology_label: str | None
     image_box: int | None
+    attributes: dict | None = None
 
 
 class CurveSampleOut(BaseModel):
@@ -80,6 +82,7 @@ class CurveOut(BaseModel):
     unit: str
     source_type: str
     color: str
+    curve_metadata: dict | None = None
     samples: list[CurveSampleOut]
 
 
@@ -95,6 +98,7 @@ class CoreImageOut(BaseModel):
     original_url: str
     strip_url: str | None
     strip_metadata: dict | None = None
+    image_metadata: dict | None = None
 
 
 class DisplayLayoutOut(BaseModel):

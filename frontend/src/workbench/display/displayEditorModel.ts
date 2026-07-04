@@ -74,13 +74,6 @@ export const WIDGET_CATALOG: WidgetCatalogItem[] = [
     description: "Validation counts and issue list.",
     create: () => ({ type: "validationPanel", title: "Validation", settings: { maxIssues: 8 } }),
   },
-  {
-    type: "dataArrival",
-    label: "Data Arrival",
-    icon: "DA",
-    description: "Source file uploads, processing, and import actions.",
-    create: () => ({ type: "dataArrival", title: "Data Arrival", settings: { allowUpload: true } }),
-  },
 ];
 
 export const TRACK_CATALOG: TrackCatalogItem[] = [
@@ -201,6 +194,11 @@ export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: C
   }
   draft.settings.widgets["log-widget"].tracks =
     draft.settings.widgets["log-widget"].tracks ?? defaultTracks(availableCurves);
+  for (const [widgetId, widget] of Object.entries(draft.settings.widgets)) {
+    if (widget.type === "dataArrival") {
+      delete draft.settings.widgets[widgetId];
+    }
+  }
   draft.settings.widgets["log-widget"].tracks = syncTrackCurves(
     draft.settings.widgets["log-widget"].tracks,
     availableCurves,
@@ -256,7 +254,6 @@ export function defaultRuntimeWidgets(availableCurves: Curve[]): Record<string, 
     "interval-details": createCatalogWidget("intervalDetails", availableCurves),
     "curve-catalog": createCatalogWidget("curveCatalog", availableCurves),
     "export-panel": createCatalogWidget("exportPanel", availableCurves),
-    "data-arrival": createCatalogWidget("dataArrival", availableCurves),
   };
 }
 
@@ -272,7 +269,6 @@ export function defaultRuntimeGridItems(): DisplayGridItem[] {
     { widgetId: "interval-details", x: 9, y: 1, w: 3, h: 6 },
     { widgetId: "curve-catalog", x: 9, y: 7, w: 3, h: 3 },
     { widgetId: "export-panel", x: 9, y: 10, w: 3, h: 3 },
-    { widgetId: "data-arrival", x: 0, y: 10, w: 9, h: 3 },
   ];
 }
 

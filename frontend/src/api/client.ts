@@ -5,6 +5,7 @@ import type {
   BoreholeStatus,
   DisplayLayout,
   ExportJob,
+  ExportProfile,
   ExportReadiness,
   ImportProfile,
   LithologyInterval,
@@ -175,6 +176,16 @@ export function listImportProfiles(): Promise<ImportProfile[]> {
   return request<ImportProfile[]>("/imports/profiles");
 }
 
+export function updateImportProfile(
+  profileId: number,
+  payload: Partial<Pick<ImportProfile, "name" | "description" | "mapping">>,
+): Promise<ImportProfile> {
+  return request<ImportProfile>(`/imports/profiles/${profileId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function runValidation(boreholeId: number): Promise<ValidationIssue[]> {
   return request<ValidationIssue[]>(`/validation/boreholes/${boreholeId}/run`, {
     method: "POST",
@@ -284,17 +295,42 @@ export function importSourceFileAsBorehole(sourceFileId: number): Promise<{
   return request(`/imports/source-files/${sourceFileId}/import-borehole`, { method: "POST" });
 }
 
-export function mergeSourceFileIntoBorehole(sourceFileId: number): Promise<{
+export function mergeSourceFileIntoBorehole(
+  sourceFileId: number,
+  options?: {
+    interval_mode?: string;
+    curve_mode?: string;
+    from_depth?: number | null;
+    to_depth?: number | null;
+  },
+): Promise<{
   source_file: SourceFile;
   borehole_id: number;
   status: string;
   summary: Record<string, unknown>;
 }> {
-  return request(`/imports/source-files/${sourceFileId}/merge`, { method: "POST" });
+  return request(`/imports/source-files/${sourceFileId}/merge`, {
+    method: "POST",
+    body: JSON.stringify(options ?? {}),
+  });
 }
 
 export function getExportReadiness(boreholeId: number): Promise<ExportReadiness> {
   return request<ExportReadiness>(`/exports/boreholes/${boreholeId}/readiness`);
+}
+
+export function listExportProfiles(): Promise<ExportProfile[]> {
+  return request<ExportProfile[]>("/exports/profiles");
+}
+
+export function updateExportProfile(
+  profileId: number,
+  payload: Partial<Pick<ExportProfile, "name" | "description" | "mapping">>,
+): Promise<ExportProfile> {
+  return request<ExportProfile>(`/exports/profiles/${profileId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function listExportJobs(boreholeId: number): Promise<ExportJob[]> {

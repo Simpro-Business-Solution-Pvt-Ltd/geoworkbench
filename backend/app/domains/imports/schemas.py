@@ -11,6 +11,12 @@ class ImportProfileOut(BaseModel):
     mapping: dict
 
 
+class ImportProfilePatch(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    mapping: dict | None = None
+
+
 class SourceFileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -34,6 +40,13 @@ class SourceFileCreate(BaseModel):
 
 class SourceFileStatusPatch(BaseModel):
     status: str
+
+
+class SourceFileMergeRequest(BaseModel):
+    interval_mode: str | None = None
+    curve_mode: str | None = None
+    from_depth: float | None = None
+    to_depth: float | None = None
 
 
 class SourceFileProcessOut(BaseModel):

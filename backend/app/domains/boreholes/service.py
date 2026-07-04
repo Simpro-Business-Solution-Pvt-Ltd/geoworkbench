@@ -68,6 +68,7 @@ def get_workbench(db: Session, borehole_id: int) -> BoreholeWorkbenchOut:
             unit=curve.unit,
             source_type=curve.source_type,
             color=curve.color,
+            curve_metadata=curve.curve_metadata,
             samples=[
                 CurveSampleOut(depth=sample.depth, value=sample.value)
                 for sample in sorted(curve.samples, key=lambda item: item.depth)
@@ -110,6 +111,7 @@ def get_workbench(db: Session, borehole_id: int) -> BoreholeWorkbenchOut:
                 original_url=original_url,
                 strip_url=strip_url,
                 strip_metadata=strip_manifest_by_box.get(image.box_number),
+                image_metadata=image.image_metadata,
             )
         )
 

@@ -1,16 +1,24 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { exportDownloadUrl } from "../../api/client";
-import type { BoreholeWorkbench, ExportJob, ExportReadiness } from "../../api/types";
+import type { BoreholeWorkbench, ExportJob, ExportProfile, ExportReadiness } from "../../api/types";
 
 type Props = {
   data: BoreholeWorkbench;
   readiness?: ExportReadiness;
   jobs?: ExportJob[];
+  exportProfiles?: ExportProfile[];
   creating: boolean;
   approving: boolean;
+  savingProfile: boolean;
   onCreate: (exportType: string) => void;
   onApprove: () => void;
+  onSaveExportProfile: (payload: {
+    profileId: number;
+    name: string;
+    description: string;
+    mapping: Record<string, unknown>;
+  }) => void;
   onOpenWorkbench: () => void;
 };
 
@@ -19,7 +27,6 @@ const EXPORT_FORMATS = [
   { value: "corrected_lithology_csv", label: "Corrected log CSV", target: "Analytics or interchange" },
   { value: "curves_las", label: "Curve LAS", target: "Geophysical workflows" },
   { value: "curves_csv", label: "Curve CSV", target: "Curve QA and analytics" },
-  { value: "minex_demo", label: "Minex-compatible preview", target: "Mining package handoff" },
 ];
 
 const EXPORT_STEPS = ["Select scope", "Choose format", "Readiness checks", "Approve", "Generate", "Download"];
@@ -58,13 +65,18 @@ export function ExportCenter({
   data,
   readiness,
   jobs,
+  exportProfiles,
   creating,
   approving,
+  savingProfile,
   onCreate,
   onApprove,
+  onSaveExportProfile,
   onOpenWorkbench,
 }: Props) {
   const [format, setFormat] = useState("corrected_lithology_xlsx");
+  const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
+  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
   const [stage, setStage] = useState("central_corrected");
   const [fromDepth, setFromDepth] = useState("0");
   const [toDepth, setToDepth] = useState(String(data.total_depth));
@@ -80,8 +92,11 @@ export function ExportCenter({
     audit: false,
   });
   const selectedFormat = EXPORT_FORMATS.find((item) => item.value === format) ?? EXPORT_FORMATS[0];
-  const exportType = format === "minex_demo" ? "corrected_lithology_xlsx" : format;
-  const mappingRows = EXPORT_MAPPINGS[format] ?? EXPORT_MAPPINGS[exportType] ?? [];
+  const exportType = format;
+  const matchingProfiles = exportProfiles?.filter((profile) => profile.export_type === format) ?? [];
+  const selectedProfile =
+    matchingProfiles.find((profile) => profile.id === selectedProfileId) ?? matchingProfiles[0] ?? null;
+  const mappingRows = mappingRowsFromProfile(selectedProfile) ?? EXPORT_MAPPINGS[exportType] ?? [];
   const includedSections = useMemo(
     () => Object.entries(sections).filter(([, enabled]) => enabled).map(([key]) => key),
     [sections],
@@ -95,10 +110,6 @@ export function ExportCenter({
         <div>
           <span>Export Center</span>
           <h1>{data.code} corrected log delivery</h1>
-          <p>
-            Configure exactly what leaves the system: corrected lithology, curves, remarks, review
-            evidence, audit trail, and mining-software-friendly formats.
-          </p>
         </div>
         <button type="button" onClick={onOpenWorkbench}>
           Open workbench
@@ -128,6 +139,19 @@ export function ExportCenter({
                   {EXPORT_FORMATS.map((item) => (
                     <option key={item.value} value={item.value}>
                       {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Export template
+                <select
+                  value={selectedProfile?.id ?? ""}
+                  onChange={(event) => setSelectedProfileId(Number(event.target.value))}
+                >
+                  {matchingProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
                     </option>
                   ))}
                 </select>
@@ -194,7 +218,13 @@ export function ExportCenter({
           <section className="workflow-panel export-field-mapping-panel">
             <div className="workflow-panel-header">
               <strong>Export Field Mapping</strong>
-              <span>{selectedFormat.label}</span>
+              <button
+                type="button"
+                disabled={!selectedProfile}
+                onClick={() => setMappingDialogOpen(true)}
+              >
+                Edit Template
+              </button>
             </div>
             <div className="export-mapping-grid compact">
               {mappingRows.map((row) => (
@@ -247,6 +277,110 @@ export function ExportCenter({
           </div>
         </section>
       </div>
+      {mappingDialogOpen && selectedProfile && (
+        <ExportProfileDialog
+          profile={selectedProfile}
+          saving={savingProfile}
+          onClose={() => setMappingDialogOpen(false)}
+          onSave={onSaveExportProfile}
+        />
+      )}
     </section>
+  );
+}
+
+function mappingRowsFromProfile(profile: ExportProfile | null) {
+  if (!profile) return null;
+  const columns = profile.mapping.columns;
+  if (Array.isArray(columns)) {
+    return columns.map((item) => {
+      if (typeof item === "string") return { source: item, target: item };
+      if (item && typeof item === "object") {
+        const row = item as Record<string, unknown>;
+        return { source: String(row.source ?? row.key ?? ""), target: String(row.target ?? row.label ?? "") };
+      }
+      return { source: String(item), target: String(item) };
+    });
+  }
+  return Object.entries(profile.mapping).map(([source, target]) => ({
+    source,
+    target: typeof target === "string" ? target : JSON.stringify(target),
+  }));
+}
+
+function ExportProfileDialog({
+  profile,
+  saving,
+  onClose,
+  onSave,
+}: {
+  profile: ExportProfile;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (payload: {
+    profileId: number;
+    name: string;
+    description: string;
+    mapping: Record<string, unknown>;
+  }) => void;
+}) {
+  const [name, setName] = useState(profile.name);
+  const [description, setDescription] = useState(profile.description ?? "");
+  const [mappingText, setMappingText] = useState(JSON.stringify(profile.mapping, null, 2));
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setName(profile.name);
+    setDescription(profile.description ?? "");
+    setMappingText(JSON.stringify(profile.mapping, null, 2));
+    setError(null);
+  }, [profile]);
+
+  const save = () => {
+    try {
+      const mapping = JSON.parse(mappingText) as Record<string, unknown>;
+      setError(null);
+      onSave({ profileId: profile.id, name: name.trim(), description: description.trim(), mapping });
+    } catch {
+      setError("Mapping JSON is not valid.");
+    }
+  };
+
+  return (
+    <div className="mapping-dialog-backdrop" role="dialog" aria-modal="true">
+      <div className="mapping-dialog">
+        <header>
+          <div>
+            <strong>{profile.name}</strong>
+            <span>{profile.export_type.replaceAll("_", " ")}</span>
+          </div>
+          <button type="button" onClick={onClose}>
+            Close
+          </button>
+        </header>
+        <div className="mapping-dialog-body">
+          <section className="template-mapping-preview import-profile-editor">
+            <label>
+              Template name
+              <input value={name} onChange={(event) => setName(event.target.value)} />
+            </label>
+            <label>
+              Description
+              <input value={description} onChange={(event) => setDescription(event.target.value)} />
+            </label>
+            <label>
+              Mapping JSON
+              <textarea value={mappingText} spellCheck={false} onChange={(event) => setMappingText(event.target.value)} />
+            </label>
+            {error && <span className="mapping-error">{error}</span>}
+            <div className="mapping-dialog-actions">
+              <button type="button" onClick={save} disabled={saving || !name.trim()}>
+                {saving ? "Saving..." : "Save template"}
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
   );
 }
