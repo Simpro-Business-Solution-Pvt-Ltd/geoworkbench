@@ -1440,6 +1440,195 @@ small {
   background: var(--gw-page);
 }
 
+.wiki-page {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 14px;
+  height: calc(100vh - 58px);
+  min-width: 0;
+  overflow: hidden;
+  padding: 14px;
+  background: var(--gw-page);
+}
+
+.wiki-sidebar,
+.wiki-document {
+  min-width: 0;
+  border: 1px solid var(--gw-border);
+  border-radius: 8px;
+  background: var(--gw-surface);
+  box-shadow: 0 8px 22px var(--gw-shadow);
+}
+
+.wiki-sidebar {
+  overflow: auto;
+  padding: 12px;
+}
+
+.wiki-sidebar-header {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--gw-border);
+}
+
+.wiki-sidebar-header strong {
+  color: var(--gw-text);
+  font-size: 15px;
+}
+
+.wiki-sidebar-header span,
+.wiki-page-group > span,
+.wiki-document-header span {
+  color: var(--gw-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.wiki-page-group {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.wiki-page-group button {
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--gw-text);
+  text-align: left;
+  padding: 7px 9px;
+}
+
+.wiki-page-group button:hover,
+.wiki-page-group button.active {
+  border-color: var(--gw-accent);
+  background: var(--gw-accent-soft);
+  color: var(--gw-accent);
+}
+
+.wiki-document {
+  overflow: auto;
+  padding: 18px 22px 28px;
+}
+
+.wiki-document-header {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gw-border);
+}
+
+.wiki-document-header h1 {
+  margin: 0;
+  color: var(--gw-text);
+  font-size: 23px;
+}
+
+.wiki-markdown {
+  max-width: 1040px;
+  color: var(--gw-text);
+}
+
+.wiki-markdown h1,
+.wiki-markdown h2,
+.wiki-markdown h3,
+.wiki-markdown h4 {
+  margin: 18px 0 8px;
+  color: var(--gw-text);
+}
+
+.wiki-markdown h1 {
+  font-size: 22px;
+}
+
+.wiki-markdown h2 {
+  font-size: 18px;
+}
+
+.wiki-markdown h3 {
+  font-size: 15px;
+}
+
+.wiki-markdown p,
+.wiki-markdown li,
+.wiki-markdown td,
+.wiki-markdown th {
+  color: var(--gw-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.wiki-markdown strong {
+  color: var(--gw-text);
+}
+
+.wiki-markdown code {
+  border: 1px solid var(--gw-border);
+  border-radius: 5px;
+  background: var(--gw-surface-alt);
+  color: var(--gw-accent);
+  padding: 1px 4px;
+}
+
+.wiki-code {
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  border: 1px solid var(--gw-border);
+  border-radius: 8px;
+  background: var(--gw-surface-alt);
+  padding: 10px;
+}
+
+.wiki-code span {
+  color: var(--gw-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.wiki-code code {
+  border: 0;
+  background: transparent;
+  color: var(--gw-text);
+  padding: 0;
+  white-space: pre;
+}
+
+.wiki-table-wrap {
+  overflow: auto;
+  margin: 10px 0;
+  border: 1px solid var(--gw-border);
+  border-radius: 8px;
+}
+
+.wiki-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wiki-table-wrap th,
+.wiki-table-wrap td {
+  border-bottom: 1px solid var(--gw-border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.wiki-table-wrap th {
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
+}
+
+.wiki-table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+
 .iam-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -2145,6 +2334,9 @@ button.active {
   grid-column: span 10;
 }
 
+.export-field-mapping-panel {
+}
+
 .workflow-panel-header {
   display: flex;
   align-items: center;
@@ -2504,6 +2696,59 @@ button.active {
   font-weight: 800;
 }
 
+.curve-template-selector {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  padding: 10px;
+}
+
+.curve-template-selector > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.curve-template-selector strong {
+  color: var(--gw-text);
+}
+
+.curve-template-selector span {
+  color: var(--gw-muted);
+  font-size: 12px;
+}
+
+.curve-template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.curve-template-grid label {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface-alt);
+  padding: 8px;
+}
+
+.curve-template-grid i {
+  width: 18px;
+  height: 4px;
+  border-radius: 99px;
+}
+
+.curve-template-grid code {
+  color: var(--gw-accent);
+  font-size: 11px;
+}
+
 .mapping-grid,
 .diagnostic-grid {
   display: grid;
@@ -2600,16 +2845,29 @@ button.active {
 
 .export-mapping-grid.compact {
   grid-template-columns: 1fr;
+  gap: 6px;
 }
 
 .export-mapping-grid.compact article {
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.75fr);
+  align-items: center;
+  gap: 10px;
   min-height: 0;
+  padding: 7px 10px 7px 28px;
+}
+
+.export-mapping-grid.compact strong,
+.export-mapping-grid.compact span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .export-mapping-grid article::before {
   position: absolute;
-  top: 12px;
+  top: 50%;
   left: 9px;
+  transform: translateY(-50%);
   color: var(--gw-accent);
   content: "->";
   font-weight: 900;
@@ -3395,6 +3653,10 @@ h2 {
 .export-status.blocked,
 .export-check.fail {
   border-color: #b05252;
+}
+
+.export-status.warning {
+  border-color: #b9862f;
 }
 
 .export-status span,

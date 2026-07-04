@@ -14,14 +14,14 @@ type Props = {
 };
 
 const EXPORT_FORMATS = [
-  { value: "corrected_lithology_xlsx", label: "Corrected log Excel" },
-  { value: "corrected_lithology_csv", label: "Corrected log CSV" },
+  { value: "corrected_lithology_xlsx", label: "Corrected Lithology Excel" },
+  { value: "corrected_lithology_csv", label: "Corrected Lithology CSV" },
   { value: "curves_las", label: "Curve LAS" },
   { value: "curves_csv", label: "Curve CSV" },
   { value: "minex_demo", label: "Minex-compatible Excel" },
 ];
 
-export function ExportPanel({ data, readiness, jobs, creating, approving, onCreate, onApprove }: Props) {
+export function ExportPanel({ data, readiness, jobs, creating, onCreate }: Props) {
   const [format, setFormat] = useState("corrected_lithology_xlsx");
   const [stage, setStage] = useState("central_corrected");
   const [fromDepth, setFromDepth] = useState("0");
@@ -37,13 +37,21 @@ export function ExportPanel({ data, readiness, jobs, creating, approving, onCrea
   });
   const selectedCurveKeys = useMemo(() => data.curves.map((curve) => curve.key), [data.curves]);
   const exportType = format === "minex_demo" ? "corrected_lithology_xlsx" : format;
+  const hasBlockingReadinessIssue = readiness?.checks.some((check) => check.status === "fail") ?? false;
+  const readinessTone = readiness?.ready ? "ready" : hasBlockingReadinessIssue ? "blocked" : "warning";
   const toggleSection = (key: keyof typeof sections) =>
     setSections((current) => ({ ...current, [key]: !current[key] }));
 
   return (
     <div className="export-panel">
-      <div className={`export-status ${readiness?.ready ? "ready" : "blocked"}`}>
-        <strong>{readiness?.ready ? "Ready for export" : "Review before export"}</strong>
+      <div className={`export-status ${readinessTone}`}>
+        <strong>
+          {readiness?.ready
+            ? "Ready for export"
+            : hasBlockingReadinessIssue
+              ? "Resolve validation errors"
+              : "Export allowed with review"}
+        </strong>
         <span>{readiness?.status ?? "checking"}</span>
       </div>
 
@@ -101,9 +109,6 @@ export function ExportPanel({ data, readiness, jobs, creating, approving, onCrea
       </div>
 
       <div className="export-actions">
-        <button type="button" disabled={approving} onClick={onApprove}>
-          {approving ? "Approving..." : "Approve"}
-        </button>
         <button
           type="button"
           disabled={creating}

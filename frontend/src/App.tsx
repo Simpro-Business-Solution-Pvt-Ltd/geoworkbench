@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
+  BookOpenText,
   Building2,
   Download,
   GitCompareArrows,
@@ -66,12 +67,56 @@ import { useWorkbenchStore } from "./workbench/display/workbenchStore";
 import { ExportCenter } from "./workbench/exports/ExportCenter";
 import { ImportCenter } from "./workbench/imports/ImportCenter";
 
+const WIKI_MARKDOWN = {
+  ...import.meta.glob("../../docs/wiki/**/*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../docs/import-export-template-user-manual.md", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }),
+  ...import.meta.glob("../../docs/stakeholder-value-discussion-guide.md", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }),
+  ...import.meta.glob("../../docs/demo-script-coal-borehole-workflow.md", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }),
+  ...import.meta.glob("../../docs/ai-assisted-coal-geology-use-cases.md", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }),
+} as Record<string, string>;
+
+const WIKI_PAGES = [
+  { key: "../../docs/wiki/uat-demo-readiness.md", title: "UAT Demo Readiness", group: "User Guidance", audience: "user" },
+  { key: "../../docs/import-export-template-user-manual.md", title: "Import, Merge, And Export", group: "User Guidance", audience: "user" },
+  { key: "../../docs/wiki/user-manual/borehole-workbench.md", title: "Borehole Workbench", group: "User Guidance", audience: "user" },
+  { key: "../../docs/stakeholder-value-discussion-guide.md", title: "Business Value Discussion", group: "Business Value", audience: "user" },
+  { key: "../../docs/demo-script-coal-borehole-workflow.md", title: "Demo Workflow Script", group: "Business Value", audience: "user" },
+  { key: "../../docs/ai-assisted-coal-geology-use-cases.md", title: "AI Use Cases", group: "Business Value", audience: "user" },
+  { key: "../../docs/wiki/architecture/system-workflows.md", title: "System Workflows", group: "Developer", audience: "developer" },
+  { key: "../../docs/wiki/architecture/backend-architecture.md", title: "Backend Architecture", group: "Developer", audience: "developer" },
+  { key: "../../docs/wiki/architecture/frontend-architecture.md", title: "Frontend Architecture", group: "Developer", audience: "developer" },
+  { key: "../../docs/wiki/architecture/workbench-interaction-architecture.md", title: "Workbench Interactions", group: "Developer", audience: "developer" },
+  { key: "../../docs/wiki/architecture/geophysical-pdf-import.md", title: "Geophysical PDF Import", group: "Developer", audience: "developer" },
+  { key: "../../docs/wiki/architecture/refinement-guide.md", title: "Refinement Guide", group: "Developer", audience: "developer" },
+  { key: "../../docs/wiki/deployment/production-overview.md", title: "Production Overview", group: "Deployment", audience: "developer" },
+  { key: "../../docs/wiki/deployment/windows-iis.md", title: "Windows IIS", group: "Deployment", audience: "developer" },
+  { key: "../../docs/wiki/deployment/linux-nginx.md", title: "Linux Nginx", group: "Deployment", audience: "developer" },
+  { key: "../../docs/wiki/deployment/local-postgres.md", title: "Local PostgreSQL", group: "Deployment", audience: "developer" },
+].filter((page) => Boolean(WIKI_MARKDOWN[page.key]));
+
 export function App() {
   const queryClient = useQueryClient();
   const [boreholeId, setBoreholeId] = useState<number | null>(null);
   const [view, setView] = useState<
-    "landing" | "workbench" | "correlation" | "import" | "export" | "settings" | "displayEditor"
+    "landing" | "workbench" | "correlation" | "import" | "export" | "settings" | "displayEditor" | "wiki"
   >("landing");
+  const [wikiPageKey, setWikiPageKey] = useState(WIKI_PAGES[0]?.key ?? "");
   const [settingsTab, setSettingsTab] = useState<"users" | "roles" | "access">("users");
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(true);
   const [selectedAccessRole, setSelectedAccessRole] = useState("system_admin");
@@ -132,6 +177,8 @@ export function App() {
     retry: false,
   });
   const isAuthed = Boolean(session);
+  const canViewDeveloperDocs = session?.user.role === "system_admin" || session?.user.role === "developer";
+  const visibleWikiPages = WIKI_PAGES.filter((page) => page.audience === "user" || canViewDeveloperDocs);
   const boreholes = useQuery({ queryKey: ["boreholes"], queryFn: listBoreholes, enabled: isAuthed });
   const importProfiles = useQuery({ queryKey: ["importProfiles"], queryFn: listImportProfiles, enabled: isAuthed });
   const exportProfiles = useQuery({ queryKey: ["exportProfiles"], queryFn: listExportProfiles, enabled: isAuthed });
@@ -192,6 +239,13 @@ export function App() {
     }
   }, [sessionQuery.data, sessionQuery.isError]);
 
+  useEffect(() => {
+    if (!visibleWikiPages.length) return;
+    if (!visibleWikiPages.some((page) => page.key === wikiPageKey)) {
+      setWikiPageKey(visibleWikiPages[0].key);
+    }
+  }, [visibleWikiPages, wikiPageKey]);
+
   const saveInterval = useMutation({
     mutationFn: (patch: Partial<LithologyInterval>) =>
       updateInterval(selectedInterval?.id ?? "", patch),
@@ -223,7 +277,16 @@ export function App() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workbench", activeId] }),
   });
   const createExport = useMutation({
-    mutationFn: (exportType: string) => createExportJob(activeId as number, exportType),
+    mutationFn: (payload:
+      | string
+      | {
+          export_type: string;
+          export_profile_id?: number | null;
+          stage?: string | null;
+          from_depth?: number | null;
+          to_depth?: number | null;
+          sections?: string[] | null;
+        }) => createExportJob(activeId as number, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exportReadiness", activeId] });
       queryClient.invalidateQueries({ queryKey: ["exportJobs", activeId] });
@@ -531,6 +594,9 @@ export function App() {
           >
             <span><SlidersHorizontal size={17} strokeWidth={2.1} /></span><b>Display setup</b>
           </button>
+          <button type="button" className={view === "wiki" ? "active" : ""} onClick={() => navigateTo("wiki")}>
+            <span><BookOpenText size={17} strokeWidth={2.1} /></span><b>Wiki</b>
+          </button>
         </nav>
         <div className="sidebar-footer" aria-hidden="true" />
       </header>
@@ -755,7 +821,7 @@ export function App() {
           creating={createExport.isPending}
           approving={approveExport.isPending}
           savingProfile={saveExportProfile.isPending}
-          onCreate={(exportType) => createExport.mutate(exportType)}
+          onCreate={(payload) => createExport.mutate(payload)}
           onApprove={() => approveExport.mutate()}
           onSaveExportProfile={(payload) => saveExportProfile.mutate(payload)}
           onOpenWorkbench={() => setView("workbench")}
@@ -804,6 +870,16 @@ export function App() {
           onUpdateRoleAccess={(roleKey, nextPermissions) =>
             updateRoleAccessMutation.mutate({ roleKey, permissions: nextPermissions })
           }
+        />
+      )}
+
+      {view === "wiki" && (
+        <WikiPage
+          pages={visibleWikiPages}
+          activeKey={wikiPageKey}
+          markdown={WIKI_MARKDOWN[wikiPageKey] ?? ""}
+          onSelect={setWikiPageKey}
+          developerView={canViewDeveloperDocs}
         />
       )}
 
@@ -1066,14 +1142,194 @@ function roleLabel(role: string): string {
     .join(" ");
 }
 
-function pageTitle(view: "landing" | "workbench" | "correlation" | "import" | "export" | "settings" | "displayEditor"): string {
+function pageTitle(
+  view: "landing" | "workbench" | "correlation" | "import" | "export" | "settings" | "displayEditor" | "wiki",
+): string {
   if (view === "workbench") return "Workbench";
   if (view === "correlation") return "Correlation";
   if (view === "import") return "Import Center";
   if (view === "export") return "Export Center";
   if (view === "settings") return "Settings";
   if (view === "displayEditor") return "Display Editor";
+  if (view === "wiki") return "Wiki";
   return "Dashboard";
+}
+
+type WikiDocPage = {
+  key: string;
+  title: string;
+  group: string;
+  audience: string;
+};
+
+function WikiPage({
+  pages,
+  activeKey,
+  markdown,
+  onSelect,
+  developerView,
+}: {
+  pages: WikiDocPage[];
+  activeKey: string;
+  markdown: string;
+  onSelect: (key: string) => void;
+  developerView: boolean;
+}) {
+  const activePage = pages.find((page) => page.key === activeKey) ?? pages[0];
+  const groupedPages = pages.reduce<Record<string, WikiDocPage[]>>((groups, page) => {
+    groups[page.group] = [...(groups[page.group] ?? []), page];
+    return groups;
+  }, {});
+
+  return (
+    <section className="wiki-page">
+      <aside className="wiki-sidebar" aria-label="Wiki pages">
+        <div className="wiki-sidebar-header">
+          <strong>GeoWorkbench Wiki</strong>
+          <span>{developerView ? "Developer view" : "User view"} · {pages.length} pages</span>
+        </div>
+        {Object.entries(groupedPages).map(([group, groupPages]) => (
+          <div key={group} className="wiki-page-group">
+            <span>{group}</span>
+            {groupPages.map((page) => (
+              <button
+                key={page.key}
+                type="button"
+                className={page.key === activePage?.key ? "active" : ""}
+                onClick={() => onSelect(page.key)}
+              >
+                {page.title}
+              </button>
+            ))}
+          </div>
+        ))}
+      </aside>
+      <article className="wiki-document">
+        <div className="wiki-document-header">
+          <span>{activePage?.group ?? "Wiki"}</span>
+          <h1>{activePage?.title ?? "Documentation"}</h1>
+        </div>
+        <div className="wiki-markdown">
+          {markdown ? renderMarkdown(markdown) : <div className="empty">Documentation page not found.</div>}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function renderMarkdown(markdown: string) {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const nodes = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("```")) {
+      const language = trimmed.slice(3).trim();
+      const codeLines = [];
+      index += 1;
+      while (index < lines.length && !lines[index].trim().startsWith("```")) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      index += 1;
+      nodes.push(
+        <pre key={`code-${index}`} className="wiki-code">
+          {language && <span>{language}</span>}
+          <code>{codeLines.join("\n")}</code>
+        </pre>,
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith("|") && lines[index + 1]?.trim().match(/^\|?[\s:-]+\|/)) {
+      const tableLines = [trimmed];
+      index += 2;
+      while (index < lines.length && lines[index].trim().startsWith("|")) {
+        tableLines.push(lines[index].trim());
+        index += 1;
+      }
+      const [headerLine, ...bodyLines] = tableLines;
+      const headers = splitMarkdownRow(headerLine);
+      const rows = bodyLines.map(splitMarkdownRow);
+      nodes.push(
+        <div key={`table-${index}`} className="wiki-table-wrap">
+          <table>
+            <thead>
+              <tr>{headers.map((cell, cellIndex) => <th key={cellIndex}>{renderInlineMarkdown(cell)}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {row.map((cell, cellIndex) => <td key={cellIndex}>{renderInlineMarkdown(cell)}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith("- ")) {
+      const items = [];
+      while (index < lines.length && lines[index].trim().startsWith("- ")) {
+        items.push(lines[index].trim().slice(2));
+        index += 1;
+      }
+      nodes.push(<ul key={`ul-${index}`}>{items.map((item, itemIndex) => <li key={itemIndex}>{renderInlineMarkdown(item)}</li>)}</ul>);
+      continue;
+    }
+
+    if (/^\d+\.\s/.test(trimmed)) {
+      const items = [];
+      while (index < lines.length && /^\d+\.\s/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^\d+\.\s/, ""));
+        index += 1;
+      }
+      nodes.push(<ol key={`ol-${index}`}>{items.map((item, itemIndex) => <li key={itemIndex}>{renderInlineMarkdown(item)}</li>)}</ol>);
+      continue;
+    }
+
+    const headingMatch = trimmed.match(/^(#{1,4})\s+(.*)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const text = headingMatch[2];
+      const Tag = (`h${Math.min(level, 4)}`) as "h1" | "h2" | "h3" | "h4";
+      nodes.push(<Tag key={`heading-${index}`}>{renderInlineMarkdown(text)}</Tag>);
+      index += 1;
+      continue;
+    }
+
+    nodes.push(<p key={`p-${index}`}>{renderInlineMarkdown(trimmed)}</p>);
+    index += 1;
+  }
+
+  return nodes;
+}
+
+function splitMarkdownRow(row: string) {
+  return row
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function renderInlineMarkdown(text: string) {
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).filter(Boolean);
+  return parts.map((part, index) => {
+    if (part.startsWith("`") && part.endsWith("`")) return <code key={index}>{part.slice(1, -1)}</code>;
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
+    return <span key={index}>{part}</span>;
+  });
 }
 
 function SettingsPage({

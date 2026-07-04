@@ -39,3 +39,8 @@ class ExportProfilePatch(BaseModel):
 
 class ExportRequest(BaseModel):
     export_type: str = "corrected_lithology_csv"
+    export_profile_id: int | None = None
+    stage: str | None = None
+    from_depth: float | None = None
+    to_depth: float | None = None
+    sections: list[str] | None = None

@@ -35,6 +35,11 @@ ROLE_DEFINITIONS = [
         "label": "Viewer",
         "description": "Can view dashboards, displays, and reports without editing.",
     },
+    {
+        "key": "developer",
+        "label": "Developer",
+        "description": "Can view implementation, architecture, deployment, and extension documentation.",
+    },
 ]
 ROLE_KEYS = {role["key"] for role in ROLE_DEFINITIONS}
 ADMIN_ROLES = {"system_admin"}
@@ -68,7 +73,7 @@ PERMISSION_DEFINITIONS = [
     {
         "key": "export.manage",
         "label": "Export data",
-        "description": "Configure exports, approve readiness, and download output files.",
+        "description": "Configure exports, review readiness, and download output files.",
         "category": "Data Exchange",
     },
     {
@@ -101,6 +106,10 @@ DEFAULT_ROLE_PERMISSIONS = {
     ],
     "site_geologist": ["workspace.view", "mobile.capture"],
     "viewer": ["workspace.view"],
+    "developer": [
+        "workspace.view",
+        "settings.access",
+    ],
 }
 
 
@@ -429,44 +438,65 @@ def login_with_entra_access_token(db: Session, access_token: str) -> tuple[User,
 
 def ensure_demo_users(db: Session) -> None:
     ensure_roles(db)
-    existing_admin = db.scalar(select(User).where(User.username == "geologist"))
-    if existing_admin:
+    demo_users = [
+        {
+            "username": "geologist",
+            "display_name": "Central Geologist",
+            "role": "system_admin",
+            "password": "geologist123",
+            "email": "geologist@local",
+            "mobile_number": "+910000000001",
+        },
+        {
+            "username": "field",
+            "display_name": "Site Geologist",
+            "role": "site_geologist",
+            "password": "field123",
+            "email": "field@local",
+            "mobile_number": "+910000000002",
+        },
+        {
+            "username": "developer",
+            "display_name": "Developer",
+            "role": "developer",
+            "password": "developer123",
+            "email": "developer@local",
+            "mobile_number": "+910000000003",
+        },
+    ]
+    for demo_user in demo_users:
+        user = db.scalar(select(User).where(User.username == demo_user["username"]))
+        if user is None:
+            db.add(
+                User(
+                    username=demo_user["username"],
+                    display_name=demo_user["display_name"],
+                    role=demo_user["role"],
+                    password_hash=hash_secret(demo_user["password"]),
+                    email=demo_user["email"],
+                    auth_provider="local",
+                    mobile_number=demo_user["mobile_number"],
+                )
+            )
+            continue
         changed = False
-        if existing_admin.role != "system_admin":
-            existing_admin.role = "system_admin"
+        if not user.display_name:
+            user.display_name = demo_user["display_name"]
             changed = True
-        if not existing_admin.email:
-            existing_admin.email = "geologist@local"
+        if user.role != demo_user["role"]:
+            user.role = demo_user["role"]
             changed = True
-        if not existing_admin.auth_provider:
-            existing_admin.auth_provider = "local"
+        if not user.email:
+            user.email = demo_user["email"]
+            changed = True
+        if not user.auth_provider:
+            user.auth_provider = "local"
+            changed = True
+        if not user.mobile_number:
+            user.mobile_number = demo_user["mobile_number"]
             changed = True
         if changed:
-            db.add(existing_admin)
-            db.commit()
-        return
-    db.add_all(
-        [
-            User(
-                username="geologist",
-                display_name="Central Geologist",
-                role="system_admin",
-                password_hash=hash_secret("geologist123"),
-                email="geologist@local",
-                auth_provider="local",
-                mobile_number="+910000000001",
-            ),
-            User(
-                username="field",
-                display_name="Site Geologist",
-                role="site_geologist",
-                password_hash=hash_secret("field123"),
-                email="field@local",
-                auth_provider="local",
-                mobile_number="+910000000002",
-            ),
-        ]
-    )
+            db.add(user)
     db.commit()
 
 

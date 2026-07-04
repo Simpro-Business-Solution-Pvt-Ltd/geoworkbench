@@ -2,6 +2,19 @@
 
 This page is for admin/product users who configure project templates. Geologists can use the saved templates without editing JSON.
 
+## UAT Position
+
+This build is ready for controlled UAT and stakeholder exploration of the import, merge, and export workflow. The goal is to let users experience the flow and provide refinement suggestions.
+
+Known UAT caveats:
+
+- UI/UX is still being refined and should be treated as a working product preview, not final visual design.
+- Import/export templates are editable, but the editor is still technical JSON for this phase.
+- Import merge preview is functional but not yet a full visual impact report.
+- Export readiness is a quality checklist, not a second-user approval workflow.
+- Minex-specific export needs the customer's exact target import template before finalization.
+- Geophysical PDF import should be treated as an evidence/digitization aid; LAS/CSV remains the preferred raw curve source.
+
 ## Import Flow
 
 1. Open **Import Center**.
@@ -74,12 +87,17 @@ Images are stored as source files first. They become depth-linked core images af
 2. Choose format: corrected Excel, corrected CSV, curve LAS, or curve CSV.
 3. Choose the export template.
 4. Edit the template if needed.
-5. Approve readiness if required.
+5. Review readiness checks.
 6. Generate and download.
+
+Export is permission-driven in this UAT build. A user with export access can generate exports directly. Readiness checks highlight quality issues, warnings, source availability, curve availability, and open AI/rule suggestions so the user can decide whether the package is fit for handover.
+
+The generated export job should be treated as the audit point: it records what was exported, using which format/template and scope. A future production workflow can add maker-checker approval, stakeholder notifications, and export lock rules if the customer requires stronger governance.
 
 ## Export Template Editing
 
 Export templates map canonical fields to output columns or sections.
+The selected export template is used by the backend when generating the export file.
 
 Example:
 
@@ -104,3 +122,20 @@ Example:
 - Geophysical PDF import for extracting curves when LAS is unavailable.
 
 PDF export/reporting and Minex-specific templates should be added after receiving the customer’s exact target format.
+
+## Working Without A Minex Template
+
+Until the customer provides the exact Minex import template, use the default corrected Excel/CSV exports as an interchange layer:
+
+1. Export corrected lithology to Excel or CSV.
+2. Confirm required columns for their Minex workflow: borehole code, from depth, to depth, lithology code, seam, recovery, RQD, remarks.
+3. Rename/reorder columns in an export template to match the expected Minex import sheet or CSV.
+4. Save that export template and reuse it for future boreholes.
+
+For geophysical curves, use LAS export. The LAS export template can restrict curves by adding:
+
+```json
+{
+  "curves": ["gamma", "resistivity", "density"]
+}
+```

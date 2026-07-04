@@ -54,7 +54,18 @@ def create_export_job(
     borehole_id: int, payload: ExportRequest, db: Session = Depends(get_db)
 ) -> ExportJobOut:
     try:
-        return service.create_export(db, borehole_id, payload.export_type)
+        return service.create_export(
+            db,
+            borehole_id,
+            payload.export_type,
+            export_profile_id=payload.export_profile_id,
+            export_settings={
+                "stage": payload.stage,
+                "from_depth": payload.from_depth,
+                "to_depth": payload.to_depth,
+                "sections": payload.sections,
+            },
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

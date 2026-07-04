@@ -337,10 +337,26 @@ export function listExportJobs(boreholeId: number): Promise<ExportJob[]> {
   return request<ExportJob[]>(`/exports/boreholes/${boreholeId}/jobs`);
 }
 
-export function createExportJob(boreholeId: number, exportType: string): Promise<ExportJob> {
+export function createExportJob(
+  boreholeId: number,
+  payload:
+    | string
+    | {
+        export_type: string;
+        export_profile_id?: number | null;
+        stage?: string | null;
+        from_depth?: number | null;
+        to_depth?: number | null;
+        sections?: string[] | null;
+      },
+): Promise<ExportJob> {
+  const body =
+    typeof payload === "string"
+      ? { export_type: payload }
+      : payload;
   return request<ExportJob>(`/exports/boreholes/${boreholeId}/jobs`, {
     method: "POST",
-    body: JSON.stringify({ export_type: exportType }),
+    body: JSON.stringify(body),
   });
 }
 

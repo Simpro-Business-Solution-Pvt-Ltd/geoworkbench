@@ -39,12 +39,12 @@ type Props = {
 };
 
 const IMPORT_STEPS = [
-  "Register source",
+  "Upload or register",
   "Detect template",
-  "Parse and preview",
-  "Validate",
-  "Merge",
-  "Audit",
+  "Preview mapping",
+  "Validate quality",
+  "Confirm merge",
+  "Audit changes",
 ];
 
 export function ImportCenter({

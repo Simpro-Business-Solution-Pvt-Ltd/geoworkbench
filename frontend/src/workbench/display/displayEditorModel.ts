@@ -54,13 +54,6 @@ export const WIDGET_CATALOG: WidgetCatalogItem[] = [
     create: () => ({ type: "intervalDetails", title: "Depth Metadata", settings: { editable: true } }),
   },
   {
-    type: "exportPanel",
-    label: "Export",
-    icon: "EX",
-    description: "Approval checks and corrected-log export controls.",
-    create: () => ({ type: "exportPanel", title: "Export", settings: { showReadiness: true } }),
-  },
-  {
     type: "curveCatalog",
     label: "Curve Catalog",
     icon: "CV",
@@ -198,6 +191,9 @@ export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: C
     if (widget.type === "dataArrival") {
       delete draft.settings.widgets[widgetId];
     }
+    if (widget.type === "exportPanel") {
+      delete draft.settings.widgets[widgetId];
+    }
   }
   draft.settings.widgets["log-widget"].tracks = syncTrackCurves(
     draft.settings.widgets["log-widget"].tracks,
@@ -253,7 +249,6 @@ export function defaultRuntimeWidgets(availableCurves: Curve[]): Record<string, 
     "log-widget": createCatalogWidget("logWidget", availableCurves),
     "interval-details": createCatalogWidget("intervalDetails", availableCurves),
     "curve-catalog": createCatalogWidget("curveCatalog", availableCurves),
-    "export-panel": createCatalogWidget("exportPanel", availableCurves),
   };
 }
 
@@ -268,7 +263,6 @@ export function defaultRuntimeGridItems(): DisplayGridItem[] {
     { widgetId: "log-widget", x: 2, y: 1, w: 7, h: 8 },
     { widgetId: "interval-details", x: 9, y: 1, w: 3, h: 6 },
     { widgetId: "curve-catalog", x: 9, y: 7, w: 3, h: 3 },
-    { widgetId: "export-panel", x: 9, y: 10, w: 3, h: 3 },
   ];
 }
 

@@ -11,7 +11,7 @@ Site/mobile/Excel inputs
   -> deterministic validation
   -> AI suggestions and explanations
   -> central geologist visualization and edits
-  -> approval
+  -> export readiness review
   -> Excel/CSV/LAS export
 ```
 
@@ -165,19 +165,21 @@ Today, the editable fields are:
 
 Depth boundary editing is a future refinement because it has higher validation and visualization consequences.
 
-## 7. Export Approval
+## 7. Export Readiness
 
 ```text
-POST /api/boreholes/{id}/approve-export
+GET /api/exports/boreholes/{id}/readiness
 ```
 
-Approval is blocked if validation errors exist. Warnings and open AI suggestions are shown in readiness but do not automatically block in the current demo.
+Export is permission-driven in the current UAT build. Readiness checks show validation status, warnings, open AI suggestions, source availability, and curve availability. Validation errors are blocking quality issues; warnings and open suggestions are advisory review items.
 
 ## 8. Export Generation
 
 ```text
 POST /api/exports/boreholes/{id}/jobs
 ```
+
+A permitted user can generate an export after reviewing readiness. The export job records the selected format/template and generated file. A future production workflow can add second-user approval, notifications, and project-specific export locks if required.
 
 Current export types:
 

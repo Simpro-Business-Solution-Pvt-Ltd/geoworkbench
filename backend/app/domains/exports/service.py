@@ -121,10 +121,10 @@ def export_readiness(db: Session, borehole_id: int) -> dict:
 
     checks = [
         {
-            "key": "approval",
-            "label": "Central geologist approval",
-            "status": "pass" if borehole.workflow_status == "approved_for_export" else "warning",
-            "detail": borehole.workflow_status.replace("_", " "),
+            "key": "export_authorization",
+            "label": "Export permission required",
+            "status": "pass",
+            "detail": "Controlled by user role access",
         },
         {
             "key": "validation_errors",
@@ -157,11 +157,14 @@ def export_readiness(db: Session, borehole_id: int) -> dict:
             "detail": f"{len(borehole.curves)} curve track(s)",
         },
     ]
-    ready = error_count == 0 and borehole.workflow_status == "approved_for_export"
+    ready = error_count == 0
+    status = "ready" if ready and warning_count == 0 and open_suggestions == 0 else "quality_review"
+    if error_count:
+        status = "blocked"
     return {
         "borehole_id": borehole.id,
         "ready": ready,
-        "status": "ready" if ready else "blocked",
+        "status": status,
         "checks": checks,
         "counts": {
             "validation_errors": error_count,
@@ -188,54 +191,122 @@ def _relative_to_repo(path: Path) -> str:
     return str(path.relative_to(settings.repo_root))
 
 
-def export_corrected_lithology_csv(db: Session, borehole_id: int) -> ExportJob:
+def _profile_for_export(db: Session, export_type: str, export_profile_id: int | None) -> ExportProfile | None:
+    ensure_default_export_profiles(db)
+    if export_profile_id is not None:
+        profile = db.get(ExportProfile, export_profile_id)
+        if profile is None:
+            raise ValueError("Export profile not found")
+        return profile
+    return db.scalar(
+        select(ExportProfile)
+        .where(ExportProfile.export_type == export_type)
+        .order_by(ExportProfile.id)
+    )
+
+
+def _in_depth_range(interval, from_depth: float | None, to_depth: float | None) -> bool:
+    if from_depth is None and to_depth is None:
+        return True
+    start = from_depth if from_depth is not None else float("-inf")
+    end = to_depth if to_depth is not None else float("inf")
+    return interval.from_depth < end and interval.to_depth > start
+
+
+def _interval_value(borehole: Borehole, interval, source: str):
+    thickness = round(interval.to_depth - interval.from_depth, 3)
+    values = {
+        "borehole.code": borehole.code,
+        "borehole.title": borehole.title,
+        "lithology.source_row": interval.source_row,
+        "lithology.from_depth": interval.from_depth,
+        "lithology.to_depth": interval.to_depth,
+        "lithology.thickness": thickness,
+        "lithology.lithology_code": interval.lithology_code,
+        "lithology.lithology_label": interval.lithology_label,
+        "lithology.logged_color": interval.logged_color,
+        "lithology.seam_name": interval.seam_name,
+        "lithology.recovery": interval.recovery,
+        "lithology.recovery_percent": interval.recovery_percent,
+        "lithology.rqd_percent": round(interval.rqd * 100, 2) if interval.rqd is not None else None,
+        "lithology.structural_features": interval.structural_features,
+        "lithology.remark": interval.remark,
+    }
+    if source.startswith("lithology.attributes."):
+        key = source.removeprefix("lithology.attributes.")
+        return (interval.attributes or {}).get(key)
+    return values.get(source)
+
+
+def _column_mapping(profile: ExportProfile | None, fallback: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    columns = (profile.mapping or {}).get("columns") if profile else None
+    if not isinstance(columns, list):
+        return fallback
+    mapped: list[tuple[str, str]] = []
+    for item in columns:
+        if isinstance(item, str):
+            mapped.append((item, item))
+        elif isinstance(item, dict):
+            source = str(item.get("source") or item.get("key") or "")
+            target = str(item.get("target") or item.get("label") or source)
+            if source:
+                mapped.append((source, target))
+    return mapped or fallback
+
+
+def _curve_keys_from_profile(profile: ExportProfile | None) -> set[str] | None:
+    if profile is None:
+        return None
+    curves = profile.mapping.get("curves")
+    if not isinstance(curves, list):
+        return None
+    keys = {str(item) for item in curves if str(item)}
+    return keys or None
+
+
+def export_corrected_lithology_csv(
+    db: Session,
+    borehole_id: int,
+    *,
+    profile: ExportProfile | None = None,
+    export_settings: dict | None = None,
+) -> ExportJob:
     borehole = _load_borehole(db, borehole_id)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     file_name = f"{borehole.code}-corrected-lithology-{timestamp}.csv"
     path = _export_dir(borehole) / file_name
-    intervals = sorted(borehole.lithology_intervals, key=lambda item: (item.from_depth, item.to_depth))
+    export_settings = export_settings or {}
+    intervals = [
+        interval
+        for interval in sorted(borehole.lithology_intervals, key=lambda item: (item.from_depth, item.to_depth))
+        if _in_depth_range(interval, export_settings.get("from_depth"), export_settings.get("to_depth"))
+    ]
+    fallback = [
+        ("borehole.code", "borehole_code"),
+        ("lithology.source_row", "source_row"),
+        ("lithology.from_depth", "from_depth"),
+        ("lithology.to_depth", "to_depth"),
+        ("lithology.thickness", "thickness"),
+        ("lithology.lithology_code", "lithology_code"),
+        ("lithology.lithology_label", "lithology_label"),
+        ("lithology.logged_color", "logged_color"),
+        ("lithology.seam_name", "seam_name"),
+        ("lithology.recovery", "recovery"),
+        ("lithology.recovery_percent", "recovery_percent"),
+        ("lithology.rqd_percent", "rqd_percent"),
+        ("lithology.structural_features", "structural_features"),
+        ("lithology.remark", "remarks"),
+    ]
+    columns = _column_mapping(profile, fallback)
 
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=[
-                "borehole_code",
-                "source_row",
-                "from_depth",
-                "to_depth",
-                "thickness",
-                "lithology_code",
-                "lithology_label",
-                "logged_color",
-                "seam_name",
-                "recovery",
-                "recovery_percent",
-                "rqd_percent",
-                "structural_features",
-                "remarks",
-            ],
+            fieldnames=[target for _, target in columns],
         )
         writer.writeheader()
         for interval in intervals:
-            thickness = round(interval.to_depth - interval.from_depth, 3)
-            writer.writerow(
-                {
-                    "borehole_code": borehole.code,
-                    "source_row": interval.source_row,
-                    "from_depth": interval.from_depth,
-                    "to_depth": interval.to_depth,
-                    "thickness": thickness,
-                    "lithology_code": interval.lithology_code,
-                    "lithology_label": interval.lithology_label,
-                    "logged_color": interval.logged_color,
-                    "seam_name": interval.seam_name,
-                    "recovery": interval.recovery,
-                    "recovery_percent": interval.recovery_percent,
-                    "rqd_percent": round(interval.rqd * 100, 2) if interval.rqd is not None else None,
-                    "structural_features": interval.structural_features,
-                    "remarks": interval.remark,
-                }
-            )
+            writer.writerow({target: _interval_value(borehole, interval, source) for source, target in columns})
 
     job = ExportJob(
         borehole_id=borehole.id,
@@ -246,7 +317,8 @@ def export_corrected_lithology_csv(db: Session, borehole_id: int) -> ExportJob:
         summary={
             "interval_count": len(intervals),
             "readiness": export_readiness(db, borehole_id),
-            "note": "Corrected lithology CSV for review/export. Minex-specific format awaits customer template.",
+            "export_profile": profile.name if profile else None,
+            "export_settings": export_settings,
         },
     )
     db.add(job)
@@ -255,52 +327,47 @@ def export_corrected_lithology_csv(db: Session, borehole_id: int) -> ExportJob:
     return job
 
 
-def export_corrected_lithology_xlsx(db: Session, borehole_id: int) -> ExportJob:
+def export_corrected_lithology_xlsx(
+    db: Session,
+    borehole_id: int,
+    *,
+    profile: ExportProfile | None = None,
+    export_settings: dict | None = None,
+) -> ExportJob:
     borehole = _load_borehole(db, borehole_id)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     file_name = f"{borehole.code}-corrected-lithology-{timestamp}.xlsx"
     path = _export_dir(borehole) / file_name
-    intervals = sorted(borehole.lithology_intervals, key=lambda item: (item.from_depth, item.to_depth))
+    export_settings = export_settings or {}
+    intervals = [
+        interval
+        for interval in sorted(borehole.lithology_intervals, key=lambda item: (item.from_depth, item.to_depth))
+        if _in_depth_range(interval, export_settings.get("from_depth"), export_settings.get("to_depth"))
+    ]
+    fallback = [
+        ("borehole.code", "Borehole"),
+        ("lithology.source_row", "Source Row"),
+        ("lithology.from_depth", "From Depth"),
+        ("lithology.to_depth", "To Depth"),
+        ("lithology.thickness", "Thickness"),
+        ("lithology.lithology_code", "Lithology Code"),
+        ("lithology.lithology_label", "Lithology Label"),
+        ("lithology.logged_color", "Color"),
+        ("lithology.seam_name", "Seam"),
+        ("lithology.recovery", "Recovery"),
+        ("lithology.recovery_percent", "Recovery %"),
+        ("lithology.rqd_percent", "RQD %"),
+        ("lithology.structural_features", "Structural Features"),
+        ("lithology.remark", "Remarks"),
+    ]
+    columns = _column_mapping(profile, fallback)
 
     workbook = Workbook()
     sheet = workbook.active
-    sheet.title = "Corrected Lithology"
-    headers = [
-        "Borehole",
-        "Source Row",
-        "From Depth",
-        "To Depth",
-        "Thickness",
-        "Lithology Code",
-        "Lithology Label",
-        "Color",
-        "Seam",
-        "Recovery",
-        "Recovery %",
-        "RQD %",
-        "Structural Features",
-        "Remarks",
-    ]
-    sheet.append(headers)
+    sheet.title = str((profile.mapping or {}).get("sheet", "Corrected Lithology")) if profile else "Corrected Lithology"
+    sheet.append([target for _, target in columns])
     for interval in intervals:
-        sheet.append(
-            [
-                borehole.code,
-                interval.source_row,
-                interval.from_depth,
-                interval.to_depth,
-                round(interval.to_depth - interval.from_depth, 3),
-                interval.lithology_code,
-                interval.lithology_label,
-                interval.logged_color,
-                interval.seam_name,
-                interval.recovery,
-                interval.recovery_percent,
-                round(interval.rqd * 100, 2) if interval.rqd is not None else None,
-                interval.structural_features,
-                interval.remark,
-            ]
-        )
+        sheet.append([_interval_value(borehole, interval, source) for source, _ in columns])
     sheet.freeze_panes = "A2"
     for column_cells in sheet.columns:
         width = min(42, max(12, max(len(str(cell.value or "")) for cell in column_cells) + 2))
@@ -313,7 +380,12 @@ def export_corrected_lithology_xlsx(db: Session, borehole_id: int) -> ExportJob:
         status="generated",
         file_path=_relative_to_repo(path),
         file_name=file_name,
-        summary={"interval_count": len(intervals), "readiness": export_readiness(db, borehole_id)},
+        summary={
+            "interval_count": len(intervals),
+            "readiness": export_readiness(db, borehole_id),
+            "export_profile": profile.name if profile else None,
+            "export_settings": export_settings,
+        },
     )
     db.add(job)
     db.commit()
@@ -321,13 +393,33 @@ def export_corrected_lithology_xlsx(db: Session, borehole_id: int) -> ExportJob:
     return job
 
 
-def export_curves_csv(db: Session, borehole_id: int) -> ExportJob:
+def export_curves_csv(
+    db: Session,
+    borehole_id: int,
+    *,
+    profile: ExportProfile | None = None,
+    export_settings: dict | None = None,
+) -> ExportJob:
     borehole = _load_borehole(db, borehole_id)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     file_name = f"{borehole.code}-curves-{timestamp}.csv"
     path = _export_dir(borehole) / file_name
-    curves = sorted(borehole.curves, key=lambda item: item.key)
-    depths = sorted({sample.depth for curve in curves for sample in curve.samples})
+    export_settings = export_settings or {}
+    curve_keys = _curve_keys_from_profile(profile)
+    curves = sorted(
+        [curve for curve in borehole.curves if curve_keys is None or curve.key in curve_keys],
+        key=lambda item: item.key,
+    )
+    from_depth = export_settings.get("from_depth")
+    to_depth = export_settings.get("to_depth")
+    depths = sorted(
+        {
+            sample.depth
+            for curve in curves
+            for sample in curve.samples
+            if (from_depth is None or sample.depth >= from_depth) and (to_depth is None or sample.depth <= to_depth)
+        }
+    )
     values = {
         (curve.key, sample.depth): sample.value
         for curve in curves
@@ -350,7 +442,12 @@ def export_curves_csv(db: Session, borehole_id: int) -> ExportJob:
         status="generated",
         file_path=_relative_to_repo(path),
         file_name=file_name,
-        summary={"curve_count": len(curves), "sample_depth_count": len(depths)},
+        summary={
+            "curve_count": len(curves),
+            "sample_depth_count": len(depths),
+            "export_profile": profile.name if profile else None,
+            "export_settings": export_settings,
+        },
     )
     db.add(job)
     db.commit()
@@ -358,13 +455,33 @@ def export_curves_csv(db: Session, borehole_id: int) -> ExportJob:
     return job
 
 
-def export_curves_las(db: Session, borehole_id: int) -> ExportJob:
+def export_curves_las(
+    db: Session,
+    borehole_id: int,
+    *,
+    profile: ExportProfile | None = None,
+    export_settings: dict | None = None,
+) -> ExportJob:
     borehole = _load_borehole(db, borehole_id)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     file_name = f"{borehole.code}-curves-{timestamp}.las"
     path = _export_dir(borehole) / file_name
-    curves = sorted(borehole.curves, key=lambda item: item.key)
-    depths = sorted({sample.depth for curve in curves for sample in curve.samples})
+    export_settings = export_settings or {}
+    curve_keys = _curve_keys_from_profile(profile)
+    curves = sorted(
+        [curve for curve in borehole.curves if curve_keys is None or curve.key in curve_keys],
+        key=lambda item: item.key,
+    )
+    from_depth = export_settings.get("from_depth")
+    to_depth = export_settings.get("to_depth")
+    depths = sorted(
+        {
+            sample.depth
+            for curve in curves
+            for sample in curve.samples
+            if (from_depth is None or sample.depth >= from_depth) and (to_depth is None or sample.depth <= to_depth)
+        }
+    )
     values = {
         (curve.key, sample.depth): sample.value
         for curve in curves
@@ -395,7 +512,13 @@ def export_curves_las(db: Session, borehole_id: int) -> ExportJob:
         status="generated",
         file_path=_relative_to_repo(path),
         file_name=file_name,
-        summary={"curve_count": len(curves), "sample_depth_count": len(depths), "las_version": "2.0"},
+        summary={
+            "curve_count": len(curves),
+            "sample_depth_count": len(depths),
+            "las_version": "2.0",
+            "export_profile": profile.name if profile else None,
+            "export_settings": export_settings,
+        },
     )
     db.add(job)
     db.commit()
@@ -403,15 +526,23 @@ def export_curves_las(db: Session, borehole_id: int) -> ExportJob:
     return job
 
 
-def create_export(db: Session, borehole_id: int, export_type: str) -> ExportJob:
+def create_export(
+    db: Session,
+    borehole_id: int,
+    export_type: str,
+    *,
+    export_profile_id: int | None = None,
+    export_settings: dict | None = None,
+) -> ExportJob:
+    profile = _profile_for_export(db, export_type, export_profile_id)
     if export_type == "corrected_lithology_csv":
-        return export_corrected_lithology_csv(db, borehole_id)
+        return export_corrected_lithology_csv(db, borehole_id, profile=profile, export_settings=export_settings)
     if export_type == "corrected_lithology_xlsx":
-        return export_corrected_lithology_xlsx(db, borehole_id)
+        return export_corrected_lithology_xlsx(db, borehole_id, profile=profile, export_settings=export_settings)
     if export_type == "curves_csv":
-        return export_curves_csv(db, borehole_id)
+        return export_curves_csv(db, borehole_id, profile=profile, export_settings=export_settings)
     if export_type == "curves_las":
-        return export_curves_las(db, borehole_id)
+        return export_curves_las(db, borehole_id, profile=profile, export_settings=export_settings)
     raise ValueError("Unsupported export type")
 
 

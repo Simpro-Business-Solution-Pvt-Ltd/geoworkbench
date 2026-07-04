@@ -11,7 +11,14 @@ type Props = {
   creating: boolean;
   approving: boolean;
   savingProfile: boolean;
-  onCreate: (exportType: string) => void;
+  onCreate: (payload: {
+    export_type: string;
+    export_profile_id?: number | null;
+    stage?: string | null;
+    from_depth?: number | null;
+    to_depth?: number | null;
+    sections?: string[] | null;
+  }) => void;
   onApprove: () => void;
   onSaveExportProfile: (payload: {
     profileId: number;
@@ -23,13 +30,50 @@ type Props = {
 };
 
 const EXPORT_FORMATS = [
-  { value: "corrected_lithology_xlsx", label: "Corrected log Excel", target: "Review and handover" },
-  { value: "corrected_lithology_csv", label: "Corrected log CSV", target: "Analytics or interchange" },
+  { value: "corrected_lithology_xlsx", label: "Corrected Lithology Excel", target: "Review and handover" },
+  { value: "corrected_lithology_csv", label: "Corrected Lithology CSV", target: "Analytics or interchange" },
   { value: "curves_las", label: "Curve LAS", target: "Geophysical workflows" },
   { value: "curves_csv", label: "Curve CSV", target: "Curve QA and analytics" },
 ];
 
-const EXPORT_STEPS = ["Select scope", "Choose format", "Readiness checks", "Approve", "Generate", "Download"];
+const EXPORT_STEPS = ["Select scope", "Choose template", "Review readiness", "Generate", "Audit job", "Download"];
+
+const SECTION_OPTIONS: Record<string, Array<{ key: keyof SectionState; label: string }>> = {
+  corrected_lithology_xlsx: [
+    { key: "lithology", label: "Lithology intervals" },
+    { key: "seams", label: "Seams" },
+    { key: "recovery", label: "Recovery" },
+    { key: "rqd", label: "RQD" },
+    { key: "remarks", label: "Remarks" },
+    { key: "ai_review", label: "AI review" },
+    { key: "audit", label: "Audit" },
+  ],
+  corrected_lithology_csv: [
+    { key: "lithology", label: "Lithology intervals" },
+    { key: "seams", label: "Seams" },
+    { key: "recovery", label: "Recovery" },
+    { key: "rqd", label: "RQD" },
+    { key: "remarks", label: "Remarks" },
+  ],
+  curves_las: [
+    { key: "curves", label: "Geophysical curves" },
+  ],
+  curves_csv: [
+    { key: "curves", label: "Geophysical curves" },
+  ],
+};
+
+type SectionState = {
+  lithology: boolean;
+  seams: boolean;
+  recovery: boolean;
+  rqd: boolean;
+  remarks: boolean;
+  curves: boolean;
+  core_images: boolean;
+  ai_review: boolean;
+  audit: boolean;
+};
 
 const EXPORT_MAPPINGS: Record<string, Array<{ source: string; target: string }>> = {
   corrected_lithology_xlsx: [
@@ -67,10 +111,8 @@ export function ExportCenter({
   jobs,
   exportProfiles,
   creating,
-  approving,
   savingProfile,
   onCreate,
-  onApprove,
   onSaveExportProfile,
   onOpenWorkbench,
 }: Props) {
@@ -80,7 +122,7 @@ export function ExportCenter({
   const [stage, setStage] = useState("central_corrected");
   const [fromDepth, setFromDepth] = useState("0");
   const [toDepth, setToDepth] = useState(String(data.total_depth));
-  const [sections, setSections] = useState({
+  const [sections, setSections] = useState<SectionState>({
     lithology: true,
     seams: true,
     recovery: true,
@@ -97,10 +139,13 @@ export function ExportCenter({
   const selectedProfile =
     matchingProfiles.find((profile) => profile.id === selectedProfileId) ?? matchingProfiles[0] ?? null;
   const mappingRows = mappingRowsFromProfile(selectedProfile) ?? EXPORT_MAPPINGS[exportType] ?? [];
+  const sectionOptions = SECTION_OPTIONS[format] ?? SECTION_OPTIONS.corrected_lithology_xlsx;
   const includedSections = useMemo(
-    () => Object.entries(sections).filter(([, enabled]) => enabled).map(([key]) => key),
-    [sections],
+    () => sectionOptions.filter((item) => sections[item.key]).map((item) => item.key),
+    [sectionOptions, sections],
   );
+  const hasBlockingReadinessIssue = readiness?.checks.some((check) => check.status === "fail") ?? false;
+  const readinessTone = readiness?.ready ? "ready" : hasBlockingReadinessIssue ? "blocked" : "warning";
   const toggleSection = (key: keyof typeof sections) =>
     setSections((current) => ({ ...current, [key]: !current[key] }));
 
@@ -176,10 +221,14 @@ export function ExportCenter({
                 </label>
               </div>
               <div className="export-section-grid">
-                {(Object.keys(sections) as Array<keyof typeof sections>).map((key) => (
-                  <label key={key}>
-                    <input type="checkbox" checked={sections[key]} onChange={() => toggleSection(key)} />
-                    {key.replaceAll("_", " ")}
+                {sectionOptions.map((item) => (
+                  <label key={item.key}>
+                    <input
+                      type="checkbox"
+                      checked={sections[item.key]}
+                      onChange={() => toggleSection(item.key)}
+                    />
+                    {item.label}
                   </label>
                 ))}
               </div>
@@ -199,17 +248,33 @@ export function ExportCenter({
           <section className="workflow-panel">
             <div className="workflow-panel-header">
               <strong>Readiness</strong>
-              <span>{readiness?.ready ? "Ready" : "Needs review"}</span>
+              <span>{readiness?.ready ? "Ready" : hasBlockingReadinessIssue ? "Blocked" : "Quality warnings"}</span>
             </div>
-            <div className={`export-status ${readiness?.ready ? "ready" : "blocked"}`}>
-              <strong>{readiness?.ready ? "Ready for export" : "Review before export"}</strong>
+            <div className={`export-status ${readinessTone}`}>
+              <strong>
+                {readiness?.ready
+                  ? "Ready for export"
+                  : hasBlockingReadinessIssue
+                    ? "Resolve validation errors"
+                    : "Export allowed with review"}
+              </strong>
               <span>{readiness?.status ?? "checking"}</span>
             </div>
             <div className="export-actions">
-              <button type="button" disabled={approving} onClick={onApprove}>
-                {approving ? "Approving..." : "Approve for export"}
-              </button>
-              <button type="button" disabled={creating} onClick={() => onCreate(exportType)}>
+              <button
+                type="button"
+                disabled={creating}
+                onClick={() =>
+                  onCreate({
+                    export_type: exportType,
+                    export_profile_id: selectedProfile?.id ?? null,
+                    stage,
+                    from_depth: optionalNumber(fromDepth),
+                    to_depth: optionalNumber(toDepth),
+                    sections: includedSections,
+                  })
+                }
+              >
                 {creating ? "Generating..." : "Generate export"}
               </button>
             </div>
@@ -280,6 +345,7 @@ export function ExportCenter({
       {mappingDialogOpen && selectedProfile && (
         <ExportProfileDialog
           profile={selectedProfile}
+          curves={data.curves}
           saving={savingProfile}
           onClose={() => setMappingDialogOpen(false)}
           onSave={onSaveExportProfile}
@@ -308,13 +374,20 @@ function mappingRowsFromProfile(profile: ExportProfile | null) {
   }));
 }
 
+function optionalNumber(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function ExportProfileDialog({
   profile,
+  curves,
   saving,
   onClose,
   onSave,
 }: {
   profile: ExportProfile;
+  curves: BoreholeWorkbench["curves"];
   saving: boolean;
   onClose: () => void;
   onSave: (payload: {
@@ -328,6 +401,7 @@ function ExportProfileDialog({
   const [description, setDescription] = useState(profile.description ?? "");
   const [mappingText, setMappingText] = useState(JSON.stringify(profile.mapping, null, 2));
   const [error, setError] = useState<string | null>(null);
+  const isCurveTemplate = profile.export_type === "curves_las" || profile.export_type === "curves_csv";
 
   useEffect(() => {
     setName(profile.name);
@@ -344,6 +418,14 @@ function ExportProfileDialog({
     } catch {
       setError("Mapping JSON is not valid.");
     }
+  };
+
+  const selectedCurves = selectedCurveKeys(mappingText);
+  const toggleCurve = (curveKey: string) => {
+    const nextKeys = selectedCurves.includes(curveKey)
+      ? selectedCurves.filter((key: string) => key !== curveKey)
+      : [...selectedCurves, curveKey];
+    setMappingText(JSON.stringify({ ...safeMapping(mappingText), curves: nextKeys }, null, 2));
   };
 
   return (
@@ -372,6 +454,28 @@ function ExportProfileDialog({
               Mapping JSON
               <textarea value={mappingText} spellCheck={false} onChange={(event) => setMappingText(event.target.value)} />
             </label>
+            {isCurveTemplate && (
+              <div className="curve-template-selector">
+                <div>
+                  <strong>Curves in selected borehole</strong>
+                  <span>Select none to export all curves.</span>
+                </div>
+                <div className="curve-template-grid">
+                  {curves.map((curve) => (
+                    <label key={curve.key}>
+                      <input
+                        type="checkbox"
+                        checked={selectedCurves.includes(curve.key)}
+                        onChange={() => toggleCurve(curve.key)}
+                      />
+                      <i style={{ background: curve.color }} />
+                      <span>{curve.label}</span>
+                      <code>{curve.key}</code>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
             {error && <span className="mapping-error">{error}</span>}
             <div className="mapping-dialog-actions">
               <button type="button" onClick={save} disabled={saving || !name.trim()}>
@@ -383,4 +487,17 @@ function ExportProfileDialog({
       </div>
     </div>
   );
+}
+
+function selectedCurveKeys(mappingText: string) {
+  const mapping = safeMapping(mappingText);
+  return Array.isArray(mapping.curves) ? mapping.curves.map(String) : [];
+}
+
+function safeMapping(mappingText: string): Record<string, unknown> {
+  try {
+    return JSON.parse(mappingText) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
