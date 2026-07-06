@@ -4264,12 +4264,33 @@ h2 {
   background: #111820;
   padding: 0;
   cursor: pointer;
+  contain: layout paint style;
 }
 
 .core-strip:hover {
   outline: 2px solid rgb(84 194 178 / 70%);
   outline-offset: -2px;
   z-index: 4;
+}
+
+.core-strip.deferred {
+  border-bottom-color: rgb(120 101 74 / 34%);
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 12%) 0 1px, transparent 1px 7px),
+    #3b3023;
+}
+
+.core-strip-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  color: rgb(255 255 255 / 76%);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .core-lane-stack {
