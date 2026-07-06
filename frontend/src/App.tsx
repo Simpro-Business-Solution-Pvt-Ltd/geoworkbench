@@ -184,7 +184,7 @@ export function App() {
   );
   const [session, setSession] = useState<AuthSession | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
-  const { selectedInterval, setSelectedInterval, selectedImage, setSelectedImage } =
+  const { selectedInterval, setSelectedInterval, selectedDepth, selectedImage, setSelectedImage } =
     useWorkbenchStore();
   const { selectedRemarkGroup, setSelectedRemarkGroup } = useWorkbenchStore();
 
@@ -323,8 +323,8 @@ export function App() {
   }, [boreholes.data?.length, boreholeId, displayChoice, session?.user.id, boreholes.data, session]);
 
   const saveInterval = useMutation({
-    mutationFn: (patch: Partial<LithologyInterval>) =>
-      updateInterval(selectedInterval?.id ?? "", patch),
+    mutationFn: (payload: { intervalId: string; patch: Partial<LithologyInterval> }) =>
+      updateInterval(payload.intervalId, payload.patch),
     onSuccess: (updated) => {
       setSelectedInterval(updated);
       queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
@@ -529,7 +529,19 @@ export function App() {
   });
 
   const selectedCoreImage = useMemo(() => {
-    if (!selectedInterval || !workbench.data) return null;
+    if (!workbench.data) return null;
+    if (selectedDepth !== null) {
+      return (
+        workbench.data.core_images.find(
+          (image) =>
+            image.from_depth !== null &&
+            image.to_depth !== null &&
+            image.from_depth <= selectedDepth &&
+            image.to_depth >= selectedDepth,
+        ) ?? null
+      );
+    }
+    if (!selectedInterval) return null;
     return (
       workbench.data.core_images.find((image) => image.box_number === selectedInterval.image_box) ??
       workbench.data.core_images.find(
@@ -541,7 +553,7 @@ export function App() {
       ) ??
       null
     );
-  }, [selectedInterval, workbench.data]);
+  }, [selectedDepth, selectedInterval, workbench.data]);
   const runtimeWorkbenchData = useMemo(() => {
     if (!workbench.data || displayChoice !== "default") return workbench.data;
     return {
@@ -854,7 +866,7 @@ export function App() {
           onProcessSourceFile={(sourceFileId) => processFile.mutate(sourceFileId)}
           onImportBoreholeFile={(sourceFileId) => importBoreholeFile.mutate(sourceFileId)}
           onMergeSourceFile={(sourceFileId) => mergeSourceFile.mutate({ sourceFileId })}
-          onSaveInterval={(patch) => saveInterval.mutate(patch)}
+          onSaveInterval={(intervalId, patch) => saveInterval.mutate({ intervalId, patch })}
           onSelectImage={(image) => setSelectedImage(image)}
         />
       )}

@@ -27,7 +27,7 @@ export type LogViewportState = {
 
 const DEFAULT_CONTAINER_HEIGHT = 640;
 const MIN_PIXELS_PER_DEPTH = 1.2;
-const MAX_PIXELS_PER_DEPTH = 64;
+const MAX_PIXELS_PER_DEPTH = 256;
 
 export function clampToBounds(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));

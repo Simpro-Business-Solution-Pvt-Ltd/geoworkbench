@@ -132,6 +132,7 @@ export type CoreImage = {
   url: string;
   original_url: string;
   strip_url: string | null;
+  strip_preview_url?: string | null;
   strip_metadata?: Record<string, unknown> | null;
   image_metadata?: Record<string, unknown> | null;
 };

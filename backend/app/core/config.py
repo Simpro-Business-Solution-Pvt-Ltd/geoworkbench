@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     database_url: str | None = None
     upload_root: Path | None = None
     export_root: Path | None = None
+    object_storage_provider: str = "local"
+    s3_endpoint_url: str | None = None
+    s3_bucket: str = "geoworkbench"
+    s3_region: str = "us-east-1"
+    s3_access_key: str | None = None
+    s3_secret_key: str | None = None
+    s3_force_path_style: bool = True
+    s3_url_mode: str = "proxy"
     ai_provider: str = "rule_based"
     ai_base_url: str | None = "http://192.168.1.2:1234/v1"
     ai_model: str = "google/gemma-4-e4b"

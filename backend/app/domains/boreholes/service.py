@@ -19,6 +19,35 @@ from app.domains.display_layouts.defaults import default_borehole_layout
 from app.services.validation.borehole_validation import replace_validation_issues, validate_borehole
 
 
+COREBOX_ROOT_NAME = "MTSE-65(PBH 62)"
+
+
+def corebox_asset_name(relative_path: str | None) -> str | None:
+    if not relative_path:
+        return None
+    path = Path(relative_path)
+    parts = path.parts
+    if parts and parts[0] == COREBOX_ROOT_NAME:
+        return "/".join(parts[1:])
+    return "/".join(parts)
+
+
+def corebox_asset_url(core_root: Path, asset_name: str | None) -> str | None:
+    if not asset_name:
+        return None
+    asset_path = core_root / Path(asset_name)
+    if not asset_path.exists():
+        return None
+    return f"/assets/corebox/{asset_name}?v={int(asset_path.stat().st_mtime)}"
+
+
+def numeric_metadata_value(metadata: dict | None, key: str) -> float | None:
+    if not metadata:
+        return None
+    value = metadata.get(key)
+    return value if isinstance(value, (int, float)) else None
+
+
 def list_boreholes(db: Session) -> list[BoreholeListItem]:
     rows = db.execute(
         select(Borehole, Site, Project)
@@ -77,11 +106,12 @@ def get_workbench(db: Session, borehole_id: int) -> BoreholeWorkbenchOut:
         for curve in sorted(borehole.curves, key=lambda item: item.key)
     ]
 
-    strip_manifest_path = Path(__file__).resolve().parents[4] / "MTSE-65(PBH 62)" / "core-strips" / borehole.code / "manifest.json"
-    strip_manifest_by_box: dict[int, dict] = {}
-    if strip_manifest_path.exists():
-        manifest = json.loads(strip_manifest_path.read_text(encoding="utf-8"))
-        strip_manifest_by_box = {
+    core_root = Path(__file__).resolve().parents[4] / COREBOX_ROOT_NAME
+    rock_lane_manifest_path = core_root / "core-rock-lanes" / borehole.code / "manifest.json"
+    rock_lane_manifest_by_box: dict[int, dict] = {}
+    if rock_lane_manifest_path.exists():
+        manifest = json.loads(rock_lane_manifest_path.read_text(encoding="utf-8"))
+        rock_lane_manifest_by_box = {
             int(box["box_number"]): box
             for box in manifest.get("boxes", [])
             if box.get("box_number") is not None
@@ -92,25 +122,33 @@ def get_workbench(db: Session, borehole_id: int) -> BoreholeWorkbenchOut:
         original_name = Path(image.file_path or image.name).name
         if image.name.startswith("demo-coal-block/"):
             original_name = image.name
-        strip_name = f"core-strips/{borehole.code}/{image.box_number:03d}.jpg"
-        strip_path = Path(__file__).resolve().parents[4] / "MTSE-65(PBH 62)" / strip_name
-        strip_url = (
-            f"/assets/corebox/{strip_name}?v={int(strip_path.stat().st_mtime)}"
-            if strip_path.exists()
-            else None
+        rock_lane_metadata = rock_lane_manifest_by_box.get(image.box_number)
+        rock_lane_name = corebox_asset_name(
+            rock_lane_metadata.get("strip_image") if rock_lane_metadata else None
         )
+        rock_lane_preview_name = corebox_asset_name(
+            rock_lane_metadata.get("preview_image") if rock_lane_metadata else None
+        )
+        rock_lane_url = corebox_asset_url(core_root, rock_lane_name)
+        rock_lane_preview_url = corebox_asset_url(core_root, rock_lane_preview_name)
+        strip_url = rock_lane_url
+        strip_preview_url = rock_lane_preview_url if rock_lane_url else None
+        strip_metadata = rock_lane_metadata
+        from_depth = numeric_metadata_value(strip_metadata, "calibrated_from_depth")
+        to_depth = numeric_metadata_value(strip_metadata, "calibrated_to_depth")
         original_url = f"/assets/corebox/{original_name}"
         images.append(
             CoreImageOut(
                 box_number=image.box_number,
                 name=image.name,
                 file_path=image.file_path,
-                from_depth=image.from_depth,
-                to_depth=image.to_depth,
-                url=strip_url or original_url,
+                from_depth=from_depth if from_depth is not None else image.from_depth,
+                to_depth=to_depth if to_depth is not None else image.to_depth,
+                url=strip_preview_url or strip_url or original_url,
                 original_url=original_url,
                 strip_url=strip_url,
-                strip_metadata=strip_manifest_by_box.get(image.box_number),
+                strip_preview_url=strip_preview_url,
+                strip_metadata=strip_metadata,
                 image_metadata=image.image_metadata,
             )
         )

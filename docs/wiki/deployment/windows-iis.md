@@ -10,6 +10,7 @@ This profile is suitable when the customer prefers Windows Server operations.
 - FastAPI runs as a Windows Service.
 - Background worker runs as a Windows Service.
 - PostgreSQL is installed directly on the VM or, preferably, on a separate database VM.
+- MinIO can run as a local/internal container for S3-compatible object storage.
 - Redis or a queue service is installed directly if background jobs require it.
 
 ## Request Flow
@@ -61,7 +62,12 @@ Environment:
 
 ```text
 GEOWORKBENCH_DATABASE_URL=postgresql+psycopg://user:password@db-server:5432/geoworkbench
-GEOWORKBENCH_UPLOAD_ROOT=D:\GeoWorkbench\data\uploads
+GEOWORKBENCH_OBJECT_STORAGE_PROVIDER=s3
+GEOWORKBENCH_S3_ENDPOINT_URL=http://127.0.0.1:9000
+GEOWORKBENCH_S3_BUCKET=geoworkbench
+GEOWORKBENCH_S3_ACCESS_KEY=geoworkbench
+GEOWORKBENCH_S3_SECRET_KEY=change-this
+GEOWORKBENCH_S3_URL_MODE=proxy
 ```
 
 ## Deployment Steps
@@ -88,7 +94,8 @@ npm run build
 7. Configure IIS reverse proxy for `/api`.
 8. Create Windows Service for FastAPI.
 9. Create Windows Service for workers when worker implementation is added.
-10. Configure backup jobs for PostgreSQL and uploaded files.
+10. Start internal MinIO if using object storage; see `docs/wiki/deployment/local-minio.md`.
+11. Configure backup jobs for PostgreSQL and MinIO object data.
 
 ## Notes
 
@@ -96,4 +103,3 @@ npm run build
 - Keep API bound to `127.0.0.1` unless using an internal load balancer.
 - Use a dedicated service account.
 - Store secrets outside source control.
-

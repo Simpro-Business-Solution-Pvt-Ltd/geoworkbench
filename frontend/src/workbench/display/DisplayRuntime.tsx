@@ -1,5 +1,5 @@
 import type { PointerEvent, ReactNode } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   BoreholeAiSummary,
@@ -54,7 +54,7 @@ type Props = {
   onProcessSourceFile: (sourceFileId: number) => void;
   onImportBoreholeFile: (sourceFileId: number) => void;
   onMergeSourceFile: (sourceFileId: number) => void;
-  onSaveInterval: (patch: Partial<LithologyInterval>) => void;
+  onSaveInterval: (intervalId: string, patch: Partial<LithologyInterval>) => void;
   onSelectImage: (image: CoreImage) => void;
 };
 
@@ -262,19 +262,58 @@ function ValidationWidget(props: Props) {
 }
 
 function IntervalDetailsWidget({ title, ...props }: Props & { title: string }) {
-  const interval = props.selectedInterval;
   const selectedDepth = useWorkbenchStore((state) => state.selectedDepth);
+  const setSelectedInterval = useWorkbenchStore((state) => state.setSelectedInterval);
+  const intervalAtDepth = useMemo(() => {
+    if (selectedDepth === null) return null;
+    return (
+      props.data.lithology_intervals.find(
+        (item) => item.from_depth <= selectedDepth && selectedDepth < item.to_depth,
+      ) ??
+      props.data.lithology_intervals.find(
+        (item) => item.from_depth <= selectedDepth && item.to_depth >= selectedDepth,
+      ) ??
+      null
+    );
+  }, [props.data.lithology_intervals, selectedDepth]);
+  const coreImageAtDepth = useMemo(() => {
+    if (selectedDepth === null) return null;
+    return (
+      props.data.core_images.find(
+        (image) =>
+          image.from_depth !== null &&
+          image.to_depth !== null &&
+          image.from_depth <= selectedDepth &&
+          image.to_depth >= selectedDepth,
+      ) ?? null
+    );
+  }, [props.data.core_images, selectedDepth]);
+  const interval = selectedDepth !== null ? intervalAtDepth : props.selectedInterval;
+  const coreImage = selectedDepth !== null ? coreImageAtDepth : props.selectedCoreImage;
   const boreholeMetadata = buildBoreholeMetadata(props.data);
   const [editorOpen, setEditorOpen] = useState(false);
+
+  useEffect(() => {
+    if (selectedDepth === null || props.selectedInterval?.id === intervalAtDepth?.id) return;
+    setSelectedInterval(intervalAtDepth);
+  }, [intervalAtDepth, props.selectedInterval?.id, selectedDepth, setSelectedInterval]);
+
   return (
     <>
       <RuntimeWidgetFrame title={title}>
-        {!interval && <div className="empty">Select an interval or curve point.</div>}
+        {!interval && (
+          <div className="empty">
+            {selectedDepth !== null
+              ? `No lithology interval at ${selectedDepth.toFixed(2)} m.`
+              : "Select an interval or curve point."}
+          </div>
+        )}
         {interval && (
           <>
             <div className="interval-card">
               <small>
-                Ruler depth {selectedDepth !== null ? `${selectedDepth.toFixed(2)} m` : "-"} · containing interval
+                {selectedDepth !== null ? `Ruler depth ${selectedDepth.toFixed(2)} m` : "Selected interval"} ·{" "}
+                {selectedDepth !== null ? "containing interval" : "stored selection"}
               </small>
               <strong>
                 {interval.from_depth} m - {interval.to_depth} m
@@ -293,7 +332,7 @@ function IntervalDetailsWidget({ title, ...props }: Props & { title: string }) {
                 value={`${interval.recovery ?? "-"} m ${interval.recovery_percent ? `(${interval.recovery_percent}%)` : ""}`}
               />
               <MetadataField label="RQD" value={interval.rqd !== null ? `${Math.round(interval.rqd * 100)}%` : "-"} />
-              <MetadataField label="Core box" value={props.selectedCoreImage ? `Box ${props.selectedCoreImage.box_number}` : "-"} />
+              <MetadataField label="Core box" value={coreImage ? `Box ${coreImage.box_number}` : "-"} />
               <MetadataField label="Features" value={interval.structural_features || "-"} full />
               <MetadataField label="Remarks" value={interval.remark || "-"} full />
               <MetadataField
@@ -302,21 +341,26 @@ function IntervalDetailsWidget({ title, ...props }: Props & { title: string }) {
                 full
               />
             </div>
-            {props.selectedCoreImage && (
+            {coreImage && (
               <button
                 type="button"
                 className="core-preview"
-                onClick={() => props.onSelectImage(props.selectedCoreImage!)}
+                onClick={() => props.onSelectImage(coreImage)}
               >
-                <img src={props.selectedCoreImage.url} alt={`Corebox ${props.selectedCoreImage.box_number}`} />
+                <img src={coreImage.url} alt={`Corebox ${coreImage.box_number}`} />
                 <span>
-                  Corebox {props.selectedCoreImage.box_number} · {props.selectedCoreImage.from_depth} m -{" "}
-                  {props.selectedCoreImage.to_depth} m
+                  Corebox {coreImage.box_number} · {coreImage.from_depth} m - {coreImage.to_depth} m
                 </span>
               </button>
             )}
             <div className="interval-actions">
-              <button type="button" onClick={() => setEditorOpen(true)}>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedInterval(interval);
+                  setEditorOpen(true);
+                }}
+              >
                 Edit correction
               </button>
             </div>
@@ -337,7 +381,7 @@ function IntervalDetailsWidget({ title, ...props }: Props & { title: string }) {
           intervalSaving={props.intervalSaving}
           onClose={() => setEditorOpen(false)}
           onSaveInterval={(patch) => {
-            props.onSaveInterval(patch);
+            props.onSaveInterval(interval.id, patch);
             setEditorOpen(false);
           }}
         />

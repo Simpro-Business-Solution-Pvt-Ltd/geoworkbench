@@ -1,4 +1,5 @@
 import json
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -74,12 +75,23 @@ def _seed_base_demo() -> list[str]:
     return notes
 
 
-def _try_generate_core_strips() -> dict:
+def _try_generate_core_rock_lanes() -> dict:
     try:
-        from generate_core_strips import main as generate_core_strips_main
-
-        generate_core_strips_main()
-        return {"status": "generated", "method": "manual_relative_four_lane_crop_v1"}
+        subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).with_name("generate_core_rock_lanes.py")),
+                "--all",
+                "--five-lane-from-box",
+                "74",
+            ],
+            check=True,
+        )
+        return {
+            "status": "generated",
+            "method": "cv_warm_rock_alpha_lane_v1",
+            "five_lane_from_box": 74,
+        }
     except Exception as exc:  # pragma: no cover - script diagnostic path
         return {"status": "skipped", "reason": str(exc)}
 
@@ -228,7 +240,7 @@ def main() -> None:
         "notes": [],
         "customer_inputs": [],
         "synthetic_correlation_sources": [],
-        "core_strips": {},
+        "core_rock_lanes": {},
     }
 
     manifest["notes"].extend(_seed_base_demo())
@@ -240,7 +252,7 @@ def main() -> None:
     finally:
         db.close()
 
-    manifest["core_strips"] = _try_generate_core_strips()
+    manifest["core_rock_lanes"] = _try_generate_core_rock_lanes()
     output_path = repo_root / "runtime-data" / "demo-prep" / "reliance-demo-manifest.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")

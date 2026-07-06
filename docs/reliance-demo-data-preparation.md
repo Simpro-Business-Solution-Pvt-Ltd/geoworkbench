@@ -65,15 +65,21 @@ For performance, the importer stores a display-ready sampled set, capped by `max
 
 ## Corebox Images
 
-For the first server run, PBH-62 corebox images are processed by `backend/scripts/generate_core_strips.py`. It uses the current four-lane tray crop assumptions, rotates lanes, stacks them in depth order, and writes:
+For the first server run, PBH-62 corebox images are processed by `backend/scripts/generate_core_rock_lanes.py`. It crops the rock surface bands, masks non-rock pixels, rotates the lane crops, stacks them in depth order, and writes JPEG assets for the image track:
 
 ```text
-MTSE-65(PBH 62)/core-strips/PBH-62/manifest.json
+MTSE-65(PBH 62)/core-rock-lanes/PBH-62/manifest.json
+MTSE-65(PBH 62)/core-rock-lanes/PBH-62/master/*.jpg
+MTSE-65(PBH 62)/core-rock-lanes/PBH-62/preview/*.jpg
 ```
+
+The PBH-62 source set contains both four-row and five-row trays. The repeatable demo-prep path passes `--five-lane-from-box 74`, so boxes 1-73 are prepared as four-lane trays and boxes 74-141 are prepared as five-lane trays. The generated manifest records the resolved `lane_count`, crop-window source, master image, preview image, and calibrated depth range for each box.
+
+Core image depth calibration is taken from the workbook-derived lithology intervals linked by `image_box`. This keeps the image track aligned with real logged depths such as box 1 at `0.00-5.40 m`, box 140 at `596.90-602.70 m`, and box 141 ending at `604.30 m`, instead of relying on the obsolete equal-4m-per-box mapping.
 
 This is a code-assisted preparation step, not final geology-grade image interpretation. The next AI-assisted version should:
 
-- Detect tray/lane boundaries.
+- Confirm tray/lane boundaries without dataset-specific hints.
 - Detect depth labels or box ranges.
 - Split core lanes into ordered rock intervals.
 - Flag cracks/fractures, missing core, washed zones, and low-confidence crops.

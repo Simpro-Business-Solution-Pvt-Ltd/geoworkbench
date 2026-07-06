@@ -97,6 +97,7 @@ class CoreImageOut(BaseModel):
     url: str
     original_url: str
     strip_url: str | None
+    strip_preview_url: str | None = None
     strip_metadata: dict | None = None
     image_metadata: dict | None = None
 

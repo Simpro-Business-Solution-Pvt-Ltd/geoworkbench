@@ -20,6 +20,7 @@ Users
 ## Principles
 
 - PostgreSQL should be installed directly, hosted on a separate DB VM, or provided as a managed database.
+- MinIO can be used as the local or self-hosted S3-compatible object store; keep it internal and access it through the backend.
 - The API should be stateless so multiple app servers can be added later.
 - Uploads, core images, source files, and exports should be stored in shared storage, not only local app-server disk.
 - Background workers should process imports, AI jobs, OCR, and exports outside API request threads.
@@ -55,3 +56,7 @@ Requirements for HA:
 - Queue-backed background processing.
 - Scheduled jobs protected by locks or isolated to one scheduler.
 
+## Related Local Profiles
+
+- `docs/wiki/deployment/local-postgres.md`
+- `docs/wiki/deployment/local-minio.md`
