@@ -107,7 +107,7 @@ const WIKI_MARKDOWN = {
 const WIKI_PAGES = [
   { key: "../../docs/wiki/uat-demo-readiness.md", title: "UAT Demo Readiness", group: "User Guidance", audience: "user" },
   { key: "../../docs/import-export-template-user-manual.md", title: "Import, Merge, And Export", group: "User Guidance", audience: "user" },
-  { key: "../../docs/wiki/user-manual/borehole-workbench.md", title: "Borehole Workbench", group: "User Guidance", audience: "user" },
+  { key: "../../docs/wiki/user-manual/borehole-workbench.md", title: "Workbench User Manual", group: "User Guidance", audience: "user" },
   { key: "../../docs/stakeholder-value-discussion-guide.md", title: "Business Value Discussion", group: "Business Value", audience: "user" },
   { key: "../../docs/demo-script-coal-borehole-workflow.md", title: "Demo Workflow Script", group: "Business Value", audience: "user" },
   { key: "../../docs/ai-assisted-coal-geology-use-cases.md", title: "AI Use Cases", group: "Business Value", audience: "user" },

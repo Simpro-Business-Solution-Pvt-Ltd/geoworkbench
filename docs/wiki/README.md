@@ -15,6 +15,12 @@ This wiki is the long-form documentation home for the production borehole correc
 
 Every milestone should update this wiki as part of delivery. The system should be explainable to geologists, administrators, IT teams, and future developers without relying on verbal handover.
 
+## User Manuals
+
+- [Workbench User Manual](user-manual/borehole-workbench.md)
+- [Import, Merge, And Export Templates](../import-export-template-user-manual.md)
+- [UAT Demo Readiness](uat-demo-readiness.md)
+
 ## Current Architecture Guides
 
 - [UAT Demo Readiness](uat-demo-readiness.md)
