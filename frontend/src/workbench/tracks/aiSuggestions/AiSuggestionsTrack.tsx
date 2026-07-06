@@ -1,15 +1,13 @@
 import type { AiSuggestion, BoreholeWorkbench, DisplayTrack } from "../../../api/types";
 import type { DepthScale } from "../../core/depthScale";
+import type { LogTrackContext } from "../../core/logTrackContext";
 import { TrackFrame } from "../../core/TrackFrame";
-import type { TrackPointerEvent } from "../../core/trackObject";
 import { useWorkbenchStore } from "../../display/workbenchStore";
 
 type Props = {
   data: BoreholeWorkbench;
   track: DisplayTrack;
-  scale: DepthScale;
-  widthStyle?: number | string;
-  onTrackEvent: (event: TrackPointerEvent) => void;
+  context: LogTrackContext;
 };
 
 type SuggestionGroup = {
@@ -89,7 +87,8 @@ function confidenceLabel(value: number | null) {
   return `${Math.round(value * 100)}%`;
 }
 
-export function AiSuggestionsTrack({ data, track, scale, widthStyle, onTrackEvent }: Props) {
+export function AiSuggestionsTrack({ data, track, context }: Props) {
+  const { scale } = context;
   const selectedAiSuggestion = useWorkbenchStore((state) => state.selectedAiSuggestion);
   const groups = suggestionGroups(data, scale);
 
@@ -97,10 +96,8 @@ export function AiSuggestionsTrack({ data, track, scale, widthStyle, onTrackEven
     <TrackFrame
       data={data}
       track={track}
-      scale={scale}
-      widthStyle={widthStyle}
+      context={context}
       className="ai-track"
-      onTrackEvent={onTrackEvent}
       hitTest={({ depth }) => {
         const y = scale.depthToY(depth);
         const group = groups.find((item) => y >= item.y - 2 && y <= item.y + 28);

@@ -1,21 +1,20 @@
 import { useMemo } from "react";
 
 import type { BoreholeWorkbench, Curve, DisplayTrack } from "../../../api/types";
-import { nearestSample, normalizedX, samplesForVisibleCurve } from "../../core/curveMath";
-import type { DepthScale } from "../../core/depthScale";
+import { nearestSample, samplesForVisibleCurve } from "../../core/curveMath";
+import type { LogTrackContext } from "../../core/logTrackContext";
+import { createValueScale } from "../../core/valueScale";
 import { TrackFrame } from "../../core/TrackFrame";
-import type { TrackPointerEvent } from "../../core/trackObject";
 import { useWorkbenchStore } from "../../display/workbenchStore";
 
 type Props = {
   data: BoreholeWorkbench;
   track: DisplayTrack;
-  scale: DepthScale;
-  widthStyle?: number | string;
-  onTrackEvent: (event: TrackPointerEvent) => void;
+  context: LogTrackContext;
 };
 
-export function CurveTrack({ data, track, scale, widthStyle, onTrackEvent }: Props) {
+export function CurveTrack({ data, track, context }: Props) {
+  const { scale } = context;
   const { hoveredObject, tooltipsEnabled } = useWorkbenchStore();
   const configuredCurves = track.curves?.filter((curve) => curve.visible) ?? [];
   const curves = useMemo(
@@ -30,6 +29,19 @@ export function CurveTrack({ data, track, scale, widthStyle, onTrackEvent }: Pro
         ),
     [configuredCurves, data.curves],
   );
+  const valueScales = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof createValueScale>>();
+    for (const { config, curve } of curves) {
+      map.set(
+        curve.key,
+        createValueScale({
+          min: config.scale.min,
+          max: config.scale.max,
+        }),
+      );
+    }
+    return map;
+  }, [curves]);
   const hit =
     hoveredObject?.kind === "curve-sample" && curves.some(({ curve }) => curve.key === hoveredObject.curve.key)
       ? hoveredObject
@@ -39,10 +51,8 @@ export function CurveTrack({ data, track, scale, widthStyle, onTrackEvent }: Pro
     <TrackFrame
       data={data}
       track={track}
-      scale={scale}
-      widthStyle={widthStyle}
+      context={context}
       className="curve-track"
-      onTrackEvent={onTrackEvent}
       headerDetail={
         <div className="curve-header-stack">
           {configuredCurves.map((curve) => (
@@ -63,11 +73,12 @@ export function CurveTrack({ data, track, scale, widthStyle, onTrackEvent }: Pro
           .map(({ config, curve }) => {
             const nearest = nearestSample(curve, depth);
             if (!nearest) return null;
+            const valueScale = valueScales.get(curve.key);
             return {
               ...nearest,
               config,
-              screenXPercent: normalizedX(nearest.sample.value, config.scale.min, config.scale.max),
-              screenYPercent: scale.depthToPercent(nearest.sample.depth),
+              screenXPercent: valueScale?.toPercent(nearest.sample.value) ?? 50,
+              screenYPercent: scale.depthToContentPercent(nearest.sample.depth),
             };
           })
           .filter((item): item is NonNullable<typeof item> => Boolean(item));
@@ -77,9 +88,9 @@ export function CurveTrack({ data, track, scale, widthStyle, onTrackEvent }: Pro
           ? {
               kind: "curve-sample",
               id: `${best.curve.key}:${best.sample.depth}`,
-            depth: best.sample.depth,
-            curve: best.curve,
-            sample: best.sample,
+              depth: best.sample.depth,
+              curve: best.curve,
+              sample: best.sample,
               distance: best.distance,
               screenXPercent: best.screenXPercent,
               screenYPercent: best.screenYPercent,
@@ -94,27 +105,25 @@ export function CurveTrack({ data, track, scale, widthStyle, onTrackEvent }: Pro
       }}
     >
       <svg className="curve-svg" preserveAspectRatio="none" viewBox="0 0 100 100">
-        {curves.map(({ config, curve }) => (
-          <polyline
-            key={curve.key}
-            points={samplesForVisibleCurve(curve.samples, scale.fromDepth, scale.toDepth)
-              .filter(
-                (sample, index) =>
-                  index % 4 === 0 || sample.depth < scale.fromDepth || sample.depth > scale.toDepth,
-              )
-              .map(
-                (sample) =>
-                  `${normalizedX(sample.value, config.scale.min, config.scale.max)},${scale.depthToContentPercent(
-                    sample.depth,
-                  )}`,
-              )
-              .join(" ")}
-            fill="none"
-            stroke={config.color}
-            strokeWidth="0.8"
-            vectorEffect="non-scaling-stroke"
-          />
-        ))}
+        {curves.map(({ config, curve }) => {
+          const valueScale = valueScales.get(curve.key);
+          return (
+            <polyline
+              key={curve.key}
+              points={samplesForVisibleCurve(curve.samples, scale.fromDepth, scale.toDepth)
+                .filter(
+                  (sample, index) =>
+                    index % 4 === 0 || sample.depth < scale.fromDepth || sample.depth > scale.toDepth,
+                )
+                .map((sample) => `${valueScale?.toPercent(sample.value) ?? 50},${scale.depthToContentPercent(sample.depth)}`)
+                .join(" ")}
+              fill="none"
+              stroke={config.color}
+              strokeWidth="0.8"
+              vectorEffect="non-scaling-stroke"
+            />
+          );
+        })}
       </svg>
       {tooltipsEnabled && hit && (
         <div

@@ -1,14 +1,12 @@
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
 import type { DepthScale } from "../../core/depthScale";
+import type { LogTrackContext } from "../../core/logTrackContext";
 import { TrackFrame } from "../../core/TrackFrame";
-import type { TrackPointerEvent } from "../../core/trackObject";
 
 type Props = {
   data: BoreholeWorkbench;
   track: DisplayTrack;
-  scale: DepthScale;
-  widthStyle?: number | string;
-  onTrackEvent: (event: TrackPointerEvent) => void;
+  context: LogTrackContext;
 };
 
 type RemarkGroup = {
@@ -49,17 +47,16 @@ function groupedRemarks(data: BoreholeWorkbench, scale: DepthScale): RemarkGroup
   return groups;
 }
 
-export function RemarksTrack({ data, track, scale, widthStyle, onTrackEvent }: Props) {
+export function RemarksTrack({ data, track, context }: Props) {
+  const { scale } = context;
   const groups = groupedRemarks(data, scale);
 
   return (
     <TrackFrame
       data={data}
       track={track}
-      scale={scale}
-      widthStyle={widthStyle}
+      context={context}
       className="remarks-track"
-      onTrackEvent={onTrackEvent}
       hitTest={({ depth }) => {
         const y = scale.depthToY(depth);
         const group = groups.find((item) => y >= item.y && y <= item.y + 26);

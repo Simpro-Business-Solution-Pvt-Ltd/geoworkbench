@@ -1,25 +1,21 @@
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
-import type { DepthScale } from "../../core/depthScale";
+import type { LogTrackContext } from "../../core/logTrackContext";
 import { TrackFrame } from "../../core/TrackFrame";
-import type { TrackPointerEvent } from "../../core/trackObject";
 
 type Props = {
   data: BoreholeWorkbench;
   track: DisplayTrack;
-  scale: DepthScale;
-  widthStyle?: number | string;
-  onTrackEvent: (event: TrackPointerEvent) => void;
+  context: LogTrackContext;
 };
 
-export function SeamTrack({ data, track, scale, widthStyle, onTrackEvent }: Props) {
+export function SeamTrack({ data, track, context }: Props) {
+  const { scale } = context;
   return (
     <TrackFrame
       data={data}
       track={track}
-      scale={scale}
-      widthStyle={widthStyle}
+      context={context}
       className="seam-track"
-      onTrackEvent={onTrackEvent}
       hitTest={({ depth }) => {
         const seam = data.seam_intervals.find(
           (item) => item.from_depth <= depth && item.to_depth >= depth,

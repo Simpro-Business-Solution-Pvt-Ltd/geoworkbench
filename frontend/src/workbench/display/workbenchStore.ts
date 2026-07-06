@@ -22,7 +22,6 @@ export type WorkbenchActions = {
   setContextMenu: (contextMenu: TrackContextMenu | null) => void;
   setTooltipsEnabled: (tooltipsEnabled: boolean) => void;
   setMode: (mode: "runtime" | "edit") => void;
-  setDepthWindow: (depthWindow: { fromDepth: number; toDepth: number } | null) => void;
 };
 
 type WorkbenchState = {
@@ -31,7 +30,6 @@ type WorkbenchState = {
   selectedImage: CoreImage | null;
   selectedRemarkGroup: Extract<TrackObject, { kind: "remark-group" }> | null;
   selectedAiSuggestion: AiSuggestion | null;
-  depthWindow: { fromDepth: number; toDepth: number } | null;
   hoveredObject: TrackObject | null;
   contextMenu: TrackContextMenu | null;
   tooltipsEnabled: boolean;
@@ -44,7 +42,6 @@ export const useWorkbenchStore = create<WorkbenchState>((set) => ({
   selectedImage: null,
   selectedRemarkGroup: null,
   selectedAiSuggestion: null,
-  depthWindow: null,
   hoveredObject: null,
   contextMenu: null,
   tooltipsEnabled: true,
@@ -62,5 +59,4 @@ export const useWorkbenchStore = create<WorkbenchState>((set) => ({
       hoveredObject: tooltipsEnabled ? state.hoveredObject : null,
     })),
   setMode: (mode) => set({ mode }),
-  setDepthWindow: (depthWindow) => set({ depthWindow }),
 }));

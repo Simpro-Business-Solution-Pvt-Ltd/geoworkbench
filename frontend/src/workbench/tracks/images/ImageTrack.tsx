@@ -1,17 +1,15 @@
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
-import type { DepthScale } from "../../core/depthScale";
+import type { LogTrackContext } from "../../core/logTrackContext";
 import { TrackFrame } from "../../core/TrackFrame";
-import type { TrackPointerEvent } from "../../core/trackObject";
 
 type Props = {
   data: BoreholeWorkbench;
   track: DisplayTrack;
-  scale: DepthScale;
-  widthStyle?: number | string;
-  onTrackEvent: (event: TrackPointerEvent) => void;
+  context: LogTrackContext;
 };
 
-export function ImageTrack({ data, track, scale, widthStyle, onTrackEvent }: Props) {
+export function ImageTrack({ data, track, context }: Props) {
+  const { scale } = context;
   const fullStripFitHeight = 140;
   const visibleImages = data.core_images.filter(
     (image) =>
@@ -23,22 +21,42 @@ export function ImageTrack({ data, track, scale, widthStyle, onTrackEvent }: Pro
     <TrackFrame
       data={data}
       track={track}
-      scale={scale}
-      widthStyle={widthStyle}
+      context={context}
       className="image-track"
-      onTrackEvent={onTrackEvent}
       hitTest={({ depth }) => {
-        const image = data.core_images.find(
-          (item) =>
-            (item.from_depth ?? Number.POSITIVE_INFINITY) <= depth &&
-            (item.to_depth ?? Number.NEGATIVE_INFINITY) >= depth,
-        );
-        return image
+        const image = data.core_images.find((item) => {
+          const fromDepth = item.from_depth ?? item.to_depth;
+          const toDepth = item.to_depth ?? item.from_depth;
+          if (fromDepth === null || toDepth === null) {
+            return false;
+          }
+          const lowerBound = Math.min(fromDepth, toDepth);
+          const upperBound = Math.max(fromDepth, toDepth);
+          return lowerBound <= depth && depth <= upperBound;
+        });
+        if (image) {
+          return {
+            kind: "core-image",
+            id: `core-image:${image.box_number}`,
+            depth,
+            image,
+          };
+        }
+        const orderedImages = [...data.core_images].sort((a, b) => {
+          const aFrom = a.from_depth ?? a.to_depth ?? 0;
+          const aTo = a.to_depth ?? a.from_depth ?? 0;
+          const bFrom = b.from_depth ?? b.to_depth ?? 0;
+          const bTo = b.to_depth ?? b.from_depth ?? 0;
+          const aDepth = Math.min(aFrom, aTo);
+          const bDepth = Math.min(bFrom, bTo);
+          return Math.abs(aDepth - depth) - Math.abs(bDepth - depth);
+        });
+        return orderedImages[0]
           ? {
               kind: "core-image",
-              id: `core-image:${image.box_number}`,
+              id: `core-image:${orderedImages[0].box_number}`,
               depth,
-              image,
+              image: orderedImages[0],
             }
           : null;
       }}
@@ -46,15 +64,24 @@ export function ImageTrack({ data, track, scale, widthStyle, onTrackEvent }: Pro
       {visibleImages.map((image) => {
         const fromDepth = image.from_depth ?? 0;
         const toDepth = image.to_depth ?? fromDepth + 1;
-        const intervalHeight = Math.max(1, scale.depthToY(toDepth) - scale.depthToY(fromDepth));
+        const visibleFromDepth = Math.max(fromDepth, scale.fromDepth);
+        const visibleToDepth = Math.min(toDepth, scale.toDepth);
+        if (visibleToDepth <= visibleFromDepth) return null;
+
+        const intervalHeight = Math.max(1, scale.depthToY(visibleToDepth) - scale.depthToY(visibleFromDepth));
         const canShowFullStrip = intervalHeight >= fullStripFitHeight;
+
+        const intervalSpan = Math.max(0.001, toDepth - fromDepth);
+        const visibleSpan = Math.max(0.001, visibleToDepth - visibleFromDepth);
+        const imageOffsetPercent = ((visibleFromDepth - fromDepth) / intervalSpan) * 100;
+        const imageScalePercent = (intervalSpan / visibleSpan) * 100;
         const imageClassName = canShowFullStrip ? "core-strip-img core-strip-img-full" : "core-strip-img core-strip-img-crop";
         return (
           <button
             type="button"
             className="core-strip"
             key={image.box_number}
-            style={scale.intervalToStyle(fromDepth, toDepth)}
+            style={scale.intervalToStyle(visibleFromDepth, visibleToDepth)}
             aria-label={`Open corebox ${image.box_number}, ${fromDepth.toFixed(1)} to ${toDepth.toFixed(1)} meters`}
             title={`Open corebox ${image.box_number}`}
           >
@@ -63,6 +90,10 @@ export function ImageTrack({ data, track, scale, widthStyle, onTrackEvent }: Pro
                 className={imageClassName}
                 src={image.strip_url}
                 alt={`Depth-arranged core strip ${image.box_number}`}
+                style={{
+                  top: `${-imageOffsetPercent}%`,
+                  height: `${imageScalePercent}%`,
+                }}
               />
             ) : (
               <CoreLaneStack imageUrl={image.url} boxNumber={image.box_number} />

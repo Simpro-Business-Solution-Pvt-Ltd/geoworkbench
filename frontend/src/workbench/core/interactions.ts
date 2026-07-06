@@ -5,17 +5,19 @@ export function handleTrackPointerEvent(event: TrackPointerEvent, actions: Workb
   if (event.type === "hover") {
     if (event.object.kind === "curve-sample") {
       actions.setHoveredObject(event.object);
+    } else {
+      actions.setHoveredObject(null);
     }
     return;
   }
 
   if (event.type === "click") {
+    actions.setSelectedDepth(event.depth);
+
     if (event.object.kind === "depth") {
-      actions.setSelectedDepth(event.object.depth);
       return;
     }
     if (event.object.kind === "lithology-interval") {
-      actions.setSelectedDepth(event.object.depth);
       actions.setSelectedInterval(event.object.interval);
       return;
     }
@@ -39,6 +41,7 @@ export function handleTrackPointerEvent(event: TrackPointerEvent, actions: Workb
   }
 
   if (event.type === "contextmenu") {
+    actions.setSelectedDepth(event.depth);
     actions.setContextMenu({
       trackId: event.trackId,
       trackType: event.trackType,

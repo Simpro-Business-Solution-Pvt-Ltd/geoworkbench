@@ -110,17 +110,66 @@ const WIKI_PAGES = [
   { key: "../../docs/wiki/deployment/local-postgres.md", title: "Local PostgreSQL", group: "Deployment", audience: "developer" },
 ].filter((page) => Boolean(WIKI_MARKDOWN[page.key]));
 
+type AppView = "landing" | "workbench" | "correlation" | "import" | "export" | "settings" | "displayEditor" | "wiki";
+type DisplayChoice = "saved" | "default";
+
+type PersistedUserSettings = {
+  selectedBoreholeId: number | null;
+  displayChoice: DisplayChoice;
+};
+
+const USER_SETTINGS_KEY = "geoworkbench.userSettings.v1";
+const USER_SETTINGS_DEFAULT: PersistedUserSettings = {
+  selectedBoreholeId: null,
+  displayChoice: "saved",
+};
+
+const getUserSettingsCache = () => {
+  const raw = window.localStorage.getItem(USER_SETTINGS_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, PersistedUserSettings>;
+    if (typeof parsed !== "object" || parsed === null) return {};
+    return parsed;
+  } catch {
+    return {};
+  }
+};
+
+const persistUserSettings = (userId: number, settings: Partial<PersistedUserSettings>) => {
+  const cache = getUserSettingsCache();
+  const nextSettings = {
+    ...cache,
+    [String(userId)]: {
+      ...USER_SETTINGS_DEFAULT,
+      ...(cache[String(userId)] ?? {}),
+      ...settings,
+    },
+  } satisfies Record<string, PersistedUserSettings>;
+  window.localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(nextSettings));
+};
+
+const readUserSettings = (userId: number): PersistedUserSettings => {
+  const cache = getUserSettingsCache();
+  const stored = cache[String(userId)];
+  if (!stored) return USER_SETTINGS_DEFAULT;
+  return {
+    selectedBoreholeId: stored.selectedBoreholeId ?? USER_SETTINGS_DEFAULT.selectedBoreholeId,
+    displayChoice: stored.displayChoice === "default" ? "default" : "saved",
+  };
+};
+
 export function App() {
   const queryClient = useQueryClient();
   const [boreholeId, setBoreholeId] = useState<number | null>(null);
   const [view, setView] = useState<
-    "landing" | "workbench" | "correlation" | "import" | "export" | "settings" | "displayEditor" | "wiki"
+    AppView
   >("landing");
   const [wikiPageKey, setWikiPageKey] = useState(WIKI_PAGES[0]?.key ?? "");
   const [settingsTab, setSettingsTab] = useState<"users" | "roles" | "access">("users");
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(true);
   const [selectedAccessRole, setSelectedAccessRole] = useState("system_admin");
-  const [displayChoice, setDisplayChoice] = useState("saved");
+  const [displayChoice, setDisplayChoice] = useState<DisplayChoice>("saved");
   const [displayEditorOpen, setDisplayEditorOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => window.localStorage.getItem("geoworkbench.sidebar") === "collapsed",
@@ -138,6 +187,20 @@ export function App() {
   const { selectedInterval, setSelectedInterval, selectedImage, setSelectedImage } =
     useWorkbenchStore();
   const { selectedRemarkGroup, setSelectedRemarkGroup } = useWorkbenchStore();
+
+  const setPersistedBorehole = (nextBoreholeId: number | null) => {
+    setBoreholeId(nextBoreholeId);
+    if (session) {
+      persistUserSettings(session.user.id, { selectedBoreholeId: nextBoreholeId });
+    }
+  };
+
+  const setPersistedDisplayChoice = (nextDisplayChoice: DisplayChoice) => {
+    setDisplayChoice(nextDisplayChoice);
+    if (session) {
+      persistUserSettings(session.user.id, { displayChoice: nextDisplayChoice });
+    }
+  };
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -245,6 +308,19 @@ export function App() {
       setWikiPageKey(visibleWikiPages[0].key);
     }
   }, [visibleWikiPages, wikiPageKey]);
+
+  useEffect(() => {
+    if (!session || !boreholes.data?.length) return;
+    const userSettings = readUserSettings(session.user.id);
+    if (userSettings.displayChoice !== displayChoice) {
+      setDisplayChoice(userSettings.displayChoice);
+    }
+    if (userSettings.selectedBoreholeId === null) return;
+    const exists = boreholes.data.some((item) => item.id === userSettings.selectedBoreholeId);
+    if (exists && userSettings.selectedBoreholeId !== boreholeId) {
+      setBoreholeId(userSettings.selectedBoreholeId);
+    }
+  }, [boreholes.data?.length, boreholeId, displayChoice, session?.user.id, boreholes.data, session]);
 
   const saveInterval = useMutation({
     mutationFn: (patch: Partial<LithologyInterval>) =>
@@ -363,7 +439,7 @@ export function App() {
   const importBoreholeFile = useMutation({
     mutationFn: (sourceFileId: number) => importSourceFileAsBorehole(sourceFileId),
     onSuccess: (result) => {
-      setBoreholeId(result.borehole_id);
+      setPersistedBorehole(result.borehole_id);
       queryClient.invalidateQueries({ queryKey: ["boreholes"] });
       queryClient.invalidateQueries({ queryKey: ["workbench"] });
     },
@@ -481,7 +557,7 @@ export function App() {
 
   const openWorkbench = (id = activeId) => {
     if (id) {
-      setBoreholeId(id);
+      setPersistedBorehole(id);
       setView("workbench");
     }
   };
@@ -715,11 +791,11 @@ export function App() {
           activeId={selectedBorehole?.id ?? null}
           selectedBorehole={selectedBorehole ?? null}
           displayChoice={displayChoice}
-          onSelect={(id) => setBoreholeId(id)}
-          onDisplayChoice={setDisplayChoice}
+          onSelect={(id) => setPersistedBorehole(id)}
+          onDisplayChoice={(choice) => setPersistedDisplayChoice(choice)}
           onOpen={(id) => openWorkbench(id)}
           onManageDisplay={(id) => {
-            setBoreholeId(id);
+            setPersistedBorehole(id);
             setDisplayEditorOpen(true);
             setView("displayEditor");
           }}
@@ -731,7 +807,7 @@ export function App() {
           boreholes={boreholes.data ?? []}
           initialIds={correlationIds}
           onOpenWorkbench={(id) => {
-            setBoreholeId(id);
+            setPersistedBorehole(id);
             setView("workbench");
           }}
         />
@@ -959,9 +1035,9 @@ type LandingPageProps = {
   loading: boolean;
   activeId: number | null;
   selectedBorehole: BoreholeListItem | null;
-  displayChoice: string;
+  displayChoice: DisplayChoice;
   onSelect: (id: number) => void;
-  onDisplayChoice: (choice: string) => void;
+  onDisplayChoice: (choice: DisplayChoice) => void;
   onOpen: (id: number) => void;
   onManageDisplay: (id: number) => void;
 };
@@ -1797,7 +1873,10 @@ function LandingPage({
           </label>
           <label>
             Display
-            <select value={displayChoice} onChange={(event) => onDisplayChoice(event.target.value)}>
+              <select
+                value={displayChoice}
+                onChange={(event) => onDisplayChoice(event.target.value as DisplayChoice)}
+              >
               <option value="saved">Saved borehole display</option>
               <option value="default">Default correction display</option>
             </select>

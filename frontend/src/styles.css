@@ -3708,8 +3708,10 @@ h2 {
 
 .log-widget {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   height: 100%;
+  min-height: 0;
+  position: relative;
 }
 
 .log-header {
@@ -3738,6 +3740,7 @@ h2 {
 }
 
 .track-scroll {
+  min-height: 0;
   overflow: auto;
   background: #f6f1e7;
 }
@@ -4328,6 +4331,30 @@ h2 {
   pointer-events: none;
 }
 
+.depth-ruler {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  border-top: 1px dashed #0f766e;
+  color: #0f4f49;
+  pointer-events: none;
+}
+
+.depth-ruler span {
+  position: sticky;
+  left: 12px;
+  display: inline-block;
+  transform: translateY(-50%);
+  border: 1px solid #9fd8cf;
+  border-radius: 4px;
+  background: #ecfffb;
+  padding: 2px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  box-shadow: 0 2px 5px rgb(15 118 110 / 15%);
+}
+
 .track-context-menu {
   position: fixed;
   z-index: 40;
@@ -4344,6 +4371,14 @@ h2 {
 
 .track-context-menu span {
   color: var(--gw-muted);
+  font-size: 12px;
+}
+
+.log-track-empty {
+  display: grid;
+  place-items: center;
+  min-width: 100%;
+  color: #756957;
   font-size: 12px;
 }
 
@@ -4387,6 +4422,39 @@ h2 {
 
 .zoom-reset span {
   font-size: 12px;
+}
+
+.log-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  border-top: 1px solid #d9d0c2;
+  background: #efe4d2;
+  color: #34404a;
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.log-footer span {
+  white-space: nowrap;
+}
+
+.log-footer button {
+  height: 24px;
+  border: 1px solid #c8b7a2;
+  border-radius: 5px;
+  background: #fbf7ee;
+  color: #172026;
+  padding: 0 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.log-footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .edit-form {

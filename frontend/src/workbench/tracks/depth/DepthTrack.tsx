@@ -1,19 +1,17 @@
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
-import type { DepthScale } from "../../core/depthScale";
+import type { LogTrackContext } from "../../core/logTrackContext";
 import { TrackFrame } from "../../core/TrackFrame";
-import type { TrackPointerEvent } from "../../core/trackObject";
 import { generateDepthTicks } from "../../core/ticks";
 
 type Props = {
   data: BoreholeWorkbench;
   track: DisplayTrack;
-  scale: DepthScale;
-  widthStyle?: number | string;
-  onTrackEvent: (event: TrackPointerEvent) => void;
+  context: LogTrackContext;
 };
 
-export function DepthTrack({ data, track, scale, widthStyle, onTrackEvent }: Props) {
-  const pixelsPerMeter = (scale.contentHeight - scale.topOffset) / scale.visibleSpan;
+export function DepthTrack({ data, track, context }: Props) {
+  const { scale } = context;
+  const pixelsPerMeter = scale.drawableHeight / scale.domainSpan;
   const ticks = generateDepthTicks({
     fromDepth: scale.fromDepth,
     toDepth: scale.toDepth,
@@ -25,10 +23,8 @@ export function DepthTrack({ data, track, scale, widthStyle, onTrackEvent }: Pro
     <TrackFrame
       data={data}
       track={track}
-      scale={scale}
-      widthStyle={widthStyle}
+      context={context}
       className="depth-track"
-      onTrackEvent={onTrackEvent}
       hitTest={({ depth }) => ({ kind: "depth", id: `depth:${depth.toFixed(2)}`, depth })}
     >
       {ticks.map((tick) => {

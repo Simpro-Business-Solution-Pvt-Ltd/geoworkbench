@@ -1,14 +1,11 @@
 import type { BoreholeWorkbench, DisplayTrack, LithologyInterval } from "../../../api/types";
-import type { DepthScale } from "../../core/depthScale";
+import type { LogTrackContext } from "../../core/logTrackContext";
 import { TrackFrame } from "../../core/TrackFrame";
-import type { TrackPointerEvent } from "../../core/trackObject";
 
 type Props = {
   data: BoreholeWorkbench;
   track: DisplayTrack;
-  scale: DepthScale;
-  widthStyle?: number | string;
-  onTrackEvent: (event: TrackPointerEvent) => void;
+  context: LogTrackContext;
 };
 
 function valueForInterval(track: DisplayTrack, interval: LithologyInterval): number | null {
@@ -18,7 +15,8 @@ function valueForInterval(track: DisplayTrack, interval: LithologyInterval): num
   return raw * (track.valueMultiplier ?? 1);
 }
 
-export function QuantitativeBarTrack({ data, track, scale, widthStyle, onTrackEvent }: Props) {
+export function QuantitativeBarTrack({ data, track, context }: Props) {
+  const { scale } = context;
   const min = track.min ?? 0;
   const max = track.max ?? 100;
   const span = Math.max(0.001, max - min);
@@ -27,10 +25,8 @@ export function QuantitativeBarTrack({ data, track, scale, widthStyle, onTrackEv
     <TrackFrame
       data={data}
       track={track}
-      scale={scale}
-      widthStyle={widthStyle}
+      context={context}
       className="quant-track"
-      onTrackEvent={onTrackEvent}
       hitTest={({ depth }) => {
         const interval = data.lithology_intervals.find(
           (item) => item.from_depth <= depth && item.to_depth >= depth,
@@ -58,4 +54,3 @@ export function QuantitativeBarTrack({ data, track, scale, widthStyle, onTrackEv
     </TrackFrame>
   );
 }
-
