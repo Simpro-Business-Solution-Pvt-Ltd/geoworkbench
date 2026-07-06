@@ -312,6 +312,22 @@ System admins can manage:
 
 The current build includes database-backed users and bearer sessions. Full production RBAC enforcement can be deepened per route and feature after UAT.
 
+## Future Agentic AI Opportunities
+
+The current AI workflow is intentionally controlled: it summarizes, flags issues, and proposes actions for a geologist to approve. A future agentic AI layer can build on the same validation, import, image, and audit foundation to make the system more proactive while keeping human approval in the loop.
+
+Possible future use cases:
+
+- **Import review agent**: watch newly uploaded Excel, LAS, PDF, and image files; detect the best template; identify missing mappings; and prepare a merge checklist for the data administrator.
+- **Borehole quality agent**: run validation, group related findings, prioritize critical depth intervals, and create a review queue for the central geologist.
+- **Core image agent**: process uploaded corebox photographs, infer lane order and depth labels, flag low-confidence crops, and ask the geologist to approve the depth mapping before the image track is updated.
+- **Curve/lithology interpretation agent**: compare gamma, resistivity, density, caliper, lithology, seam intervals, core images, and remarks; then suggest intervals that need closer review.
+- **Correlation agent**: compare nearby boreholes, highlight seam continuity questions, detect depth/RL inconsistencies, and prepare a correlation discussion package.
+- **Export readiness agent**: check open issues, unresolved AI suggestions, missing source evidence, and required customer fields before an export package is generated.
+- **Audit explanation agent**: explain what changed between source import, correction, approval, and export so managers can review decisions without reading raw tables.
+
+These agents should not silently overwrite geological interpretation. The recommended design is a supervised workflow where the AI prepares evidence, options, and confidence notes, and a qualified user approves any data change.
+
 ## Practical Limitations
 
 This UAT build is usable for guided evaluation, but these limits should be understood:
@@ -352,4 +368,3 @@ Recommended next work items:
 - Add OpenTelemetry/dashboard monitoring.
 - Complete mobile offline sync, token refresh, and push notification hardening.
 - Continue performance optimization for very deep boreholes, many curves, and high-resolution image tracks.
-
