@@ -16,6 +16,7 @@ from app.domains.boreholes.schemas import (
     LithologyIntervalPatch,
 )
 from app.domains.display_layouts.defaults import default_borehole_layout
+from app.domains.quality.service import get_quality_settings_payload
 from app.services.validation.borehole_validation import replace_validation_issues, validate_borehole
 
 
@@ -279,12 +280,14 @@ def approve_borehole_for_export(db: Session, borehole_id: int) -> BoreholeStatus
             selectinload(Borehole.lithology_intervals),
             selectinload(Borehole.validation_issues),
             selectinload(Borehole.ai_suggestions),
+            selectinload(Borehole.curves).selectinload(Curve.samples),
+            selectinload(Borehole.core_images),
         )
     )
     if borehole is None:
         raise ValueError("Borehole not found")
 
-    replace_validation_issues(borehole, validate_borehole(borehole))
+    replace_validation_issues(borehole, validate_borehole(borehole, get_quality_settings_payload(db)))
     blocking_errors = [issue for issue in borehole.validation_issues if issue.severity == "error"]
     if blocking_errors:
         db.add(borehole)

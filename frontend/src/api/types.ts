@@ -233,6 +233,41 @@ export type BoreholeAiSummary = {
   metrics: Record<string, unknown>;
 };
 
+export type ValidationRuleConfig = {
+  code: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+  severity: "error" | "warning" | "info" | string;
+};
+
+export type QualitySettingsPayload = {
+  validation: {
+    rules: ValidationRuleConfig[];
+  };
+  ai_suggestions: {
+    enabled: boolean;
+    refresh_validation_before_suggestions: boolean;
+    group_curve_coverage: boolean;
+    include_info_codes: string[];
+  };
+  ai_summary: {
+    use_local_llm_when_available: boolean;
+    max_rule_findings: number;
+    max_tokens: number;
+    temperature: number;
+    geologist_approval_note: string;
+    system_prompt: string;
+    user_prompt_template: string;
+  };
+};
+
+export type QualitySettings = {
+  key: string;
+  settings: QualitySettingsPayload;
+  updated_at: string | null;
+};
+
 export type SourceImport = {
   id: number;
   import_type: string;

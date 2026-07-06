@@ -10,6 +10,8 @@ import type {
   ImportProfile,
   LithologyInterval,
   Permission,
+  QualitySettings,
+  QualitySettingsPayload,
   Role,
   RoleAccess,
   SourceFile,
@@ -218,6 +220,21 @@ export function getBoreholeAiSummary(boreholeId: number): Promise<BoreholeAiSumm
 
 export function getAiProviderStatus(): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>("/ai/provider-status");
+}
+
+export function getQualitySettings(): Promise<QualitySettings> {
+  return request<QualitySettings>("/quality-settings/default");
+}
+
+export function updateQualitySettings(settings: QualitySettingsPayload): Promise<QualitySettings> {
+  return request<QualitySettings>("/quality-settings/default", {
+    method: "PUT",
+    body: JSON.stringify({ settings }),
+  });
+}
+
+export function resetQualitySettings(): Promise<QualitySettings> {
+  return request<QualitySettings>("/quality-settings/default/reset", { method: "POST" });
 }
 
 export function createSourceFile(payload: {

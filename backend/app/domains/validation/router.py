@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.models import Borehole, Curve
 from app.db.session import get_db
 from app.domains.boreholes.schemas import ValidationIssueOut
+from app.domains.quality.service import get_quality_settings_payload
 from app.services.validation.borehole_validation import replace_validation_issues, validate_borehole
 
 router = APIRouter()
@@ -21,12 +22,13 @@ def run_borehole_validation(
             selectinload(Borehole.lithology_intervals),
             selectinload(Borehole.validation_issues),
             selectinload(Borehole.curves).selectinload(Curve.samples),
+            selectinload(Borehole.core_images),
         )
     )
     if borehole is None:
         raise HTTPException(status_code=404, detail="Borehole not found")
 
-    replace_validation_issues(borehole, validate_borehole(borehole))
+    replace_validation_issues(borehole, validate_borehole(borehole, get_quality_settings_payload(db)))
     db.commit()
     db.refresh(borehole)
     return sorted(
@@ -36,4 +38,3 @@ def run_borehole_validation(
             item.from_depth if item.from_depth is not None else -1,
         ),
     )
-

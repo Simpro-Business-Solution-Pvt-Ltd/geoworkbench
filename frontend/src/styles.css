@@ -1925,6 +1925,165 @@ small {
   color: var(--gw-accent);
 }
 
+.quality-settings-page {
+  overflow: auto;
+}
+
+.quality-settings-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.quality-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quality-settings-actions button {
+  min-height: 34px;
+  border-color: var(--gw-border);
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
+}
+
+.quality-settings-actions button:first-child {
+  border-color: var(--gw-accent);
+  background: var(--gw-accent);
+  color: #fff;
+  font-weight: 800;
+}
+
+.quality-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.quality-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--gw-border);
+  border-radius: 8px;
+  background: var(--gw-surface-alt);
+  padding: 12px;
+}
+
+.quality-card-wide {
+  grid-row: span 2;
+}
+
+.quality-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.quality-card-header strong {
+  color: var(--gw-text);
+  font-size: 15px;
+}
+
+.quality-card-header span,
+.quality-rule-row span,
+.quality-info-code-list > strong {
+  color: var(--gw-muted);
+  font-size: 12px;
+}
+
+.quality-rule-list {
+  display: grid;
+  gap: 8px;
+  max-height: calc(100vh - 250px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.quality-rule-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 120px;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--gw-border);
+  border-radius: 7px;
+  background: var(--gw-surface);
+  padding: 10px;
+}
+
+.quality-rule-row strong,
+.quality-rule-row span,
+.quality-rule-row code {
+  display: block;
+}
+
+.quality-rule-row strong {
+  color: var(--gw-text);
+}
+
+.quality-rule-row code {
+  margin-top: 4px;
+  color: var(--gw-accent);
+  font-size: 11px;
+}
+
+.quality-card label:not(.iam-check),
+.quality-number-grid label {
+  display: grid;
+  gap: 5px;
+  color: var(--gw-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quality-card input,
+.quality-card select,
+.quality-card textarea {
+  width: 100%;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  color: var(--gw-text);
+  padding: 8px 9px;
+}
+
+.quality-card .iam-check {
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  justify-content: start;
+  gap: 8px !important;
+  color: var(--gw-text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.quality-card .iam-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  padding: 0;
+}
+
+.quality-card textarea {
+  resize: vertical;
+}
+
+.quality-number-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quality-info-code-list {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--gw-border);
+  padding-top: 10px;
+}
+
 .permission-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

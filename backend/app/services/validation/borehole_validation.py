@@ -1,6 +1,7 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from app.db.models import Borehole, Curve, LithologyInterval, ValidationIssue
+from app.services.quality_config import validation_rule_lookup
 
 
 @dataclass
@@ -18,7 +19,7 @@ class ValidationFinding:
 COAL_CODES = {"COAL", "SHCOAL", "CARBSHL", "CARBSHH", "CARBCLAY"}
 
 
-def validate_borehole(borehole: Borehole) -> list[ValidationFinding]:
+def validate_borehole(borehole: Borehole, settings: dict | None = None) -> list[ValidationFinding]:
     findings: list[ValidationFinding] = []
     intervals = sorted(borehole.lithology_intervals, key=lambda item: (item.from_depth, item.to_depth))
 
@@ -32,7 +33,20 @@ def validate_borehole(borehole: Borehole) -> list[ValidationFinding]:
     findings.extend(validate_curve_lithology_alignment(borehole, intervals, borehole.curves))
     findings.extend(validate_caliper_washout(borehole, borehole.curves))
     findings.extend(validate_core_image_depth_mapping(borehole))
-    return findings
+    return apply_validation_settings(findings, settings)
+
+
+def apply_validation_settings(
+    findings: list[ValidationFinding], settings: dict | None = None
+) -> list[ValidationFinding]:
+    rules = validation_rule_lookup(settings)
+    configured: list[ValidationFinding] = []
+    for finding in findings:
+        rule = rules.get(finding.code)
+        if rule is not None and not rule.get("enabled", True):
+            continue
+        configured.append(replace(finding, severity=str((rule or {}).get("severity") or finding.severity)))
+    return configured
 
 
 def validate_interval_ranges(

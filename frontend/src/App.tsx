@@ -31,6 +31,7 @@ import {
   getAiProviderStatus,
   getCurrentSession,
   getDiagnosticsHealth,
+  getQualitySettings,
   getRoleAccess,
   importSourceFileAsBorehole,
   listPermissions,
@@ -42,6 +43,7 @@ import {
   listImportProfiles,
   listUsers,
   processSourceFile,
+  resetQualitySettings,
   resetUserPassword,
   runValidation,
   login,
@@ -55,11 +57,22 @@ import {
   updateImportProfile,
   updateAiSuggestionStatus,
   updateInterval,
+  updateQualitySettings,
   updateRole,
   updateRoleAccess,
   updateUser,
 } from "./api/client";
-import type { AuthSession, BoreholeListItem, DisplayLayout, LithologyInterval, Permission, Role, User } from "./api/types";
+import type {
+  AuthSession,
+  BoreholeListItem,
+  DisplayLayout,
+  LithologyInterval,
+  Permission,
+  QualitySettings,
+  QualitySettingsPayload,
+  Role,
+  User,
+} from "./api/types";
 import { CorrelationWorkspace } from "./workbench/correlation/CorrelationWorkspace";
 import { DisplayEditorDialog } from "./workbench/display/DisplayEditorDialog";
 import { DisplayRuntime } from "./workbench/display/DisplayRuntime";
@@ -111,6 +124,7 @@ const WIKI_PAGES = [
 ].filter((page) => Boolean(WIKI_MARKDOWN[page.key]));
 
 type AppView = "landing" | "workbench" | "correlation" | "import" | "export" | "settings" | "displayEditor" | "wiki";
+type SettingsTab = "users" | "roles" | "access" | "quality";
 type DisplayChoice = "saved" | "default";
 
 type PersistedUserSettings = {
@@ -166,7 +180,7 @@ export function App() {
     AppView
   >("landing");
   const [wikiPageKey, setWikiPageKey] = useState(WIKI_PAGES[0]?.key ?? "");
-  const [settingsTab, setSettingsTab] = useState<"users" | "roles" | "access">("users");
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("users");
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(true);
   const [selectedAccessRole, setSelectedAccessRole] = useState("system_admin");
   const [displayChoice, setDisplayChoice] = useState<DisplayChoice>("saved");
@@ -289,6 +303,11 @@ export function App() {
   const users = useQuery({
     queryKey: ["users"],
     queryFn: listUsers,
+    enabled: isAuthed && session?.user.role === "system_admin",
+  });
+  const qualitySettings = useQuery({
+    queryKey: ["qualitySettings"],
+    queryFn: getQualitySettings,
     enabled: isAuthed && session?.user.role === "system_admin",
   });
 
@@ -522,6 +541,22 @@ export function App() {
     onSuccess: (_, variables) =>
       queryClient.invalidateQueries({ queryKey: ["roleAccess", variables.roleKey] }),
   });
+  const updateQualitySettingsMutation = useMutation({
+    mutationFn: updateQualitySettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qualitySettings"] });
+      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
+      queryClient.invalidateQueries({ queryKey: ["aiSummary", activeId] });
+    },
+  });
+  const resetQualitySettingsMutation = useMutation({
+    mutationFn: resetQualitySettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qualitySettings"] });
+      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
+      queryClient.invalidateQueries({ queryKey: ["aiSummary", activeId] });
+    },
+  });
   const changePasswordMutation = useMutation({
     mutationFn: (payload: { currentPassword: string; newPassword: string }) =>
       changePassword(payload.currentPassword, payload.newPassword),
@@ -667,6 +702,16 @@ export function App() {
                   }}
                 >
                   Access Matrix
+                </button>
+                <button
+                  type="button"
+                  className={view === "settings" && settingsTab === "quality" ? "active" : ""}
+                  onClick={() => {
+                    setSettingsTab("quality");
+                    navigateTo("settings");
+                  }}
+                >
+                  Quality Rules
                 </button>
               </div>
             )}
@@ -922,10 +967,11 @@ export function App() {
           users={users.data ?? []}
           roles={roles.data ?? []}
           permissions={permissions.data ?? []}
+          qualitySettings={qualitySettings.data}
           selectedAccessRole={selectedAccessRole}
           selectedAccessPermissions={roleAccess.data?.permissions ?? []}
           currentUserId={session.user.id}
-          loading={users.isLoading || roles.isLoading || permissions.isLoading}
+          loading={users.isLoading || roles.isLoading || permissions.isLoading || qualitySettings.isLoading}
           busy={
             createUserMutation.isPending ||
             updateUserMutation.isPending ||
@@ -933,7 +979,9 @@ export function App() {
             resetPasswordMutation.isPending ||
             createRoleMutation.isPending ||
             updateRoleMutation.isPending ||
-            updateRoleAccessMutation.isPending
+            updateRoleAccessMutation.isPending ||
+            updateQualitySettingsMutation.isPending ||
+            resetQualitySettingsMutation.isPending
           }
           error={
             users.error instanceof Error
@@ -944,6 +992,8 @@ export function App() {
                   ? permissions.error.message
                   : roleAccess.error instanceof Error
                     ? roleAccess.error.message
+                    : qualitySettings.error instanceof Error
+                      ? qualitySettings.error.message
                     : null
           }
           onAccessRoleChange={setSelectedAccessRole}
@@ -958,6 +1008,8 @@ export function App() {
           onUpdateRoleAccess={(roleKey, nextPermissions) =>
             updateRoleAccessMutation.mutate({ roleKey, permissions: nextPermissions })
           }
+          onSaveQualitySettings={(settings) => updateQualitySettingsMutation.mutate(settings)}
+          onResetQualitySettings={() => resetQualitySettingsMutation.mutate()}
         />
       )}
 
@@ -1425,6 +1477,7 @@ function SettingsPage({
   users,
   roles,
   permissions,
+  qualitySettings,
   selectedAccessRole,
   selectedAccessPermissions,
   currentUserId,
@@ -1439,11 +1492,14 @@ function SettingsPage({
   onCreateRole,
   onUpdateRole,
   onUpdateRoleAccess,
+  onSaveQualitySettings,
+  onResetQualitySettings,
 }: {
-  activeTab: "users" | "roles" | "access";
+  activeTab: SettingsTab;
   users: User[];
   roles: Role[];
   permissions: Permission[];
+  qualitySettings: QualitySettings | undefined;
   selectedAccessRole: string;
   selectedAccessPermissions: string[];
   currentUserId: number;
@@ -1471,6 +1527,8 @@ function SettingsPage({
   }) => void;
   onUpdateRole: (roleKey: string, patch: Partial<Role>) => void;
   onUpdateRoleAccess: (roleKey: string, permissions: string[]) => void;
+  onSaveQualitySettings: (settings: QualitySettingsPayload) => void;
+  onResetQualitySettings: () => void;
 }) {
   const [editing, setEditing] = useState<User | null>(null);
   const [resetting, setResetting] = useState<User | null>(null);
@@ -1654,6 +1712,15 @@ function SettingsPage({
           </div>
         </div>
       )}
+      {activeTab === "quality" && (
+        <QualitySettingsPanel
+          qualitySettings={qualitySettings}
+          loading={loading}
+          busy={busy}
+          onSave={onSaveQualitySettings}
+          onReset={onResetQualitySettings}
+        />
+      )}
       {editing && (
         <UserEditDialog
           user={editing}
@@ -1678,6 +1745,264 @@ function SettingsPage({
         />
       )}
     </section>
+  );
+}
+
+function cloneQualitySettings(settings: QualitySettingsPayload): QualitySettingsPayload {
+  return JSON.parse(JSON.stringify(settings)) as QualitySettingsPayload;
+}
+
+function QualitySettingsPanel({
+  qualitySettings,
+  loading,
+  busy,
+  onSave,
+  onReset,
+}: {
+  qualitySettings: QualitySettings | undefined;
+  loading: boolean;
+  busy: boolean;
+  onSave: (settings: QualitySettingsPayload) => void;
+  onReset: () => void;
+}) {
+  const [draft, setDraft] = useState<QualitySettingsPayload | null>(
+    () => (qualitySettings ? cloneQualitySettings(qualitySettings.settings) : null),
+  );
+
+  useEffect(() => {
+    if (qualitySettings) setDraft(cloneQualitySettings(qualitySettings.settings));
+  }, [qualitySettings]);
+
+  if (loading && !draft) {
+    return (
+      <div className="iam-page iam-page-single">
+        <div className="iam-panel"><div className="empty">Loading quality rules...</div></div>
+      </div>
+    );
+  }
+
+  if (!draft) {
+    return (
+      <div className="iam-page iam-page-single">
+        <div className="iam-panel"><div className="empty">Quality rules are not available.</div></div>
+      </div>
+    );
+  }
+
+  const updateRule = (code: string, patch: Partial<QualitySettingsPayload["validation"]["rules"][number]>) => {
+    setDraft({
+      ...draft,
+      validation: {
+        ...draft.validation,
+        rules: draft.validation.rules.map((rule) => (rule.code === code ? { ...rule, ...patch } : rule)),
+      },
+    });
+  };
+
+  const updateSuggestions = (patch: Partial<QualitySettingsPayload["ai_suggestions"]>) => {
+    setDraft({ ...draft, ai_suggestions: { ...draft.ai_suggestions, ...patch } });
+  };
+
+  const updateSummary = (patch: Partial<QualitySettingsPayload["ai_summary"]>) => {
+    setDraft({ ...draft, ai_summary: { ...draft.ai_summary, ...patch } });
+  };
+
+  const toggleInfoCode = (code: string) => {
+    const current = draft.ai_suggestions.include_info_codes;
+    updateSuggestions({
+      include_info_codes: current.includes(code) ? current.filter((item) => item !== code) : [...current, code],
+    });
+  };
+
+  const infoRules = draft.validation.rules.filter((rule) => rule.severity === "info");
+
+  return (
+    <div className="iam-page iam-page-single quality-settings-page">
+      <div className="iam-panel quality-settings-panel">
+        <div className="iam-panel-header">
+          <div>
+            <h1>Validation And AI Rules</h1>
+            <span>
+              Default profile used by validation runs, AI review generation, and AI summary prompts.
+            </span>
+          </div>
+          <strong>{qualitySettings?.updated_at ? formatDateTime(qualitySettings.updated_at) : "Default"}</strong>
+        </div>
+        <div className="quality-settings-actions">
+          <button type="button" disabled={busy} onClick={() => onSave(draft)}>
+            Save Rules
+          </button>
+          <button type="button" disabled={busy} onClick={onReset}>
+            Reset Defaults
+          </button>
+        </div>
+        <div className="quality-settings-grid">
+          <section className="quality-card quality-card-wide">
+            <div className="quality-card-header">
+              <strong>Validation Rules</strong>
+              <span>{draft.validation.rules.filter((rule) => rule.enabled).length} enabled</span>
+            </div>
+            <div className="quality-rule-list">
+              {draft.validation.rules.map((rule) => (
+                <article key={rule.code} className="quality-rule-row">
+                  <label className="iam-check">
+                    <input
+                      type="checkbox"
+                      checked={rule.enabled}
+                      disabled={busy}
+                      onChange={(event) => updateRule(rule.code, { enabled: event.currentTarget.checked })}
+                    />
+                    Enabled
+                  </label>
+                  <div>
+                    <strong>{rule.label}</strong>
+                    <span>{rule.description}</span>
+                    <code>{rule.code}</code>
+                  </div>
+                  <select
+                    value={rule.severity}
+                    disabled={busy || !rule.enabled}
+                    onChange={(event) => updateRule(rule.code, { severity: event.target.value })}
+                  >
+                    <option value="error">Error</option>
+                    <option value="warning">Warning</option>
+                    <option value="info">Info</option>
+                  </select>
+                </article>
+              ))}
+            </div>
+          </section>
+          <section className="quality-card">
+            <div className="quality-card-header">
+              <strong>AI Suggestions</strong>
+              <span>Rule based</span>
+            </div>
+            <label className="iam-check">
+              <input
+                type="checkbox"
+                checked={draft.ai_suggestions.enabled}
+                disabled={busy}
+                onChange={(event) => updateSuggestions({ enabled: event.currentTarget.checked })}
+              />
+              Generate rule-based suggestions
+            </label>
+            <label className="iam-check">
+              <input
+                type="checkbox"
+                checked={draft.ai_suggestions.refresh_validation_before_suggestions}
+                disabled={busy}
+                onChange={(event) =>
+                  updateSuggestions({ refresh_validation_before_suggestions: event.currentTarget.checked })
+                }
+              />
+              Run validation before suggestions
+            </label>
+            <label className="iam-check">
+              <input
+                type="checkbox"
+                checked={draft.ai_suggestions.group_curve_coverage}
+                disabled={busy}
+                onChange={(event) => updateSuggestions({ group_curve_coverage: event.currentTarget.checked })}
+              />
+              Group curve coverage findings
+            </label>
+            <div className="quality-info-code-list">
+              <strong>Info findings allowed as AI suggestions</strong>
+              {infoRules.map((rule) => (
+                <label key={rule.code} className="iam-check">
+                  <input
+                    type="checkbox"
+                    checked={draft.ai_suggestions.include_info_codes.includes(rule.code)}
+                    disabled={busy || !rule.enabled}
+                    onChange={() => toggleInfoCode(rule.code)}
+                  />
+                  {rule.label}
+                </label>
+              ))}
+            </div>
+          </section>
+          <section className="quality-card">
+            <div className="quality-card-header">
+              <strong>AI Summary</strong>
+              <span>Prompt</span>
+            </div>
+            <label className="iam-check">
+              <input
+                type="checkbox"
+                checked={draft.ai_summary.use_local_llm_when_available}
+                disabled={busy}
+                onChange={(event) => updateSummary({ use_local_llm_when_available: event.currentTarget.checked })}
+              />
+              Use local LLM when available
+            </label>
+            <div className="quality-number-grid">
+              <label>
+                Max findings
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={draft.ai_summary.max_rule_findings}
+                  disabled={busy}
+                  onChange={(event) => updateSummary({ max_rule_findings: Number(event.target.value) })}
+                />
+              </label>
+              <label>
+                Max tokens
+                <input
+                  type="number"
+                  min={200}
+                  max={2000}
+                  step={50}
+                  value={draft.ai_summary.max_tokens}
+                  disabled={busy}
+                  onChange={(event) => updateSummary({ max_tokens: Number(event.target.value) })}
+                />
+              </label>
+              <label>
+                Temperature
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={draft.ai_summary.temperature}
+                  disabled={busy}
+                  onChange={(event) => updateSummary({ temperature: Number(event.target.value) })}
+                />
+              </label>
+            </div>
+            <label>
+              Approval note
+              <textarea
+                rows={3}
+                value={draft.ai_summary.geologist_approval_note}
+                disabled={busy}
+                onChange={(event) => updateSummary({ geologist_approval_note: event.target.value })}
+              />
+            </label>
+            <label>
+              System prompt
+              <textarea
+                rows={6}
+                value={draft.ai_summary.system_prompt}
+                disabled={busy}
+                onChange={(event) => updateSummary({ system_prompt: event.target.value })}
+              />
+            </label>
+            <label>
+              User prompt template
+              <textarea
+                rows={6}
+                value={draft.ai_summary.user_prompt_template}
+                disabled={busy}
+                onChange={(event) => updateSummary({ user_prompt_template: event.target.value })}
+              />
+            </label>
+          </section>
+        </div>
+      </div>
+    </div>
   );
 }
 

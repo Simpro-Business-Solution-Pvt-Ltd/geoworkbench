@@ -5,7 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import AiSuggestion, Borehole, CoreImage, CorrectionAudit, Curve, LithologyInterval, ValidationIssue
+from app.domains.quality.service import get_quality_settings_payload
 from app.services.ai_provider import AiProviderUnavailable, ai_provider_status, local_chat_completion
+from app.services.quality_config import ai_summary_settings, ai_suggestion_settings
 from app.services.validation.borehole_validation import replace_validation_issues, validate_borehole
 
 
@@ -41,7 +43,9 @@ def _previous_interval(borehole: Borehole, interval: LithologyInterval) -> Litho
     return None
 
 
-def _suggestion_for_issue(borehole: Borehole, issue: ValidationIssue) -> dict | None:
+def _suggestion_for_issue(
+    borehole: Borehole, issue: ValidationIssue, settings: dict | None = None
+) -> dict | None:
     patch = None
     entity_id = issue.entity_id
     entity_type = issue.entity_type
@@ -52,12 +56,9 @@ def _suggestion_for_issue(borehole: Borehole, issue: ValidationIssue) -> dict | 
     from_depth = issue.from_depth
     to_depth = issue.to_depth
 
-    if issue.severity == "info" and issue.code not in {
-        "coal_interval_without_seam",
-        "curve_depth_range_mismatch",
-        "caliper_washout_warning",
-        "core_image_depth_mapping_missing",
-    }:
+    suggestion_config = ai_suggestion_settings(settings)
+    include_info_codes = set(suggestion_config["include_info_codes"])
+    if issue.severity == "info" and issue.code not in include_info_codes:
         return None
 
     if issue.code == "missing_lithology_code":
@@ -206,14 +207,29 @@ def _suggestion_for_issue(borehole: Borehole, issue: ValidationIssue) -> dict | 
 
 def generate_suggestions(db: Session, borehole_id: int) -> list[AiSuggestion]:
     borehole = _load_borehole(db, borehole_id)
+    quality_settings = get_quality_settings_payload(db)
+    suggestion_config = ai_suggestion_settings(quality_settings)
     for suggestion in list(borehole.ai_suggestions):
         if suggestion.provider == "rule_based" and suggestion.status == "open":
             db.delete(suggestion)
     db.flush()
 
-    replace_validation_issues(borehole, validate_borehole(borehole))
-    db.flush()
-    db.refresh(borehole)
+    if not suggestion_config["enabled"]:
+        db.commit()
+        db.refresh(borehole)
+        return sorted(
+            borehole.ai_suggestions,
+            key=lambda item: (
+                {"open": 0, "accepted": 1, "rejected": 2}.get(item.status, 3),
+                item.from_depth if item.from_depth is not None else -1,
+                item.id,
+            ),
+        )
+
+    if suggestion_config["refresh_validation_before_suggestions"]:
+        replace_validation_issues(borehole, validate_borehole(borehole, quality_settings))
+        db.flush()
+        db.refresh(borehole)
 
     existing_issue_ids = {
         item.validation_issue_id for item in borehole.ai_suggestions if item.validation_issue_id is not None
@@ -221,7 +237,7 @@ def generate_suggestions(db: Session, borehole_id: int) -> list[AiSuggestion]:
     curve_coverage_issues = [
         issue for issue in borehole.validation_issues if issue.code == "curve_depth_range_mismatch"
     ]
-    if curve_coverage_issues:
+    if suggestion_config["group_curve_coverage"] and curve_coverage_issues:
         labels = [
             (issue.issue_metadata or {}).get("curve_label")
             or (issue.issue_metadata or {}).get("curve_key")
@@ -261,7 +277,7 @@ def generate_suggestions(db: Session, borehole_id: int) -> list[AiSuggestion]:
     for issue in borehole.validation_issues:
         if issue.id in existing_issue_ids:
             continue
-        payload = _suggestion_for_issue(borehole, issue)
+        payload = _suggestion_for_issue(borehole, issue, quality_settings)
         if payload is None:
             continue
         borehole.ai_suggestions.append(AiSuggestion(borehole_id=borehole.id, provider="rule_based", **payload))
@@ -326,6 +342,7 @@ def accept_suggestion(db: Session, suggestion_id: int) -> AiSuggestion:
 
 def summarize_borehole(db: Session, borehole_id: int) -> dict:
     borehole = _load_borehole(db, borehole_id)
+    summary_config = ai_summary_settings(get_quality_settings_payload(db))
     intervals = borehole.lithology_intervals
     coal = [item for item in intervals if "COAL" in (item.lithology_code or "")]
     warnings = [item for item in borehole.validation_issues if item.severity in {"error", "warning"}]
@@ -338,11 +355,11 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
         f"{borehole.code} covers {borehole.total_depth:.1f}m with {len(intervals)} lithology intervals. "
         f"Coal/carbonaceous intervals appear in {len(coal)} rows. "
         f"Current validation has {len(warnings)} error/warning items requiring review before export. "
-        "The assistant is using deterministic rules only; final interpretation remains with the geologist."
+        f"{summary_config['geologist_approval_note']}"
     )
     summary = deterministic_summary
     provider = ai_provider_status()
-    if provider.get("enabled") and provider.get("reachable"):
+    if summary_config["use_local_llm_when_available"] and provider.get("enabled") and provider.get("reachable"):
         prompt = {
             "borehole": {
                 "code": borehole.code,
@@ -363,32 +380,29 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
                     "from_depth": item.from_depth,
                     "to_depth": item.to_depth,
                 }
-                for item in warnings[:6]
+                for item in warnings[: summary_config["max_rule_findings"]]
             ],
         }
+        borehole_json = json.dumps(prompt, ensure_ascii=True)
+        user_prompt = str(summary_config["user_prompt_template"])
+        if "{borehole_json}" in user_prompt:
+            user_prompt = user_prompt.replace("{borehole_json}", borehole_json)
+        else:
+            user_prompt = f"{user_prompt}\n{borehole_json}"
         try:
             ai_text = local_chat_completion(
                 [
                     {
                         "role": "system",
-                        "content": (
-                            "You are a cautious coal geology workflow assistant. "
-                            "Use only the provided JSON. Do not invent geology. "
-                            "Write only the final answer as 4-6 concise bullets with actionable review guidance. "
-                            "Do not include reasoning, analysis, or preamble. "
-                            "Always say that the geologist must approve corrections."
-                        ),
+                        "content": str(summary_config["system_prompt"]),
                     },
                     {
                         "role": "user",
-                        "content": (
-                            "Create actionable insights for central geologist review from this borehole JSON:\n"
-                            + json.dumps(prompt, ensure_ascii=True)
-                        ),
+                        "content": user_prompt,
                     },
                 ],
-                max_tokens=800,
-                temperature=0.15,
+                max_tokens=summary_config["max_tokens"],
+                temperature=summary_config["temperature"],
             )
             if ai_text:
                 summary = ai_text
