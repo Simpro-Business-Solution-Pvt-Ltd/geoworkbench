@@ -1,4 +1,4 @@
-from app.services.curve_dictionary import curve_presentation, normalize_curve_key
+from app.services.curve_dictionary import curve_dictionary_mapping, curve_presentation, normalize_curve_key
 
 
 def test_normalize_known_curve_mnemonics():
@@ -27,3 +27,12 @@ def test_known_curve_presentation_preserves_source_unit():
     assert metadata["curve_family"] == "gamma-ray"
     assert metadata["mapping_status"] == "mapped"
     assert metadata["canonical_key"] == "gamma"
+
+
+def test_curve_dictionary_mapping_is_template_friendly():
+    mapping = curve_dictionary_mapping()
+
+    assert "gamma" in mapping
+    assert "NGAM" in mapping["gamma"]
+    assert "resistivity" in mapping
+    assert "RES" in mapping["resistivity"]

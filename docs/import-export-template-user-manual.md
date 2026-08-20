@@ -55,11 +55,18 @@ Extra fields can be mapped into interval attributes by using an agreed field nam
 {
   "depth": "DEPT",
   "curves": ["GR", "NGAM", "RES", "RHOB", "CAL"],
+  "curve_dictionary": {
+    "gamma": ["NG", "NGAM", "GR", "GAMMA", "CGR", "SGR"],
+    "resistivity": ["RS", "RES", "RESD", "RESS", "HRD", "SPR", "16N", "64N"],
+    "density": ["DENS", "DEN", "RHOB", "LSD"]
+  },
   "alias_policy": "map_common_mnemonics"
 }
 ```
 
 LAS import preserves all valid samples. Display optimization can be added later without dropping source data.
+
+The curve dictionary is used to classify source mnemonics into canonical families for display, analytics, validation, and export. Unknown mnemonics are still imported as curves and are shown as unmapped until an admin updates the template/dictionary.
 
 ## Merge Choices
 
@@ -136,6 +143,13 @@ For geophysical curves, use LAS export. The LAS export template can restrict cur
 
 ```json
 {
-  "curves": ["gamma", "resistivity", "density"]
+  "curves": ["gamma", "resistivity", "density"],
+  "curve_dictionary": {
+    "gamma": ["NGAM", "GR", "GAMMA"],
+    "resistivity": ["RES", "RS", "SPR"],
+    "density": ["DENS", "RHOB"]
+  }
 }
 ```
+
+If `curves` is omitted or empty, all curves stored for the borehole are exported.

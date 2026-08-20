@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.db.models import AiSuggestion, Borehole, Curve, ExportJob, ExportProfile, SourceFile
+from app.services.curve_dictionary import curve_dictionary_mapping
 
 
 DEFAULT_EXPORT_PROFILES = [
@@ -43,13 +44,22 @@ DEFAULT_EXPORT_PROFILES = [
         name="Curve LAS",
         export_type="curves_las",
         description="LAS 2.0 curve export.",
-        mapping={"depth": "DEPT.M", "curve_section": "~Curve Information", "sample_section": "~ASCII"},
+        mapping={
+            "depth": "DEPT.M",
+            "curve_section": "~Curve Information",
+            "sample_section": "~ASCII",
+            "curve_dictionary": curve_dictionary_mapping(),
+        },
     ),
     ExportProfile(
         name="Curve CSV",
         export_type="curves_csv",
         description="Wide depth-indexed curve table.",
-        mapping={"depth_column": "depth", "curve_columns": "curve.key"},
+        mapping={
+            "depth_column": "depth",
+            "curve_columns": "curve.key",
+            "curve_dictionary": curve_dictionary_mapping(),
+        },
     ),
 ]
 
@@ -78,6 +88,10 @@ def ensure_default_export_profiles(db: Session) -> None:
         existing = db.scalar(select(ExportProfile).where(ExportProfile.name == profile.name))
         if existing is None:
             db.add(profile)
+            changed = True
+        elif profile.export_type in {"curves_las", "curves_csv"} and "curve_dictionary" not in existing.mapping:
+            existing.mapping = {**existing.mapping, "curve_dictionary": curve_dictionary_mapping()}
+            db.add(existing)
             changed = True
     if changed:
         db.commit()

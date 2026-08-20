@@ -17,6 +17,7 @@ from app.services.geophysical_pdf_import import (
     profile_pinnacle_composite_pdf,
 )
 from app.services.las_import import import_las_curves, profile_las_file
+from app.services.curve_dictionary import curve_dictionary_mapping
 
 
 def ensure_default_profiles(db: Session) -> None:
@@ -78,6 +79,7 @@ def ensure_default_profiles(db: Session) -> None:
             mapping={
                 "depth": "DEPT",
                 "curves": ["GR", "RHOB", "RES", "CALI", "DT"],
+                "curve_dictionary": curve_dictionary_mapping(),
                 "status": "draft_profile",
             },
         ),
@@ -114,6 +116,10 @@ def ensure_default_profiles(db: Session) -> None:
         elif profile.profile_type == "excel" and existing.mapping.get("template_key") != profile.mapping.get("template_key"):
             existing.description = profile.description
             existing.mapping = profile.mapping
+            db.add(existing)
+            changed = True
+        elif profile.profile_type == "las" and "curve_dictionary" not in existing.mapping:
+            existing.mapping = {**existing.mapping, "curve_dictionary": curve_dictionary_mapping()}
             db.add(existing)
             changed = True
     if changed:

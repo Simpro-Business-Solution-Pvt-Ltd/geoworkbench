@@ -71,3 +71,7 @@ def curve_presentation(mnemonic: str, unit: str, description: str = "") -> tuple
         "mapping_status": "mapped",
         "canonical_key": definition.key,
     }
+
+
+def curve_dictionary_mapping() -> dict[str, list[str]]:
+    return {definition.key: list(definition.mnemonics) for definition in CURVE_DEFINITIONS}
