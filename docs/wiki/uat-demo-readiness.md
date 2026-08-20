@@ -29,7 +29,7 @@ Mobile uses `/api/auth/mobile/request-otp` and `/api/auth/mobile/verify-otp`. If
 | --- | --- | --- |
 | #20 Web IAM | DB-backed demo users, local login, bearer session, `/auth/me`, `/auth/logout`, profile role display | Full per-route RBAC and Microsoft Entra ID JWT validation remain staged |
 | #21 Mobile auth | Flutter OTP request/verify path, backend-issued token, identity shown in field header | Secure token storage, offline refresh, push provider setup, and strict mobile API authorization remain staged |
-| #22 Profile/preferences/theme | Web profile menu, persisted light/dark theme, logout, health card | User preference persistence is local browser storage, not yet DB-backed |
+| #22 Profile/preferences/theme | Web profile menu, persisted light/dark theme, logout, health card, server-backed unit/timezone preferences and last workspace context | Project/role default preference policies remain staged |
 | #23 UI polish | Operational shell, profile surface, consistent login and mobile styling | Broader Horilla/SimproHRMS-inspired polish can continue view by view |
 | #24 Import/export happy path | Import Center and Export Center expose template, process/merge, readiness review, export settings, and export artifact steps | UAT should verify one Excel and one LAS/PDF path on the server dataset; Minex format needs customer template confirmation |
 | #25 Correlation narrative | Correlation view shows multi-borehole selection, depth/RL alignment, seam/curve comparison, AI insight popup | Competitive interpretation rules need stakeholder validation |
@@ -58,3 +58,17 @@ Invoke-RestMethod http://127.0.0.1:8081/api/diagnostics/health
 ```
 
 The frontend profile menu uses the diagnostics endpoint and refreshes it while open.
+
+## Tomorrow UAT Smoke Checklist
+
+Run this in one pass after deployment or after pulling the latest feature branch:
+
+1. Sign in as `geologist`.
+2. Change unit/timezone preferences, refresh the browser, and confirm they persist.
+3. Select a Reliance borehole and saved/default display, refresh, and confirm the same context reloads.
+4. Open Workbench and confirm the runtime display renders KPI widgets, log widget, interval details, validation, AI workflow, and curve catalog.
+5. In Display setup, add a single-value widget and choose **Curve coverage %** or curve coverage depth range.
+6. Open the curve catalog and confirm LAS curves show mnemonic, family, mapping status, coverage, sample count, and min/max.
+7. Run validation and confirm depth-linked issues still move the selected depth.
+8. Open Import and Export pages and confirm template/profile lists still load.
+9. Open Wiki and confirm user docs are visible, with developer architecture docs visible only for developer/admin users.

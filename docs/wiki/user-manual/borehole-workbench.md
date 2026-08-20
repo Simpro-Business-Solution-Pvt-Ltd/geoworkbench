@@ -345,7 +345,7 @@ This UAT build is usable for guided evaluation, but these limits should be under
 - Generated rock-lane images are not stored in git; production should use object storage or server-side regeneration.
 - Minex-specific export requires the customer's exact import template before finalization.
 - Export readiness is not a full second-user approval workflow.
-- User preferences are partly stored in browser local storage.
+- User preferences and last workspace context are server-backed, with browser local storage kept as a fallback.
 - Mobile/offline production behavior is still staged.
 
 ## Future Pending Work
