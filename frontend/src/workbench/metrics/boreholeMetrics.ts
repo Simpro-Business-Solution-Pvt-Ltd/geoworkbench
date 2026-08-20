@@ -25,6 +25,15 @@ export function buildBoreholeMetrics(data: BoreholeWorkbench, preferences: UserP
   const rqdValues = data.lithology_intervals
     .map((item) => item.rqd)
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const curveDepths = data.curves.flatMap((curve) =>
+    curve.samples.map((sample) => sample.depth).filter((value) => Number.isFinite(value)),
+  );
+  const curveFromDepth = curveDepths.length ? Math.min(...curveDepths) : null;
+  const curveToDepth = curveDepths.length ? Math.max(...curveDepths) : null;
+  const curveCoveragePercent =
+    curveFromDepth !== null && curveToDepth !== null && data.total_depth > 0
+      ? Math.min(100, Math.max(0, ((curveToDepth - curveFromDepth) / data.total_depth) * 100))
+      : null;
 
   addMetric(metrics, {
     key: "total_depth",
@@ -50,6 +59,33 @@ export function buildBoreholeMetrics(data: BoreholeWorkbench, preferences: UserP
     rawValue: data.curves.length,
     category: "curve",
     source: "las",
+  });
+  addMetric(metrics, {
+    key: "curve_depth_from",
+    label: "Curve coverage from",
+    value: curveFromDepth === null ? "-" : formatDepth(curveFromDepth, preferences),
+    rawValue: curveFromDepth,
+    unit: preferences.depthUnit,
+    category: "curve",
+    source: "las",
+  });
+  addMetric(metrics, {
+    key: "curve_depth_to",
+    label: "Curve coverage to",
+    value: curveToDepth === null ? "-" : formatDepth(curveToDepth, preferences),
+    rawValue: curveToDepth,
+    unit: preferences.depthUnit,
+    category: "curve",
+    source: "las",
+  });
+  addMetric(metrics, {
+    key: "curve_coverage_percent",
+    label: "Curve coverage",
+    value: curveCoveragePercent === null ? "-" : `${formatNumber(curveCoveragePercent, preferences, 1)} %`,
+    rawValue: curveCoveragePercent,
+    unit: "%",
+    category: "curve",
+    source: "derived",
   });
   addMetric(metrics, {
     key: "corebox_count",

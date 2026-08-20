@@ -14,6 +14,9 @@ describe("buildBoreholeMetrics", () => {
     expect(metrics.get("avg_recovery")?.value).toBe("82.5 %");
     expect(metrics.get("avg_rqd")?.value).toBe("55 %");
     expect(metrics.get("curve_gamma_max")?.value).toBe("98 API");
+    expect(metrics.get("curve_depth_from")?.value).toBe("0 m");
+    expect(metrics.get("curve_depth_to")?.value).toBe("10 m");
+    expect(metrics.get("curve_coverage_percent")?.value).toBe("8 %");
   });
 
   it("converts depth and coordinate metrics for imperial preferences", () => {
@@ -25,6 +28,7 @@ describe("buildBoreholeMetrics", () => {
     });
 
     expect(metrics.get("total_depth")?.value).toBe("411.75 ft");
+    expect(metrics.get("curve_depth_to")?.value).toBe("32.81 ft");
     expect(metrics.get("coalgrid_easting")?.value).toBe("4,050.52 ft");
   });
 });
