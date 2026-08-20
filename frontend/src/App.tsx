@@ -184,9 +184,32 @@ const readUserSettings = (userId: number): PersistedUserSettings => {
   };
 };
 
-const preferencesFromUser = (user: User): UserPreferences => {
-  const localPreferences = readUserSettings(user.id).preferences;
-  return normalizeUserPreferences((user.preferences as Partial<UserPreferences> | null) ?? localPreferences);
+const objectValue = (value: unknown): Record<string, unknown> | null =>
+  typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+
+const serializeUserSettings = (settings: PersistedUserSettings) => ({
+  schemaVersion: 1,
+  selectedBoreholeId: settings.selectedBoreholeId,
+  displayChoice: settings.displayChoice,
+  preferences: settings.preferences,
+});
+
+const settingsFromUser = (user: User): PersistedUserSettings => {
+  const local = readUserSettings(user.id);
+  const raw = objectValue(user.preferences);
+  if (!raw) return local;
+  const nestedPreferences = objectValue(raw.preferences);
+  const preferenceSource = nestedPreferences ?? raw;
+  const selectedBoreholeId =
+    typeof raw.selectedBoreholeId === "number" || raw.selectedBoreholeId === null
+      ? raw.selectedBoreholeId
+      : local.selectedBoreholeId;
+  const displayChoice = raw.displayChoice === "default" || raw.displayChoice === "saved" ? raw.displayChoice : local.displayChoice;
+  return {
+    selectedBoreholeId,
+    displayChoice,
+    preferences: normalizeUserPreferences(preferenceSource as Partial<UserPreferences>),
+  };
 };
 
 export function App() {
@@ -221,9 +244,9 @@ export function App() {
   const updatePreferencesMutation = useMutation({
     mutationFn: updateCurrentUserPreferences,
     onSuccess: (user) => {
-      const normalized = preferencesFromUser(user);
-      persistUserSettings(user.id, { preferences: normalized });
-      setUserPreferences(normalized);
+      const nextSettings = settingsFromUser(user);
+      persistUserSettings(user.id, nextSettings);
+      setUserPreferences(nextSettings.preferences);
       setSession((current) => (current ? { ...current, user: { ...current.user, preferences: user.preferences } } : current));
       queryClient.setQueryData<AuthSession>(["authSession"], (current) =>
         current ? { ...current, user: { ...current.user, preferences: user.preferences } } : current,
@@ -234,14 +257,18 @@ export function App() {
   const setPersistedBorehole = (nextBoreholeId: number | null) => {
     setBoreholeId(nextBoreholeId);
     if (session) {
-      persistUserSettings(session.user.id, { selectedBoreholeId: nextBoreholeId });
+      const nextSettings = { ...settingsFromUser(session.user), selectedBoreholeId: nextBoreholeId };
+      persistUserSettings(session.user.id, nextSettings);
+      updatePreferencesMutation.mutate(serializeUserSettings(nextSettings));
     }
   };
 
   const setPersistedDisplayChoice = (nextDisplayChoice: DisplayChoice) => {
     setDisplayChoice(nextDisplayChoice);
     if (session) {
-      persistUserSettings(session.user.id, { displayChoice: nextDisplayChoice });
+      const nextSettings = { ...settingsFromUser(session.user), displayChoice: nextDisplayChoice };
+      persistUserSettings(session.user.id, nextSettings);
+      updatePreferencesMutation.mutate(serializeUserSettings(nextSettings));
     }
   };
 
@@ -249,8 +276,9 @@ export function App() {
     const normalized = normalizeUserPreferences(nextPreferences);
     setUserPreferences(normalized);
     if (session) {
-      persistUserSettings(session.user.id, { preferences: normalized });
-      updatePreferencesMutation.mutate(normalized);
+      const nextSettings = { ...settingsFromUser(session.user), preferences: normalized };
+      persistUserSettings(session.user.id, nextSettings);
+      updatePreferencesMutation.mutate(serializeUserSettings(nextSettings));
     }
   };
 
@@ -368,15 +396,15 @@ export function App() {
 
   useEffect(() => {
     if (!session) return;
-    const normalized = preferencesFromUser(session.user);
-    setUserPreferences(normalized);
-    persistUserSettings(session.user.id, { preferences: normalized });
+    const userSettings = settingsFromUser(session.user);
+    setUserPreferences(userSettings.preferences);
+    persistUserSettings(session.user.id, userSettings);
   }, [session]);
 
   useEffect(() => {
     if (!session || !boreholes.data?.length) return;
-    const userSettings = readUserSettings(session.user.id);
-    setUserPreferences(preferencesFromUser(session.user));
+    const userSettings = settingsFromUser(session.user);
+    setUserPreferences(userSettings.preferences);
     if (userSettings.displayChoice !== displayChoice) {
       setDisplayChoice(userSettings.displayChoice);
     }
