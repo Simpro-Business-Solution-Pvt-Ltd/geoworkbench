@@ -1,26 +1,5 @@
 import type { Curve, DisplayGridItem, DisplayWidget } from "../../../api/types";
-
-const SINGLE_VALUE_METRICS = [
-  { value: "total_depth", label: "Total depth" },
-  { value: "interval_count", label: "Lithology intervals" },
-  { value: "curve_count", label: "Curves" },
-  { value: "curve_depth_from", label: "Curve coverage from" },
-  { value: "curve_depth_to", label: "Curve coverage to" },
-  { value: "curve_coverage_percent", label: "Curve coverage %" },
-  { value: "corebox_count", label: "Corebox images" },
-  { value: "seam_count", label: "Seams" },
-  { value: "seam_thickness", label: "Seam thickness" },
-  { value: "avg_recovery", label: "Average recovery" },
-  { value: "avg_rqd", label: "Average RQD" },
-  { value: "reduced_level", label: "Reduced level" },
-  { value: "water_level", label: "Water level" },
-  { value: "coalgrid_easting", label: "Coalgrid easting" },
-  { value: "coalgrid_northing", label: "Coalgrid northing" },
-  { value: "utm_easting", label: "UTM easting" },
-  { value: "utm_northing", label: "UTM northing" },
-  { value: "validation_issue_count", label: "Validation issues" },
-  { value: "ai_suggestion_count", label: "AI suggestions" },
-];
+import { SINGLE_VALUE_METRICS } from "../../metrics/metricCatalog";
 
 type Props = {
   widgetId: string;
