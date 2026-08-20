@@ -88,6 +88,14 @@ Runtime display rendering is intentionally split:
 | `display/runtime/FloatingIntervalEditor.tsx` | Draggable interval correction form. |
 | `display/runtime/intervalMetadata.tsx` | Borehole metadata extraction for the interval panel. |
 
+Shared read-model helpers:
+
+| File | Responsibility |
+| --- | --- |
+| `metrics/boreholeMetrics.ts` | Builds derived `BoreholeMetric` values from borehole, interval, curve, source, validation, and AI data. |
+| `metrics/metricCatalog.ts` | Lists selectable KPI metrics for single-value widgets. |
+| `data/curveDictionary.ts` | Classifies imported curves by mnemonic/key into canonical families for display and widget settings. |
+
 ## Workbench Core
 
 | File | Responsibility |

@@ -141,6 +141,7 @@ Examples:
 - total depth from Excel/import.
 - collar RL, coordinates, water level from Excel/mobile.
 - curve count and curve coverage from LAS.
+- curve coverage from/to depths and curve coverage percentage.
 - max/min/average gamma/resistivity/density from curve samples.
 - seam count and thickness from intervals.
 - average recovery/RQD from Excel interval fields.
