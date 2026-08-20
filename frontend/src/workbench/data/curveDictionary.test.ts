@@ -37,6 +37,16 @@ describe("curveDictionary", () => {
     expect(curveMappingStatus(custom)).toBe("unmapped");
   });
 
+  it("recognizes legacy keys before existing boreholes are re-imported", () => {
+    const legacyGamma = curve("ngamma", "Natural Gamma");
+    const legacyDensity = curve("dens", "Density");
+
+    expect(curveMnemonic(legacyGamma)).toBe("NGAM");
+    expect(curveFamilyLabel(legacyGamma)).toBe("Gamma ray");
+    expect(curveMappingStatus(legacyGamma)).toBe("mapped-by-key");
+    expect(curveFamilyLabel(legacyDensity)).toBe("Density");
+  });
+
   it("sorts mapped geology curves before unmapped curves", () => {
     const items = [
       curve("custom", "Custom Curve"),
