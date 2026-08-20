@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import Borehole, Curve, CurveSample, SourceImport
+from app.services.curve_dictionary import curve_presentation
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,15 @@ PINNACLE_COMPOSITE_CURVES = [
         0.849,
     ),
 ]
+
+PDF_SPEC_MNEMONICS = {
+    "ngamma": "NGAM",
+    "sp": "SP",
+    "calp_incl": "CALP",
+    "res": "RES",
+    "dens": "DENS",
+    "spr": "SPR",
+}
 
 
 def _require_fitz():
@@ -252,12 +262,16 @@ def digitize_pinnacle_composite_pdf(pdf_path: Path) -> dict:
 
     curves = []
     for spec in PINNACLE_COMPOSITE_CURVES:
+        mnemonic = PDF_SPEC_MNEMONICS.get(spec.key, spec.key)
+        _label, _unit, _color, dictionary = curve_presentation(mnemonic, spec.unit, spec.label)
         samples, stats = _curve_samples_from_drawings(page, spec, slope, intercept)
         curves.append(
             {
                 "key": spec.key,
                 "label": spec.label,
                 "unit": spec.unit,
+                "mnemonic": mnemonic,
+                "dictionary": dictionary,
                 "source_type": "pinnacle_pdf_digitized",
                 "color": {
                     "ngamma": "#ef4444",
@@ -306,6 +320,15 @@ def import_digitized_pdf_curves(
             unit=curve_data["unit"],
             source_type=curve_data["source_type"],
             color=curve_data["color"],
+            curve_metadata={
+                "mnemonic": curve_data["mnemonic"],
+                "description": curve_data["label"],
+                "source_file": pdf_path.name,
+                "source_parser": "pinnacle_composite_pdf_digitized",
+                "value_min": curve_data["value_min"],
+                "value_max": curve_data["value_max"],
+                **curve_data["dictionary"],
+            },
         )
         curve.samples = [
             CurveSample(depth=sample["depth"], value=sample["value"])
