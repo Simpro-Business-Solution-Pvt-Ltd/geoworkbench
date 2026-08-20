@@ -79,6 +79,7 @@ Runtime display rendering is intentionally split:
 | --- | --- |
 | `display/DisplayRuntime.tsx` | Reads saved grid layout, dispatches widgets by type, and keeps runtime shell behavior small. |
 | `display/runtime/runtimeTypes.ts` | Shared runtime widget props and callback contracts. |
+| `display/runtime/runtimeWidgetRegistry.tsx` | Runtime widget registry and fallback renderer for unknown widget types. |
 | `display/runtime/RuntimeWidgetFrame.tsx` | Common widget header/body frame. |
 | `display/runtime/SingleValueWidget.tsx` | KPI/metric widget using the unified metric read model. |
 | `display/runtime/CurveCatalogWidget.tsx` | Curve coverage, mnemonic, family, mapping status, sample count, and min/max display. |
