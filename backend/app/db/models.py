@@ -28,6 +28,7 @@ class User(Base):
     auth_provider: Mapped[str] = mapped_column(String(40), default="local", index=True)
     mobile_number: Mapped[str | None] = mapped_column(String(40), nullable=True)
     push_token: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    preferences: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     is_active: Mapped[int] = mapped_column(Integer, default=1, index=True)
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

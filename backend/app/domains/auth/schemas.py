@@ -17,6 +17,7 @@ class UserOut(BaseModel):
     failed_login_count: int = 0
     locked_until: datetime | None = None
     last_login_at: datetime | None = None
+    preferences: dict | None = None
 
 
 class UserCreateRequest(BaseModel):
@@ -35,6 +36,10 @@ class UserUpdateRequest(BaseModel):
     email: str | None = None
     mobile_number: str | None = None
     is_active: int | None = None
+
+
+class UserPreferencesUpdateRequest(BaseModel):
+    preferences: dict
 
 
 class PasswordChangeRequest(BaseModel):

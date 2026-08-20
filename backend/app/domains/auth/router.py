@@ -26,6 +26,7 @@ from app.domains.auth.schemas import (
     TokenOut,
     UserCreateRequest,
     UserOut,
+    UserPreferencesUpdateRequest,
     UserUpdateRequest,
 )
 
@@ -113,6 +114,15 @@ def me(
         expires_at=session.expires_at.isoformat(),
         client_type=session.client_type,
     )
+
+
+@router.patch("/me/preferences", response_model=UserOut)
+def update_preferences(
+    payload: UserPreferencesUpdateRequest,
+    db: Session = Depends(get_db),
+    user=Depends(current_user),
+) -> UserOut:
+    return service.update_user_preferences(db, user, payload.preferences)
 
 
 @router.get("/roles", response_model=list[RoleOut])

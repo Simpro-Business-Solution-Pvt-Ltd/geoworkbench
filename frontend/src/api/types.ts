@@ -20,6 +20,7 @@ export type User = {
   failed_login_count: number;
   locked_until: string | null;
   last_login_at: string | null;
+  preferences: Record<string, unknown> | null;
 };
 
 export type Role = {

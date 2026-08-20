@@ -55,6 +55,7 @@ import {
   updateDisplayLayout,
   updateExportProfile,
   updateImportProfile,
+  updateCurrentUserPreferences,
   updateAiSuggestionStatus,
   updateInterval,
   updateQualitySettings,
@@ -183,6 +184,11 @@ const readUserSettings = (userId: number): PersistedUserSettings => {
   };
 };
 
+const preferencesFromUser = (user: User): UserPreferences => {
+  const localPreferences = readUserSettings(user.id).preferences;
+  return normalizeUserPreferences((user.preferences as Partial<UserPreferences> | null) ?? localPreferences);
+};
+
 export function App() {
   const queryClient = useQueryClient();
   const [boreholeId, setBoreholeId] = useState<number | null>(null);
@@ -212,6 +218,18 @@ export function App() {
   const { selectedInterval, setSelectedInterval, selectedDepth, selectedImage, setSelectedImage } =
     useWorkbenchStore();
   const { selectedRemarkGroup, setSelectedRemarkGroup } = useWorkbenchStore();
+  const updatePreferencesMutation = useMutation({
+    mutationFn: updateCurrentUserPreferences,
+    onSuccess: (user) => {
+      const normalized = preferencesFromUser(user);
+      persistUserSettings(user.id, { preferences: normalized });
+      setUserPreferences(normalized);
+      setSession((current) => (current ? { ...current, user: { ...current.user, preferences: user.preferences } } : current));
+      queryClient.setQueryData<AuthSession>(["authSession"], (current) =>
+        current ? { ...current, user: { ...current.user, preferences: user.preferences } } : current,
+      );
+    },
+  });
 
   const setPersistedBorehole = (nextBoreholeId: number | null) => {
     setBoreholeId(nextBoreholeId);
@@ -232,6 +250,7 @@ export function App() {
     setUserPreferences(normalized);
     if (session) {
       persistUserSettings(session.user.id, { preferences: normalized });
+      updatePreferencesMutation.mutate(normalized);
     }
   };
 
@@ -349,13 +368,15 @@ export function App() {
 
   useEffect(() => {
     if (!session) return;
-    setUserPreferences(readUserSettings(session.user.id).preferences);
+    const normalized = preferencesFromUser(session.user);
+    setUserPreferences(normalized);
+    persistUserSettings(session.user.id, { preferences: normalized });
   }, [session]);
 
   useEffect(() => {
     if (!session || !boreholes.data?.length) return;
     const userSettings = readUserSettings(session.user.id);
-    setUserPreferences(userSettings.preferences);
+    setUserPreferences(preferencesFromUser(session.user));
     if (userSettings.displayChoice !== displayChoice) {
       setDisplayChoice(userSettings.displayChoice);
     }
@@ -1018,7 +1039,8 @@ export function App() {
             updateRoleMutation.isPending ||
             updateRoleAccessMutation.isPending ||
             updateQualitySettingsMutation.isPending ||
-            resetQualitySettingsMutation.isPending
+            resetQualitySettingsMutation.isPending ||
+            updatePreferencesMutation.isPending
           }
           error={
             users.error instanceof Error

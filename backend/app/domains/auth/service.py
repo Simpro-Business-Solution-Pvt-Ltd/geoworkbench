@@ -629,6 +629,14 @@ def update_user(
     return user_to_out(user)
 
 
+def update_user_preferences(db: Session, user: User, preferences: dict) -> User:
+    user.preferences = preferences
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user_to_out(user)
+
+
 def deactivate_user(db: Session, user_id: int) -> User:
     user = db.get(User, user_id)
     if user is None:

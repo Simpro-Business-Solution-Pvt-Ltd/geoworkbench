@@ -149,6 +149,13 @@ export function resetUserPassword(userId: number, newPassword: string): Promise<
   });
 }
 
+export function updateCurrentUserPreferences(preferences: object): Promise<User> {
+  return request<User>("/auth/me/preferences", {
+    method: "PATCH",
+    body: JSON.stringify({ preferences }),
+  });
+}
+
 export function changePassword(currentPassword: string, newPassword: string): Promise<{ status: string }> {
   return request<{ status: string }>("/auth/password/change", {
     method: "POST",

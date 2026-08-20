@@ -9,6 +9,7 @@ USER_COLUMN_DEFAULTS = {
     "failed_login_count": "INTEGER DEFAULT 0",
     "locked_until": "TIMESTAMP NULL",
     "last_login_at": "TIMESTAMP NULL",
+    "preferences": "JSON NULL",
 }
 
 EXTENSION_COLUMN_DEFAULTS = {
