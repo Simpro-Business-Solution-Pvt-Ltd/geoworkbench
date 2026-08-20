@@ -1,4 +1,5 @@
 import type { Curve, DisplayGridItem, DisplayLayout, DisplayTrack, DisplayWidget } from "../../api/types";
+import { compareCurvesByFamily } from "../data/curveDictionary";
 
 export type WidgetCatalogItem = {
   type: string;
@@ -354,7 +355,7 @@ function orderedCurves(curves: Curve[]) {
     if (leftIndex !== -1 || rightIndex !== -1) {
       return (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
     }
-    return left.label.localeCompare(right.label);
+    return compareCurvesByFamily(left, right);
   });
 }
 

@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Borehole, Curve, CurveSample, SourceImport
+from app.services.curve_dictionary import curve_presentation, normalize_curve_key
 
 
 @dataclass(frozen=True)
@@ -13,23 +14,6 @@ class LasCurveDef:
     mnemonic: str
     unit: str
     description: str
-
-
-CURVE_STYLES = {
-    "gamma": ("Natural Gamma", "API", "#ef4444"),
-    "resistivity": ("Resistivity", "ohm.m", "#2563eb"),
-    "density": ("Density", "g/cc", "#16a34a"),
-    "caliper": ("Caliper", "mm", "#d97706"),
-    "sp": ("Spontaneous Potential", "mV", "#7c3aed"),
-    "guard": ("Guard Resistivity", "ohm.m", "#0ea5e9"),
-    "point_resistance": ("Point Resistance", "ohm.m", "#f97316"),
-    "bed_resolution_density": ("Bed Resolution Density", "cps", "#22c55e"),
-    "neutron": ("Neutron", "cps", "#84cc16"),
-    "deviation": ("Deviation", "deg", "#0f766e"),
-    "inclination": ("Inclination", "deg", "#0f766e"),
-    "azimuth": ("Azimuth", "deg", "#0891b2"),
-    "sonic": ("Sonic", "usec", "#a855f7"),
-}
 
 
 def _parse_mnemonic_line(line: str) -> tuple[str, str, str, str] | None:
@@ -52,47 +36,6 @@ def _to_float(value: str) -> float | None:
         return float(value)
     except ValueError:
         return None
-
-
-def _normalize_curve_key(mnemonic: str, description: str = "") -> str:
-    text = f"{mnemonic} {description}".upper()
-    code = mnemonic.upper()
-    if code in {"DEPT", "DEPTH", "MD"}:
-        return "depth"
-    if code in {"NG", "NGAM", "GR", "GAMMA", "CGR", "SGR"} or "GAMMA" in text:
-        return "gamma"
-    if code in {"RS", "RES", "RESD", "RESS", "HRD", "SPR", "16N", "64N"} or "RESIST" in text:
-        return "resistivity"
-    if code in {"DENS", "DEN", "RHOB", "LSD"} or "DENS" in text:
-        return "density"
-    if code in {"BD"}:
-        return "bed_resolution_density"
-    if code in {"CL", "CAL", "CALI", "CALP", "CALIPER"}:
-        return "caliper"
-    if code == "PR":
-        return "point_resistance"
-    if code == "NN":
-        return "neutron"
-    if code == "SP":
-        return "sp"
-    if code in {"DV", "INC", "INCL", "INCLINATION"}:
-        return "inclination"
-    if code in {"AZ", "AZIM", "AZI", "AZIMUTH"}:
-        return "azimuth"
-    if code.startswith("TT") or code in {"DT", "PDEL", "SVEL"}:
-        return "sonic"
-    clean = re.sub(r"[^a-z0-9]+", "_", mnemonic.lower()).strip("_")
-    return clean or "curve"
-
-
-def _friendly_curve(curve_def: LasCurveDef, key: str) -> tuple[str, str, str]:
-    label, unit, color = CURVE_STYLES.get(
-        key,
-        (curve_def.description or curve_def.mnemonic, curve_def.unit, "#64748b"),
-    )
-    if curve_def.unit and key not in CURVE_STYLES:
-        unit = curve_def.unit
-    return label, unit, color
 
 
 def parse_las_file(path: Path) -> dict:
@@ -155,7 +98,7 @@ def parse_las_file(path: Path) -> dict:
 
     depth_index = 0
     for index, curve_def in enumerate(curve_defs):
-        if _normalize_curve_key(curve_def.mnemonic, curve_def.description) == "depth":
+        if normalize_curve_key(curve_def.mnemonic, curve_def.description) == "depth":
             depth_index = index
             break
 
@@ -165,7 +108,7 @@ def parse_las_file(path: Path) -> dict:
     for index, curve_def in enumerate(curve_defs):
         if index == depth_index:
             continue
-        base_key = _normalize_curve_key(curve_def.mnemonic, curve_def.description)
+        base_key = normalize_curve_key(curve_def.mnemonic, curve_def.description)
         used_keys[base_key] = used_keys.get(base_key, 0) + 1
         key = base_key if used_keys[base_key] == 1 else f"{base_key}_{curve_def.mnemonic.lower()}"
         values = [
@@ -173,7 +116,7 @@ def parse_las_file(path: Path) -> dict:
             for row in clean_rows
             if row[depth_index] is not None and row[index] is not None
         ]
-        label, unit, color = _friendly_curve(curve_def, base_key)
+        label, unit, color, dictionary = curve_presentation(curve_def.mnemonic, curve_def.unit, curve_def.description)
         data_curves.append(
             {
                 "index": index,
@@ -183,6 +126,7 @@ def parse_las_file(path: Path) -> dict:
                 "unit": unit,
                 "color": color,
                 "description": curve_def.description,
+                "dictionary": dictionary,
                 "sample_count": len(values),
                 "min": min(values) if values else None,
                 "max": max(values) if values else None,
@@ -269,6 +213,7 @@ def import_las_curves(
             curve_metadata={
                 "mnemonic": curve_info["mnemonic"],
                 "description": curve_info["description"],
+                **curve_info["dictionary"],
                 "source_sample_count": curve_info["sample_count"],
                 "source_file": las_path.name,
             },

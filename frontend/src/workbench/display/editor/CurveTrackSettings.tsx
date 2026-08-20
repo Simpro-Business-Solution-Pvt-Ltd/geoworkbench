@@ -1,4 +1,5 @@
 import type { Curve, DisplayTrack } from "../../../api/types";
+import { curveFamilyLabel, curveMappingStatus, curveMnemonic } from "../../data/curveDictionary";
 import { defaultScaleForCurve } from "../displayEditorModel";
 
 type Props = {
@@ -42,6 +43,14 @@ export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props
       </div>
       {track.curves?.map((curve) => (
         <div key={curve.curveKey} className="curve-editor">
+          {(() => {
+            const sourceCurve = availableCurves.find((item) => item.key === curve.curveKey);
+            return sourceCurve ? (
+              <small>
+                {curveMnemonic(sourceCurve)} · {curveFamilyLabel(sourceCurve)} · {curveMappingStatus(sourceCurve)}
+              </small>
+            ) : null;
+          })()}
           <label>
             <input
               type="checkbox"

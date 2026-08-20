@@ -3560,6 +3560,12 @@ h2 {
   padding-top: 8px;
 }
 
+.curve-editor > small {
+  color: var(--gw-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
 .curve-editor button {
   justify-self: start;
 }
