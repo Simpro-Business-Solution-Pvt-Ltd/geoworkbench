@@ -119,6 +119,7 @@ class Borehole(Base):
     source_workbook: Mapped[str | None] = mapped_column(String(255), nullable=True)
     source_sheet: Mapped[str | None] = mapped_column(String(120), nullable=True)
     workflow_status: Mapped[str] = mapped_column(String(80), default="ready_for_central_review", index=True)
+    attributes: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     site: Mapped[Site] = relationship(back_populates="boreholes")
     lithology_intervals: Mapped[list["LithologyInterval"]] = relationship(

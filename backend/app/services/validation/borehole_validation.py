@@ -244,6 +244,18 @@ def validate_curve_ranges(borehole: Borehole, curves: list[Curve]) -> list[Valid
 
 def validate_core_image_links(intervals: list[LithologyInterval]) -> list[ValidationFinding]:
     findings: list[ValidationFinding] = []
+    if intervals and all(interval.image_box is None for interval in intervals):
+        return [
+            ValidationFinding(
+                code="core_images_not_loaded",
+                severity="info",
+                message="No lithology intervals are linked to corebox images for this borehole.",
+                from_depth=intervals[0].from_depth,
+                to_depth=intervals[-1].to_depth,
+                entity_type="borehole",
+                metadata={"missing_interval_count": len(intervals)},
+            )
+        ]
     for interval in intervals:
         if interval.image_box is None:
             findings.append(
@@ -262,31 +274,36 @@ def validate_core_image_links(intervals: list[LithologyInterval]) -> list[Valida
 
 def validate_required_interval_metrics(intervals: list[LithologyInterval]) -> list[ValidationFinding]:
     findings: list[ValidationFinding] = []
-    for interval in intervals:
-        if interval.recovery is None or interval.recovery_percent is None:
-            findings.append(
-                ValidationFinding(
-                    code="missing_recovery_data",
-                    severity="warning",
-                    message=f"Recovery values are missing for {interval.id}.",
-                    from_depth=interval.from_depth,
-                    to_depth=interval.to_depth,
-                    entity_type="lithology_interval",
-                    entity_id=interval.id,
-                )
+    missing_recovery = [
+        interval
+        for interval in intervals
+        if interval.recovery is None or interval.recovery_percent is None
+    ]
+    missing_rqd = [interval for interval in intervals if interval.rqd is None]
+    if missing_recovery:
+        findings.append(
+            ValidationFinding(
+                code="missing_recovery_data",
+                severity="warning",
+                message=f"Recovery values are missing for {len(missing_recovery)} interval(s).",
+                from_depth=missing_recovery[0].from_depth,
+                to_depth=missing_recovery[-1].to_depth,
+                entity_type="borehole",
+                metadata={"missing_interval_count": len(missing_recovery)},
             )
-        if interval.rqd is None:
-            findings.append(
-                ValidationFinding(
-                    code="missing_rqd_data",
-                    severity="warning",
-                    message=f"RQD value is missing for {interval.id}.",
-                    from_depth=interval.from_depth,
-                    to_depth=interval.to_depth,
-                    entity_type="lithology_interval",
-                    entity_id=interval.id,
-                )
+        )
+    if missing_rqd:
+        findings.append(
+            ValidationFinding(
+                code="missing_rqd_data",
+                severity="warning",
+                message=f"RQD values are missing for {len(missing_rqd)} interval(s).",
+                from_depth=missing_rqd[0].from_depth,
+                to_depth=missing_rqd[-1].to_depth,
+                entity_type="borehole",
+                metadata={"missing_interval_count": len(missing_rqd)},
             )
+        )
     return findings
 
 

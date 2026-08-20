@@ -179,12 +179,25 @@ export type DisplayTrack = {
   title: string;
   visible: boolean;
   width: number;
+  header?: {
+    visible?: boolean;
+    showTitle?: boolean;
+    height?: number;
+  };
+  interaction?: {
+    tooltipEnabled?: boolean;
+    contextMenuEnabled?: boolean;
+    selectable?: boolean;
+  };
+  renderer?: Record<string, unknown>;
   curves?: Array<{
     curveKey: string;
     label: string;
     unit: string;
     color: string;
     visible: boolean;
+    tooltipEnabled?: boolean;
+    lineStyle?: "solid" | "dashed" | "dotted" | string;
     scale: { mode: string; min: number; max: number };
   }>;
   valueField?: "recovery_percent" | "rqd";
@@ -344,6 +357,7 @@ export type BoreholeWorkbench = {
   source_workbook: string | null;
   source_sheet: string | null;
   workflow_status: string;
+  attributes?: Record<string, unknown> | null;
   lithology_intervals: LithologyInterval[];
   seam_intervals: SeamInterval[];
   curves: Curve[];

@@ -108,7 +108,7 @@ export function CurveTrack({ data, track, context }: Props) {
         {curves.map(({ config, curve }) => {
           const valueScale = valueScales.get(curve.key);
           return (
-            <polyline
+          <polyline
               key={curve.key}
               points={samplesForVisibleCurve(curve.samples, scale.fromDepth, scale.toDepth)
                 .filter(
@@ -120,23 +120,26 @@ export function CurveTrack({ data, track, context }: Props) {
               fill="none"
               stroke={config.color}
               strokeWidth="0.8"
+              strokeDasharray={strokeDasharray(config.lineStyle)}
               vectorEffect="non-scaling-stroke"
             />
           );
         })}
       </svg>
-      {tooltipsEnabled && hit && (
+      {tooltipsEnabled && track.interaction?.tooltipEnabled !== false && hit && (
         <div
           className="curve-tooltip multi"
           style={{ left: `${hit.screenXPercent}%`, top: `${hit.screenYPercent}%` }}
         >
           <b>{hit.sample.depth.toFixed(2)} m</b>
-          {(hit.relatedSamples ?? [hit]).map((item) => (
-            <span key={item.curve.key} className={item.curve.key === hit.curve.key ? "nearest" : ""}>
-              <i style={{ background: item.curve.color }} />
-              {item.curve.label}: {item.sample.value} {item.curve.unit}
-            </span>
-          ))}
+          {(hit.relatedSamples ?? [hit])
+            .filter((item) => configuredCurves.find((config) => config.curveKey === item.curve.key)?.tooltipEnabled !== false)
+            .map((item) => (
+              <span key={item.curve.key} className={item.curve.key === hit.curve.key ? "nearest" : ""}>
+                <i style={{ background: item.curve.color }} />
+                {item.curve.label}: {item.sample.value} {item.curve.unit}
+              </span>
+            ))}
           <small>
             nearest {hit.curve.label} · delta {hit.distance.toFixed(2)} m · {hit.curve.source_type}
           </small>
@@ -150,4 +153,10 @@ function formatScaleValue(value: number) {
   if (Math.abs(value) >= 100) return value.toFixed(0);
   if (Math.abs(value) >= 10) return value.toFixed(1).replace(/\.0$/, "");
   return value.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function strokeDasharray(lineStyle: string | undefined) {
+  if (lineStyle === "dashed") return "4 3";
+  if (lineStyle === "dotted") return "1 3";
+  return undefined;
 }

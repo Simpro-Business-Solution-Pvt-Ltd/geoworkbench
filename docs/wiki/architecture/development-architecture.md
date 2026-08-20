@@ -77,8 +77,8 @@ Current local AI configuration uses an OpenAI-compatible endpoint:
 
 ```text
 GEOWORKBENCH_AI_PROVIDER=local_openai
-GEOWORKBENCH_AI_BASE_URL=http://192.168.1.2:1234/v1
-GEOWORKBENCH_AI_MODEL=google/gemma-4-e4b
+GEOWORKBENCH_AI_BASE_URL=http://192.168.1.23:1234/v1
+GEOWORKBENCH_AI_MODEL=google/gemma-4-12b-qat
 ```
 
 The deterministic rule engine remains the source of validation findings and suggested patches. The local model is used only to turn those rule findings into clearer, actionable review notes for the geologist.

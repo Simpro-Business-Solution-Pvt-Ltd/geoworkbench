@@ -12,6 +12,7 @@ USER_COLUMN_DEFAULTS = {
 }
 
 EXTENSION_COLUMN_DEFAULTS = {
+    "boreholes": {"attributes": "JSON NULL"},
     "lithology_intervals": {"attributes": "JSON NULL"},
     "seam_intervals": {"attributes": "JSON NULL"},
     "curves": {"curve_metadata": "JSON NULL"},

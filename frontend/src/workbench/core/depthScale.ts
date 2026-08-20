@@ -1,3 +1,5 @@
+import { scaleLinear } from "d3-scale";
+
 export type DepthScale = {
   fromDepth: number;
   toDepth: number;
@@ -30,16 +32,17 @@ function unclampedDepthToPercentFromDepth(depth: number, fromDepth: number, visi
 
 function createDepthToContentTransform(domainFromDepth: number, domainToDepth: number, drawableHeight: number) {
   const domainSpan = Math.max(0.001, domainToDepth - domainFromDepth);
-  const scaleY = drawableHeight / domainSpan;
-  const translateY = -domainFromDepth * scaleY;
-  const inverseScaleY = 1 / scaleY;
+  const depthToYScale = scaleLinear()
+    .domain([domainFromDepth, domainToDepth])
+    .range([0, drawableHeight])
+    .clamp(true);
 
   return {
     domainSpan,
-    depthToY: (depth: number) => scaleY * depth + translateY,
-    yToDepth: (y: number) => inverseScaleY * y + domainFromDepth,
-    depthToContentY: (depth: number) => scaleY * depth + translateY,
-    contentToDepth: (y: number) => inverseScaleY * y + domainFromDepth,
+    depthToY: (depth: number) => depthToYScale(depth),
+    yToDepth: (y: number) => depthToYScale.invert(Math.max(0, Math.min(drawableHeight, y))),
+    depthToContentY: (depth: number) => depthToYScale(depth),
+    contentToDepth: (y: number) => depthToYScale.invert(Math.max(0, Math.min(drawableHeight, y))),
     displayToContentY: (y: number) => Math.max(0, Math.min(drawableHeight, y)),
   };
 }

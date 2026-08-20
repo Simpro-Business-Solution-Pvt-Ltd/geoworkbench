@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Borehole, Curve, CurveSample, SourceImport
@@ -20,6 +21,11 @@ CURVE_STYLES = {
     "density": ("Density", "g/cc", "#16a34a"),
     "caliper": ("Caliper", "mm", "#d97706"),
     "sp": ("Spontaneous Potential", "mV", "#7c3aed"),
+    "guard": ("Guard Resistivity", "ohm.m", "#0ea5e9"),
+    "point_resistance": ("Point Resistance", "ohm.m", "#f97316"),
+    "bed_resolution_density": ("Bed Resolution Density", "cps", "#22c55e"),
+    "neutron": ("Neutron", "cps", "#84cc16"),
+    "deviation": ("Deviation", "deg", "#0f766e"),
     "inclination": ("Inclination", "deg", "#0f766e"),
     "azimuth": ("Azimuth", "deg", "#0891b2"),
     "sonic": ("Sonic", "usec", "#a855f7"),
@@ -53,19 +59,25 @@ def _normalize_curve_key(mnemonic: str, description: str = "") -> str:
     code = mnemonic.upper()
     if code in {"DEPT", "DEPTH", "MD"}:
         return "depth"
-    if code in {"NGAM", "GR", "GAMMA", "CGR", "SGR"} or "GAMMA" in text:
+    if code in {"NG", "NGAM", "GR", "GAMMA", "CGR", "SGR"} or "GAMMA" in text:
         return "gamma"
-    if code in {"RES", "RESD", "RESS", "HRD", "SPR", "16N", "64N"} or "RESIST" in text:
+    if code in {"RS", "RES", "RESD", "RESS", "HRD", "SPR", "16N", "64N"} or "RESIST" in text:
         return "resistivity"
     if code in {"DENS", "DEN", "RHOB", "LSD"} or "DENS" in text:
         return "density"
-    if code in {"CAL", "CALI", "CALP", "CALIPER"}:
+    if code in {"BD"}:
+        return "bed_resolution_density"
+    if code in {"CL", "CAL", "CALI", "CALP", "CALIPER"}:
         return "caliper"
+    if code == "PR":
+        return "point_resistance"
+    if code == "NN":
+        return "neutron"
     if code == "SP":
         return "sp"
-    if code in {"INC", "INCL", "INCLINATION"}:
+    if code in {"DV", "INC", "INCL", "INCLINATION"}:
         return "inclination"
-    if code in {"AZIM", "AZI", "AZIMUTH"}:
+    if code in {"AZ", "AZIM", "AZI", "AZIMUTH"}:
         return "azimuth"
     if code.startswith("TT") or code in {"DT", "PDEL", "SVEL"}:
         return "sonic"
@@ -212,9 +224,13 @@ def profile_las_file(path: Path) -> dict:
 def _replacement_keys(imported_keys: set[str]) -> set[str]:
     keys = set(imported_keys)
     if "gamma" in imported_keys:
-        keys.add("ngam")
-    if "ngam" in imported_keys:
+        keys.update({"ng", "ngam"})
+    if "ngam" in imported_keys or "ng" in imported_keys:
         keys.add("gamma")
+    if "resistivity" in imported_keys:
+        keys.update({"rs", "res"})
+    if "caliper" in imported_keys:
+        keys.update({"cl", "cal"})
     return keys
 
 
@@ -257,20 +273,34 @@ def import_las_curves(
                 "source_file": las_path.name,
             },
         )
+        borehole.curves.append(curve)
+        db.add(curve)
+        db.flush()
+        sample_rows = []
         for row in parsed["rows"]:
             depth = row[depth_index]
             value = row[curve_info["index"]]
             if depth is None or value is None:
                 continue
-            curve.samples.append(CurveSample(depth=round(depth, 4), value=round(value, 6)))
-        borehole.curves.append(curve)
+            sample_rows.append(
+                {
+                    "curve_id": curve.id,
+                    "depth": round(depth, 4),
+                    "value": round(value, 6),
+                }
+            )
+        if sample_rows:
+            db.bulk_insert_mappings(CurveSample, sample_rows)
         created.append(
             {
                 "key": curve.key,
                 "label": curve.label,
                 "unit": curve.unit,
-                "samples": len(curve.samples),
+                "color": curve.color,
+                "samples": len(sample_rows),
                 "mnemonic": curve_info["mnemonic"],
+                "min": curve_info["min"],
+                "max": curve_info["max"],
             }
         )
 
@@ -299,3 +329,37 @@ def import_las_curves(
     db.add(borehole)
     db.commit()
     return summary
+
+
+def display_curve_samples(
+    db: Session,
+    curve: Curve,
+    *,
+    max_samples: int = 6000,
+) -> tuple[list[CurveSample], dict]:
+    sample_count = db.scalar(select(func.count(CurveSample.id)).where(CurveSample.curve_id == curve.id)) or 0
+    if sample_count <= max_samples:
+        samples = list(
+            db.scalars(
+                select(CurveSample)
+                .where(CurveSample.curve_id == curve.id)
+                .order_by(CurveSample.depth)
+            )
+        )
+        return samples, {"full_sample_count": sample_count, "display_sample_count": len(samples), "display_mode": "full"}
+
+    step = max(1, sample_count // max_samples)
+    samples = list(
+        db.scalars(
+            select(CurveSample)
+            .where(CurveSample.curve_id == curve.id)
+            .where(CurveSample.id % step == 0)
+            .order_by(CurveSample.depth)
+        )
+    )
+    return samples, {
+        "full_sample_count": sample_count,
+        "display_sample_count": len(samples),
+        "display_mode": "decimated_for_workbench",
+        "decimation_step": step,
+    }

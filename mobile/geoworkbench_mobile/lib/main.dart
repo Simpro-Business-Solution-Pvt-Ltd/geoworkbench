@@ -104,6 +104,14 @@ class _GeoWorkbenchMobileAppState extends State<GeoWorkbenchMobileApp> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(44),
+          side: BorderSide(color: borderColor),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(foregroundColor: primary),
       ),
@@ -142,6 +150,14 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
       TextEditingController(text: 'Mobile field borehole');
   final _emptyTotalDepth = TextEditingController(text: '0');
   final _state = TextEditingController(text: 'Jharkhand');
+  final _coordinateSystem =
+      TextEditingController(text: 'UTM Zone 44 / Coalgrid');
+  final _coalgridEasting = TextEditingController();
+  final _coalgridNorthing = TextEditingController();
+  final _utmEasting = TextEditingController();
+  final _utmNorthing = TextEditingController();
+  final _reducedLevel = TextEditingController();
+  final _waterLevel = TextEditingController();
   final _runFromDepth = TextEditingController(text: '525.0');
   final _runToDepth = TextEditingController(text: '528.0');
   final _lithologyFromDepth = TextEditingController(text: '525.0');
@@ -213,6 +229,13 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
     _emptyBoreholeTitle.dispose();
     _emptyTotalDepth.dispose();
     _state.dispose();
+    _coordinateSystem.dispose();
+    _coalgridEasting.dispose();
+    _coalgridNorthing.dispose();
+    _utmEasting.dispose();
+    _utmNorthing.dispose();
+    _reducedLevel.dispose();
+    _waterLevel.dispose();
     _runFromDepth.dispose();
     _runToDepth.dispose();
     _lithologyFromDepth.dispose();
@@ -681,9 +704,7 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         _FieldHeaderCard(
-          boreholeCode: _createdBoreholeId == null
-              ? _emptyBoreholeCode.text.trim()
-              : 'Central id $_createdBoreholeId',
+          boreholeCode: _emptyBoreholeCode.text.trim(),
           siteCode: _siteCode.text.trim(),
           currentDepth: _lithologyFromDepth.text.trim(),
           userLabel: _displayName ?? _username.text,
@@ -723,9 +744,15 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
           id: 'create-empty',
           openId: _openSection,
           onToggle: _toggleSection,
-          title: 'Create Empty Borehole',
+          title: 'Borehole Setup',
           icon: Icons.add_location_alt,
           children: [
+            const _SectionIntro(
+              title: 'Master data',
+              subtitle:
+                  'Create a field borehole draft with block, depth and collar metadata.',
+              icon: Icons.assignment_outlined,
+            ),
             TextField(
               controller: _projectCode,
               decoration: const InputDecoration(labelText: 'Project code'),
@@ -765,6 +792,78 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
                 ),
               ],
             ),
+            const _SectionIntro(
+              title: 'Collar / coordinates',
+              subtitle:
+                  'Capture location in the same shape used by the central borehole model.',
+              icon: Icons.my_location_outlined,
+            ),
+            TextField(
+              controller: _coordinateSystem,
+              decoration:
+                  const InputDecoration(labelText: 'Coordinate system / datum'),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _coalgridEasting,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: 'Coalgrid easting'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _coalgridNorthing,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: 'Coalgrid northing'),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _utmEasting,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'UTM easting'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _utmNorthing,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: 'UTM northing'),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _reducedLevel,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: 'Reduced level'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _waterLevel,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Water level'),
+                  ),
+                ),
+              ],
+            ),
             FilledButton.icon(
               onPressed: _busy || _authToken == null
                   ? null
@@ -778,12 +877,19 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
                           title: _emptyBoreholeTitle.text.trim(),
                           totalDepth: _optionalNumber(_emptyTotalDepth) ?? 0,
                           state: _state.text.trim(),
+                          coalgridEasting: _optionalNumber(_coalgridEasting),
+                          coalgridNorthing: _optionalNumber(_coalgridNorthing),
+                          utmEasting: _optionalNumber(_utmEasting),
+                          utmNorthing: _optionalNumber(_utmNorthing),
+                          reducedLevel: _optionalNumber(_reducedLevel),
+                          waterLevel: _optionalNumber(_waterLevel),
+                          coordinateSystem: _coordinateSystem.text.trim(),
                         ),
                       ),
               icon: const Icon(Icons.add_location_alt),
               label: Text(_busy && _busyLabel == 'Creating empty borehole'
                   ? 'Creating...'
-                  : 'Create Empty Borehole'),
+                  : 'Create Borehole Draft'),
             ),
           ],
         ),
@@ -1238,151 +1344,61 @@ class _IdentityMenuHeader extends StatelessWidget {
   }
 }
 
-class _IdentityAccessCard extends StatelessWidget {
-  const _IdentityAccessCard({
-    required this.signedIn,
-    required this.displayName,
-    required this.role,
-    required this.baseUrl,
-    required this.onOpenLogin,
-    required this.onSignOut,
-  });
-
-  final bool signedIn;
-  final String displayName;
-  final String role;
-  final String baseUrl;
-  final VoidCallback onOpenLogin;
-  final VoidCallback? onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: signedIn
-                        ? scheme.primary
-                        : scheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    signedIn ? Icons.verified_user : Icons.lock_outline,
-                    color: signedIn ? Colors.white : scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        signedIn ? displayName : 'Field identity locked',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                      ),
-                      Text(
-                        signedIn
-                            ? role
-                            : 'Authenticate before creating boreholes or syncing files',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _AccessChip(
-                  icon: Icons.api,
-                  label: Uri.tryParse(baseUrl)?.host ?? baseUrl,
-                ),
-                _AccessChip(
-                  icon: signedIn ? Icons.cloud_done : Icons.cloud_off,
-                  label: signedIn ? 'Token active' : 'No token',
-                ),
-                _AccessChip(
-                  icon: Icons.admin_panel_settings,
-                  label: signedIn ? 'Mobile capture allowed' : 'Actions locked',
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onOpenLogin,
-                    icon: Icon(signedIn ? Icons.manage_accounts : Icons.login),
-                    label: Text(signedIn ? 'Manage login' : 'Sign in'),
-                  ),
-                ),
-                if (onSignOut != null) ...[
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onSignOut,
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Sign out'),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AccessChip extends StatelessWidget {
-  const _AccessChip({
+class _SectionIntro extends StatelessWidget {
+  const _SectionIntro({
+    required this.title,
+    required this.subtitle,
     required this.icon,
-    required this.label,
   });
 
+  final String title;
+  final String subtitle;
   final IconData icon;
-  final String label;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(999),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.45)),
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.45),
+        ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 15, color: scheme.primary),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: scheme.primary, size: 19),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1421,66 +1437,6 @@ class _SignedInNotice extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoginMethodBanner extends StatelessWidget {
-  const _LoginMethodBanner({
-    required this.signedIn,
-    required this.displayName,
-    required this.role,
-  });
-
-  final bool signedIn;
-  final String displayName;
-  final String role;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.45)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            signedIn ? Icons.verified_user : Icons.security,
-            color: signedIn ? scheme.primary : scheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  signedIn
-                      ? 'Signed in as $displayName'
-                      : 'Choose an identity provider',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                Text(
-                  signedIn
-                      ? role
-                      : 'Entra ID for enterprise SSO, or push OTP for site users.',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
             ),
           ),
         ],

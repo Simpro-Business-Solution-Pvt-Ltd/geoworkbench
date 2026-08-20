@@ -180,6 +180,7 @@ class BoreholeWorkbenchOut(BaseModel):
     source_workbook: str | None
     source_sheet: str | None
     workflow_status: str
+    attributes: dict | None = None
     lithology_intervals: list[LithologyIntervalOut]
     seam_intervals: list[SeamIntervalOut]
     curves: list[CurveOut]

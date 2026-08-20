@@ -22,6 +22,7 @@ def local_chat_completion(messages: list[dict], *, max_tokens: int = 500, temper
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
+            "reasoning_effort": "none",
         }
     ).encode("utf-8")
     request = urllib.request.Request(
@@ -37,7 +38,11 @@ def local_chat_completion(messages: list[dict], *, max_tokens: int = 500, temper
         raise AiProviderUnavailable(str(exc)) from exc
 
     try:
-        return str(payload["choices"][0]["message"]["content"]).strip()
+        message = payload["choices"][0]["message"]
+        content = str(message.get("content") or "").strip()
+        if content:
+            return content
+        return str(message.get("reasoning_content") or "").strip()
     except (KeyError, IndexError, TypeError) as exc:
         raise AiProviderUnavailable("AI provider returned an unexpected response.") from exc
 

@@ -12,7 +12,7 @@ import {
 } from "react";
 
 import type { BoreholeWorkbench, DisplayTrack } from "../../api/types";
-import { depthSpanSize, inferLogWidgetDepthSpan } from "../core/depthDomain";
+import { addBottomDepthPadding, depthSpanSize, inferLogWidgetDepthSpan } from "../core/depthDomain";
 import type { LogTrackContext } from "../core/logTrackContext";
 import {
   clampToBounds,
@@ -25,14 +25,7 @@ import { handleTrackPointerEvent } from "../core/interactions";
 import { legendForIntervals } from "../core/lithologyPatterns";
 import type { TrackPointerEvent } from "../core/trackObject";
 import { useWorkbenchStore } from "../display/workbenchStore";
-import { AiSuggestionsTrack } from "../tracks/aiSuggestions/AiSuggestionsTrack";
-import { CurveTrack } from "../tracks/curve/CurveTrack";
-import { DepthTrack } from "../tracks/depth/DepthTrack";
-import { ImageTrack } from "../tracks/images/ImageTrack";
-import { LithologyTrack } from "../tracks/lithology/LithologyTrack";
-import { QuantitativeBarTrack } from "../tracks/quantitativeBar/QuantitativeBarTrack";
-import { RemarksTrack } from "../tracks/remarks/RemarksTrack";
-import { SeamTrack } from "../tracks/seam/SeamTrack";
+import { renderRegisteredTrack } from "../tracks/trackRegistry";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -82,7 +75,10 @@ export function LogWidget({ data }: Props) {
 
   const tracks = data.layout?.settings.widgets?.["log-widget"]?.tracks ?? [];
   const visibleTracks = useMemo(() => tracks.filter((track) => track.visible), [tracks]);
-  const depthDomain = useMemo(() => inferLogWidgetDepthSpan(data, visibleTracks), [data, visibleTracks]);
+  const depthDomain = useMemo(
+    () => addBottomDepthPadding(inferLogWidgetDepthSpan(data, visibleTracks)),
+    [data, visibleTracks],
+  );
   const maxVisibleCurves = Math.max(
     0,
     ...visibleTracks
@@ -92,6 +88,7 @@ export function LogWidget({ data }: Props) {
   const headerHeight = Math.max(
     DEFAULT_HEADER_HEIGHT,
     maxVisibleCurves > 0 ? DEFAULT_HEADER_SCALE_BASE + maxVisibleCurves * 13 : DEFAULT_HEADER_HEIGHT,
+    ...visibleTracks.map((track) => track.header?.height ?? 0),
   );
   const defaultScale = useMemo(
     () => defaultPixelsPerDepth(depthDomain, containerHeight, headerHeight),
@@ -366,7 +363,7 @@ export function LogWidget({ data }: Props) {
             setDragSelectionState(null);
           }}
         >
-          {visibleTracks.map((track) => renderTrack(track, data, trackContext))}
+          {visibleTracks.map((track) => renderRegisteredTrack(data, track, trackContext))}
           {visibleTracks.length === 0 && <div className="log-track-empty">No visible log tracks</div>}
           {ruler && (
             <div className="depth-ruler" style={{ top: `${viewport.scale.topOffset + ruler.y}px` }}>
@@ -433,26 +430,6 @@ export function LogWidget({ data }: Props) {
         onFullDepth={resetToFullDepth}
         onToggleTooltips={() => setTooltipsEnabled(!tooltipsEnabled)}
       />
-    </div>
-  );
-}
-
-function renderTrack(track: DisplayTrack, data: BoreholeWorkbench, context: LogTrackContext) {
-  if (track.type === "depthAxis") return <DepthTrack key={track.id} data={data} track={track} context={context} />;
-  if (track.type === "lithology") return <LithologyTrack key={track.id} data={data} track={track} context={context} />;
-  if (track.type === "seam") return <SeamTrack key={track.id} data={data} track={track} context={context} />;
-  if (track.type === "images") return <ImageTrack key={track.id} data={data} track={track} context={context} />;
-  if (track.type === "curve") return <CurveTrack key={track.id} data={data} track={track} context={context} />;
-  if (track.type === "quantitativeBar") {
-    return <QuantitativeBarTrack key={track.id} data={data} track={track} context={context} />;
-  }
-  if (track.type === "remarks") return <RemarksTrack key={track.id} data={data} track={track} context={context} />;
-  if (track.type === "aiSuggestions") {
-    return <AiSuggestionsTrack key={track.id} data={data} track={track} context={context} />;
-  }
-  return (
-    <div key={track.id} className="track" style={{ width: context.widthForTrack(track) }}>
-      <div className="track-title">{track.title}</div>
     </div>
   );
 }

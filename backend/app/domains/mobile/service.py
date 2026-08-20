@@ -67,6 +67,19 @@ def create_mobile_borehole(db: Session, payload: MobileBoreholeCreate) -> Boreho
         total_depth=total_depth,
         closure_note="FIELD LOGGING IN PROGRESS",
         workflow_status="logging_in_progress",
+        attributes={
+            "capture_source": "mobile",
+            "block": payload.site_code,
+            "collar": {
+                "coalgrid_easting": payload.coalgrid_easting,
+                "coalgrid_northing": payload.coalgrid_northing,
+                "utm_easting": payload.utm_easting,
+                "utm_northing": payload.utm_northing,
+                "reduced_level": payload.reduced_level,
+                "water_level": payload.water_level,
+                "coordinate_system": payload.coordinate_system,
+            },
+        },
     )
     borehole.display_layouts.append(
         DisplayLayout(name="Mobile Field Review", mode="runtime", settings=default_borehole_layout())

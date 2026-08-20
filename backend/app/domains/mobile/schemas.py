@@ -13,6 +13,13 @@ class MobileBoreholeCreate(BaseModel):
     total_depth: float = 0
     state: str | None = None
     current_depth: float | None = None
+    coalgrid_easting: float | None = None
+    coalgrid_northing: float | None = None
+    utm_easting: float | None = None
+    utm_northing: float | None = None
+    reduced_level: float | None = None
+    water_level: float | None = None
+    coordinate_system: str | None = None
 
 
 class MobileLithologyInterval(BaseModel):

@@ -3342,16 +3342,14 @@ h2 {
 }
 
 .display-grid-canvas {
-  display: grid;
-  grid-auto-rows: 72px;
-  gap: 8px;
-  min-width: 900px;
+  position: relative;
+  min-width: 720px;
   min-height: 720px;
   padding: 8px;
   background:
     linear-gradient(var(--gw-border) 1px, transparent 1px),
     linear-gradient(90deg, var(--gw-border) 1px, transparent 1px);
-  background-size: calc((100% - 88px) / 12) 80px;
+  background-size: 80px 80px;
 }
 
 .display-widget-tile {
@@ -3366,13 +3364,18 @@ h2 {
   background: var(--gw-surface);
   color: var(--gw-text);
   text-align: left;
-  cursor: move;
   user-select: none;
 }
 
 .display-widget-tile.selected {
   border-color: var(--gw-accent);
   background: var(--gw-accent-soft);
+}
+
+.display-widget-drag-handle {
+  display: inline-flex;
+  width: fit-content;
+  cursor: move;
 }
 
 .display-widget-tile span {
@@ -3385,23 +3388,14 @@ h2 {
   color: var(--gw-muted);
 }
 
-.display-widget-resize {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--gw-border);
-  border-radius: 3px;
-  background:
-    linear-gradient(135deg, transparent 0 45%, var(--gw-accent) 45% 55%, transparent 55%),
-    var(--gw-surface-alt);
-  padding: 0;
-  cursor: nwse-resize;
+.display-grid-canvas .react-resizable-handle {
+  opacity: 0.65;
 }
 
-.display-widget-resize:hover {
-  border-color: var(--gw-accent);
+.display-grid-canvas .react-grid-placeholder {
+  border-radius: 6px;
+  background: var(--gw-accent);
+  opacity: 0.18;
 }
 
 .display-modal-empty {
@@ -3431,6 +3425,8 @@ h2 {
 .widget-settings-body input,
 .widget-settings-body select,
 .track-settings-grid input,
+.curve-scale-grid input,
+.curve-scale-grid select,
 .grid-fieldset input {
   width: 100%;
   min-width: 0;
@@ -3439,6 +3435,16 @@ h2 {
   background: var(--gw-surface);
   color: var(--gw-text);
   padding: 7px;
+}
+
+.checkbox-field {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-field input {
+  width: auto !important;
 }
 
 .grid-fieldset,

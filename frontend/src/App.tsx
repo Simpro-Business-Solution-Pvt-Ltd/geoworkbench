@@ -79,6 +79,13 @@ import { DisplayRuntime } from "./workbench/display/DisplayRuntime";
 import { useWorkbenchStore } from "./workbench/display/workbenchStore";
 import { ExportCenter } from "./workbench/exports/ExportCenter";
 import { ImportCenter } from "./workbench/imports/ImportCenter";
+import {
+  DEFAULT_USER_PREFERENCES,
+  formatDateTimeWithPreferences,
+  normalizeUserPreferences,
+  type UserPreferences,
+} from "./preferences/userPreferences";
+import { PreferencesSettingsPanel } from "./settings/PreferencesSettingsPanel";
 
 const WIKI_MARKDOWN = {
   ...import.meta.glob("../../docs/wiki/**/*.md", { query: "?raw", import: "default", eager: true }),
@@ -124,18 +131,20 @@ const WIKI_PAGES = [
 ].filter((page) => Boolean(WIKI_MARKDOWN[page.key]));
 
 type AppView = "landing" | "workbench" | "correlation" | "import" | "export" | "settings" | "displayEditor" | "wiki";
-type SettingsTab = "users" | "roles" | "access" | "quality";
+type SettingsTab = "users" | "roles" | "access" | "quality" | "preferences";
 type DisplayChoice = "saved" | "default";
 
 type PersistedUserSettings = {
   selectedBoreholeId: number | null;
   displayChoice: DisplayChoice;
+  preferences: UserPreferences;
 };
 
 const USER_SETTINGS_KEY = "geoworkbench.userSettings.v1";
 const USER_SETTINGS_DEFAULT: PersistedUserSettings = {
   selectedBoreholeId: null,
   displayChoice: "saved",
+  preferences: DEFAULT_USER_PREFERENCES,
 };
 
 const getUserSettingsCache = () => {
@@ -170,6 +179,7 @@ const readUserSettings = (userId: number): PersistedUserSettings => {
   return {
     selectedBoreholeId: stored.selectedBoreholeId ?? USER_SETTINGS_DEFAULT.selectedBoreholeId,
     displayChoice: stored.displayChoice === "default" ? "default" : "saved",
+    preferences: normalizeUserPreferences(stored.preferences),
   };
 };
 
@@ -184,6 +194,7 @@ export function App() {
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(true);
   const [selectedAccessRole, setSelectedAccessRole] = useState("system_admin");
   const [displayChoice, setDisplayChoice] = useState<DisplayChoice>("saved");
+  const [userPreferences, setUserPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES);
   const [displayEditorOpen, setDisplayEditorOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => window.localStorage.getItem("geoworkbench.sidebar") === "collapsed",
@@ -213,6 +224,14 @@ export function App() {
     setDisplayChoice(nextDisplayChoice);
     if (session) {
       persistUserSettings(session.user.id, { displayChoice: nextDisplayChoice });
+    }
+  };
+
+  const setPersistedPreferences = (nextPreferences: UserPreferences) => {
+    const normalized = normalizeUserPreferences(nextPreferences);
+    setUserPreferences(normalized);
+    if (session) {
+      persistUserSettings(session.user.id, { preferences: normalized });
     }
   };
 
@@ -329,8 +348,14 @@ export function App() {
   }, [visibleWikiPages, wikiPageKey]);
 
   useEffect(() => {
+    if (!session) return;
+    setUserPreferences(readUserSettings(session.user.id).preferences);
+  }, [session]);
+
+  useEffect(() => {
     if (!session || !boreholes.data?.length) return;
     const userSettings = readUserSettings(session.user.id);
+    setUserPreferences(userSettings.preferences);
     if (userSettings.displayChoice !== displayChoice) {
       setDisplayChoice(userSettings.displayChoice);
     }
@@ -713,6 +738,16 @@ export function App() {
                 >
                   Quality Rules
                 </button>
+                <button
+                  type="button"
+                  className={view === "settings" && settingsTab === "preferences" ? "active" : ""}
+                  onClick={() => {
+                    setSettingsTab("preferences");
+                    navigateTo("settings");
+                  }}
+                >
+                  Preferences
+                </button>
               </div>
             )}
           </div>
@@ -893,6 +928,7 @@ export function App() {
           sourceImporting={importBoreholeFile.isPending}
           sourceMerging={mergeSourceFile.isPending}
           intervalSaving={saveInterval.isPending}
+          preferences={userPreferences}
           onRunValidation={() => validateCurrent.mutate()}
           onGenerateAi={() => generateSuggestions.mutate()}
           onAcceptSuggestion={(suggestionId) => acceptSuggestion.mutate(suggestionId)}
@@ -968,6 +1004,7 @@ export function App() {
           roles={roles.data ?? []}
           permissions={permissions.data ?? []}
           qualitySettings={qualitySettings.data}
+          preferences={userPreferences}
           selectedAccessRole={selectedAccessRole}
           selectedAccessPermissions={roleAccess.data?.permissions ?? []}
           currentUserId={session.user.id}
@@ -1010,6 +1047,7 @@ export function App() {
           }
           onSaveQualitySettings={(settings) => updateQualitySettingsMutation.mutate(settings)}
           onResetQualitySettings={() => resetQualitySettingsMutation.mutate()}
+          onSavePreferences={setPersistedPreferences}
         />
       )}
 
@@ -1478,6 +1516,7 @@ function SettingsPage({
   roles,
   permissions,
   qualitySettings,
+  preferences,
   selectedAccessRole,
   selectedAccessPermissions,
   currentUserId,
@@ -1494,12 +1533,14 @@ function SettingsPage({
   onUpdateRoleAccess,
   onSaveQualitySettings,
   onResetQualitySettings,
+  onSavePreferences,
 }: {
   activeTab: SettingsTab;
   users: User[];
   roles: Role[];
   permissions: Permission[];
   qualitySettings: QualitySettings | undefined;
+  preferences: UserPreferences;
   selectedAccessRole: string;
   selectedAccessPermissions: string[];
   currentUserId: number;
@@ -1529,6 +1570,7 @@ function SettingsPage({
   onUpdateRoleAccess: (roleKey: string, permissions: string[]) => void;
   onSaveQualitySettings: (settings: QualitySettingsPayload) => void;
   onResetQualitySettings: () => void;
+  onSavePreferences: (preferences: UserPreferences) => void;
 }) {
   const [editing, setEditing] = useState<User | null>(null);
   const [resetting, setResetting] = useState<User | null>(null);
@@ -1605,7 +1647,7 @@ function SettingsPage({
                           </mark>
                         </td>
                         <td>{user.failed_login_count}</td>
-                        <td>{formatDateTime(user.last_login_at)}</td>
+                        <td>{formatDateTime(user.last_login_at, preferences)}</td>
                         <td>
                           <div className="iam-row-actions">
                             <button type="button" onClick={() => setEditing(user)} disabled={busy}>Edit</button>
@@ -1717,9 +1759,13 @@ function SettingsPage({
           qualitySettings={qualitySettings}
           loading={loading}
           busy={busy}
+          preferences={preferences}
           onSave={onSaveQualitySettings}
           onReset={onResetQualitySettings}
         />
+      )}
+      {activeTab === "preferences" && (
+        <PreferencesSettingsPanel preferences={preferences} busy={busy} onSave={onSavePreferences} />
       )}
       {editing && (
         <UserEditDialog
@@ -1756,12 +1802,14 @@ function QualitySettingsPanel({
   qualitySettings,
   loading,
   busy,
+  preferences,
   onSave,
   onReset,
 }: {
   qualitySettings: QualitySettings | undefined;
   loading: boolean;
   busy: boolean;
+  preferences: UserPreferences;
   onSave: (settings: QualitySettingsPayload) => void;
   onReset: () => void;
 }) {
@@ -1826,7 +1874,7 @@ function QualitySettingsPanel({
               Default profile used by validation runs, AI review generation, and AI summary prompts.
             </span>
           </div>
-          <strong>{qualitySettings?.updated_at ? formatDateTime(qualitySettings.updated_at) : "Default"}</strong>
+          <strong>{qualitySettings?.updated_at ? formatDateTime(qualitySettings.updated_at, preferences) : "Default"}</strong>
         </div>
         <div className="quality-settings-actions">
           <button type="button" disabled={busy} onClick={() => onSave(draft)}>
@@ -2140,9 +2188,8 @@ function PasswordDialog({
   );
 }
 
-function formatDateTime(value: string | null): string {
-  if (!value) return "-";
-  return new Date(value).toLocaleString();
+function formatDateTime(value: string | null, preferences = DEFAULT_USER_PREFERENCES): string {
+  return formatDateTimeWithPreferences(value, preferences);
 }
 
 function LandingPage({

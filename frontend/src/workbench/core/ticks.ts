@@ -1,4 +1,5 @@
-const NICE_STEPS = [1, 2, 5, 10];
+import { tickStep, ticks } from "d3-array";
+import { format } from "d3-format";
 
 export type DepthTick = {
   depth: number;
@@ -6,19 +7,10 @@ export type DepthTick = {
   major: boolean;
 };
 
-function niceStep(rawStep: number): number {
-  if (rawStep <= 0) return 1;
-  const exponent = Math.floor(Math.log10(rawStep));
-  const magnitude = 10 ** exponent;
-  const normalized = rawStep / magnitude;
-  const step = NICE_STEPS.find((candidate) => normalized <= candidate) ?? 10;
-  return step * magnitude;
-}
-
 function formatDepth(depth: number, step: number): string {
-  if (step < 1) return `${depth.toFixed(2)}m`;
-  if (step < 10) return `${depth.toFixed(1)}m`;
-  return `${Math.round(depth)}m`;
+  const safeStep = Math.abs(step) || 1;
+  const decimals = safeStep < 1 ? Math.min(3, Math.ceil(-Math.log10(safeStep))) : safeStep < 10 ? 1 : 0;
+  return `${format(`.${decimals}f`)(depth)}m`;
 }
 
 export function generateDepthTicks(args: {
@@ -28,13 +20,12 @@ export function generateDepthTicks(args: {
   pixelsPerMeter: number;
 }): DepthTick[] {
   const span = Math.max(0.001, args.toDepth - args.fromDepth);
-  const rawStep = args.targetPixelSpacing / Math.max(0.001, args.pixelsPerMeter);
-  const minorStep = niceStep(rawStep);
+  const targetTickCount = Math.max(2, Math.ceil((span * Math.max(0.001, args.pixelsPerMeter)) / args.targetPixelSpacing));
+  const minorStep = Math.abs(tickStep(args.fromDepth, args.toDepth, targetTickCount)) || 1;
   const majorStep = minorStep * 5;
-  const first = Math.ceil(args.fromDepth / minorStep) * minorStep;
   const ticks: DepthTick[] = [];
 
-  for (let depth = first; depth <= args.toDepth + minorStep / 2; depth += minorStep) {
+  for (const depth of ticksForRange(args.fromDepth, args.toDepth, targetTickCount)) {
     const roundedDepth = Number(depth.toFixed(4));
     const major = Math.abs((roundedDepth / majorStep) - Math.round(roundedDepth / majorStep)) < 0.0001;
     ticks.push({
@@ -46,4 +37,10 @@ export function generateDepthTicks(args: {
   }
 
   return ticks;
+}
+
+function ticksForRange(fromDepth: number, toDepth: number, targetTickCount: number) {
+  const values = ticks(fromDepth, toDepth, targetTickCount);
+  if (values.length > 0) return values;
+  return [fromDepth, toDepth];
 }

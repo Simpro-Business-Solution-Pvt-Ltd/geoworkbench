@@ -150,6 +150,8 @@ export const TRACK_CATALOG: TrackCatalogItem[] = [
         unit: curve.unit,
         color: curve.color,
         visible: true,
+        tooltipEnabled: true,
+        lineStyle: "solid",
         scale: defaultScaleForCurve(curve),
       })),
     }),
@@ -321,6 +323,8 @@ function syncTrackCurves(tracks: DisplayTrack[], availableCurves: Curve[]): Disp
             unit: existing.unit || curve.unit,
             color: existing.color || curve.color,
             visible: existing.visible ?? true,
+            tooltipEnabled: existing.tooltipEnabled ?? true,
+            lineStyle: existing.lineStyle ?? "solid",
             scale: existing.scale ?? defaultScaleForCurve(curve),
           }
         : {
@@ -329,6 +333,8 @@ function syncTrackCurves(tracks: DisplayTrack[], availableCurves: Curve[]): Disp
             unit: curve.unit,
             color: curve.color,
             visible: true,
+            tooltipEnabled: true,
+            lineStyle: "solid",
             scale: defaultScaleForCurve(curve),
           };
     });

@@ -9,6 +9,7 @@ __pycache__/
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
 
 # Local runtime data
 *.db
@@ -16,6 +17,8 @@ dist/
 *.sqlite3
 .env
 runtime-data/
+RelianceData/
+outputs/
 
 # Generated corebox rock-lane assets. Store these in object storage or regenerate them.
 MTSE-65(PBH 62)/core-rock-lanes/

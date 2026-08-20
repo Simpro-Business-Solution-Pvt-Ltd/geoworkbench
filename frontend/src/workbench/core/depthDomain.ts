@@ -15,6 +15,19 @@ export function depthSpanSize(span: DepthSpan): number {
   return Math.max(0, Math.abs(span.toDepth - span.fromDepth));
 }
 
+export function addBottomDepthPadding(span: DepthSpan, paddingDepth?: number): DepthSpan {
+  const normalized = normalizeDepthSpan(span);
+  const spanSize = depthSpanSize(normalized);
+  const resolvedPadding =
+    typeof paddingDepth === "number" && Number.isFinite(paddingDepth)
+      ? Math.max(0, paddingDepth)
+      : Math.min(5, Math.max(0.5, spanSize * 0.01));
+  return {
+    fromDepth: normalized.fromDepth,
+    toDepth: normalized.toDepth + resolvedPadding,
+  };
+}
+
 function pushSpan(ranges: DepthSpan[], fromDepth: number | null | undefined, toDepth: number | null | undefined) {
   if (typeof fromDepth !== "number" || typeof toDepth !== "number") return;
   const a = Math.min(fromDepth, toDepth);

@@ -16,6 +16,7 @@ from app.domains.boreholes.schemas import (
     LithologyIntervalPatch,
 )
 from app.domains.display_layouts.defaults import default_borehole_layout
+from app.services.las_import import display_curve_samples
 from app.domains.quality.service import get_quality_settings_payload
 from app.services.validation.borehole_validation import replace_validation_issues, validate_borehole
 
@@ -84,28 +85,28 @@ def get_workbench(db: Session, borehole_id: int) -> BoreholeWorkbenchOut:
             selectinload(Borehole.source_imports),
             selectinload(Borehole.source_files),
             selectinload(Borehole.field_submissions),
-            selectinload(Borehole.curves).selectinload(Curve.samples),
+            selectinload(Borehole.curves),
         )
     )
     if borehole is None:
         raise ValueError("Borehole not found")
 
-    curves = [
-        CurveOut(
+    curves = []
+    for curve in sorted(borehole.curves, key=lambda item: item.key):
+        samples, display_metadata = display_curve_samples(db, curve)
+        curves.append(CurveOut(
             id=curve.id,
             key=curve.key,
             label=curve.label,
             unit=curve.unit,
             source_type=curve.source_type,
             color=curve.color,
-            curve_metadata=curve.curve_metadata,
+            curve_metadata={**(curve.curve_metadata or {}), **display_metadata},
             samples=[
                 CurveSampleOut(depth=sample.depth, value=sample.value)
-                for sample in sorted(curve.samples, key=lambda item: item.depth)
+                for sample in sorted(samples, key=lambda item: item.depth)
             ],
-        )
-        for curve in sorted(borehole.curves, key=lambda item: item.key)
-    ]
+        ))
 
     core_root = Path(__file__).resolve().parents[4] / COREBOX_ROOT_NAME
     rock_lane_manifest_path = core_root / "core-rock-lanes" / borehole.code / "manifest.json"
@@ -165,6 +166,7 @@ def get_workbench(db: Session, borehole_id: int) -> BoreholeWorkbenchOut:
         source_workbook=borehole.source_workbook,
         source_sheet=borehole.source_sheet,
         workflow_status=borehole.workflow_status,
+        attributes=borehole.attributes,
         lithology_intervals=sorted(borehole.lithology_intervals, key=lambda item: item.from_depth),
         seam_intervals=sorted(borehole.seam_intervals, key=lambda item: item.from_depth),
         curves=curves,

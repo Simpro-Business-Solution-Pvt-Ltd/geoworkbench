@@ -84,6 +84,13 @@ class GeoWorkbenchApi {
     required String title,
     required double totalDepth,
     required String state,
+    required double? coalgridEasting,
+    required double? coalgridNorthing,
+    required double? utmEasting,
+    required double? utmNorthing,
+    required double? reducedLevel,
+    required double? waterLevel,
+    required String coordinateSystem,
   }) async {
     final response = await http.post(
       _uri('/api/mobile/boreholes'),
@@ -98,6 +105,13 @@ class GeoWorkbenchApi {
         'total_depth': totalDepth,
         'state': state,
         'current_depth': totalDepth,
+        'coalgrid_easting': coalgridEasting,
+        'coalgrid_northing': coalgridNorthing,
+        'utm_easting': utmEasting,
+        'utm_northing': utmNorthing,
+        'reduced_level': reducedLevel,
+        'water_level': waterLevel,
+        'coordinate_system': coordinateSystem,
       }),
     );
     return _decode(response);

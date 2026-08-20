@@ -12,8 +12,10 @@ import type {
   ImportProfile,
   LithologyInterval,
 } from "../../api/types";
+import type { UserPreferences } from "../../preferences/userPreferences";
 import { AiWorkflowPanel } from "../ai/AiWorkflowPanel";
 import { ExportPanel } from "../exports/ExportPanel";
+import { metricValue } from "../metrics/boreholeMetrics";
 import { LogWidget } from "../widgets/LogWidget";
 import { useWorkbenchStore } from "./workbenchStore";
 import { normalizeDisplayLayout } from "./displayEditorModel";
@@ -38,6 +40,7 @@ type Props = {
   sourceImporting: boolean;
   sourceMerging: boolean;
   intervalSaving: boolean;
+  preferences: UserPreferences;
   onRunValidation: () => void;
   onGenerateAi: () => void;
   onAcceptSuggestion: (suggestionId: number) => void;
@@ -102,7 +105,14 @@ export function DisplayRuntime(props: Props) {
 
 function renderWidget(widgetId: string, widget: NonNullable<DisplayLayout["settings"]["widgets"]>[string], props: Props) {
   if (widget.type === "singleValue") {
-    return <SingleValueWidget title={widget.title} metric={widget.metric ?? "total_depth"} data={props.data} />;
+    return (
+      <SingleValueWidget
+        title={widget.title}
+        metric={widget.metric ?? "total_depth"}
+        data={props.data}
+        preferences={props.preferences}
+      />
+    );
   }
   if (widget.type === "logWidget") {
     return <LogWidget data={withRuntimeLogWidget(props.data, widgetId, widget)} />;
@@ -207,12 +217,14 @@ function SingleValueWidget({
   title,
   metric,
   data,
+  preferences,
 }: {
   title: string;
   metric: string;
   data: BoreholeWorkbench;
+  preferences: UserPreferences;
 }) {
-  const value = metricValue(metric, data);
+  const value = metricValue(metric, data, preferences);
   return (
     <div className="runtime-kpi">
       <span>{title}</span>
@@ -542,6 +554,8 @@ function parseOptionalPercent(value: FormDataEntryValue | null): number | undefi
 function buildBoreholeMetadata(data: BoreholeWorkbench) {
   const excelImport = data.source_imports.find((item) => item.import_type === "excel");
   const metadata = (excelImport?.summary?.metadata ?? {}) as Record<string, unknown>;
+  const boreholeAttributes = (data.attributes ?? {}) as Record<string, unknown>;
+  const collar = (boreholeAttributes.collar ?? {}) as Record<string, unknown>;
   const sourceDepthText = Array.isArray(metadata.source_depth_text)
     ? metadata.source_depth_text
         .map((item) =>
@@ -556,11 +570,13 @@ function buildBoreholeMetadata(data: BoreholeWorkbench) {
   return [
     { label: "Borehole", value: data.code || "-" },
     { label: "State", value: data.state || "-" },
-    { label: "Block", value: String(metadata.block ?? data.source_sheet ?? "-") },
-    { label: "Latitude", value: String(metadata.latitude ?? "-") },
-    { label: "Departure", value: String(metadata.departure ?? "-") },
+    { label: "Block", value: String(boreholeAttributes.block ?? metadata.block ?? data.source_sheet ?? "-") },
+    { label: "Coalgrid Easting", value: String(collar.coalgrid_easting ?? "-") },
+    { label: "Coalgrid Northing", value: String(collar.coalgrid_northing ?? "-") },
+    { label: "UTM Easting", value: String(collar.utm_easting ?? "-") },
+    { label: "UTM Northing", value: String(collar.utm_northing ?? "-") },
     { label: "Reduced level", value: String(metadata.reduced_level ?? metadata.rl ?? "-") },
-    { label: "Water level", value: String(metadata.water_level ?? "-") },
+    { label: "Water level", value: String(metadata.water_level ?? boreholeAttributes.water_level ?? "-") },
     { label: "Total depth", value: `${data.total_depth} m` },
     { label: "Status/depth text", value: sourceDepthText || data.closure_note || "-" },
     { label: "Source workbook", value: data.source_workbook || "-" },
@@ -574,14 +590,6 @@ function MetadataField({ label, value, full }: { label: string; value: string; f
       <b>{value}</b>
     </div>
   );
-}
-
-function metricValue(metric: string, data: BoreholeWorkbench) {
-  if (metric === "interval_count") return String(data.lithology_intervals.length);
-  if (metric === "curve_count") return String(data.curves.length);
-  if (metric === "corebox_count") return String(data.core_images.length);
-  if (metric === "total_depth") return `${data.total_depth} m`;
-  return "-";
 }
 
 function withRuntimeLogWidget(

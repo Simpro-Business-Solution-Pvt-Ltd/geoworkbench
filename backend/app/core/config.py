@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     s3_force_path_style: bool = True
     s3_url_mode: str = "proxy"
     ai_provider: str = "rule_based"
-    ai_base_url: str | None = "http://192.168.1.2:1234/v1"
-    ai_model: str = "google/gemma-4-e4b"
+    ai_base_url: str | None = "http://192.168.1.23:1234/v1"
+    ai_model: str = "google/gemma-4-12b-qat"
     ai_timeout_seconds: float = 45
     auth_token_hours: int = 12
     mobile_otp_minutes: int = 10
