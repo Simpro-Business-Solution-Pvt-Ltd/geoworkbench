@@ -66,12 +66,26 @@ After successful mutations, `App.tsx` invalidates the relevant query keys so the
 ```text
 frontend/src/workbench/
   core/       -> shared visualization math and interaction primitives
-  display/    -> display settings and Zustand workbench store
+  display/    -> display settings, runtime widget shell, and Zustand workbench store
   tracks/     -> one renderer per track type
   widgets/    -> composed widgets, currently LogWidget
   ai/         -> AI panel
   exports/    -> export panel
 ```
+
+Runtime display rendering is intentionally split:
+
+| Folder/File | Responsibility |
+| --- | --- |
+| `display/DisplayRuntime.tsx` | Reads saved grid layout, dispatches widgets by type, and keeps runtime shell behavior small. |
+| `display/runtime/runtimeTypes.ts` | Shared runtime widget props and callback contracts. |
+| `display/runtime/RuntimeWidgetFrame.tsx` | Common widget header/body frame. |
+| `display/runtime/SingleValueWidget.tsx` | KPI/metric widget using the unified metric read model. |
+| `display/runtime/CurveCatalogWidget.tsx` | Curve coverage, mnemonic, family, mapping status, sample count, and min/max display. |
+| `display/runtime/ValidationWidget.tsx` | Validation summary and depth-linked issue selection. |
+| `display/runtime/IntervalDetailsWidget.tsx` | Selected-depth interval metadata, core preview, and correction edit launcher. |
+| `display/runtime/FloatingIntervalEditor.tsx` | Draggable interval correction form. |
+| `display/runtime/intervalMetadata.tsx` | Borehole metadata extraction for the interval panel. |
 
 ## Workbench Core
 
@@ -175,7 +189,7 @@ Log widget track config has:
 - optional curve configs
 - optional quantitative field config
 
-`DisplayEditorDialog.tsx` owns the edit session. `DisplayRuntime.tsx` renders the saved display grid during runtime. `displayEditorModel.ts` owns catalog/default/normalization helpers. `LogWidget.tsx` uses the saved log widget settings to decide which track components to render.
+`DisplayEditorDialog.tsx` owns the edit session. `DisplayRuntime.tsx` renders the saved display grid during runtime and delegates each widget to a file under `display/runtime/`. `displayEditorModel.ts` owns catalog/default/normalization helpers. `LogWidget.tsx` uses the saved log widget settings to decide which track components to render.
 
 ## Adding A New Track
 
@@ -192,9 +206,10 @@ Log widget track config has:
 
 1. Add a widget catalog entry in `displayEditorModel.ts`.
 2. Add any widget-specific persisted settings to `DisplayWidget` in `api/types.ts`.
-3. Add widget settings controls in `DisplayEditorDialog.tsx`.
-4. Add runtime rendering in `DisplayRuntime.tsx`.
+3. Add widget settings controls under `display/editor/`.
+4. Add runtime rendering under `display/runtime/`.
 5. Keep widget internals nested under `settings.widgets[widgetId]`.
+6. Keep `DisplayRuntime.tsx` as a dispatch shell; avoid putting widget-specific forms or analytics logic back into it.
 
 ## Refinement Hotspots
 

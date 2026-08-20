@@ -330,6 +330,7 @@ Scope:
 Acceptance:
 
 - User preferences persist after refresh.
+- Selected borehole and display choice persist after refresh.
 - Timestamps use the selected timezone.
 - Depth/measurement formatting is centralized.
 - Single-value widgets can show values from Excel, LAS, mobile, or derived analytics through the same metric contract.

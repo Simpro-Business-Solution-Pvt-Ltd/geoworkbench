@@ -37,7 +37,7 @@ The dashboard is the starting point for selecting a borehole.
 2. Choose **Saved display** to use the stored layout or **Default display** to use the system default.
 3. Open the workbench, import center, export center, or display setup from the card actions.
 
-Saved display choices are remembered per user in browser storage for the current UAT build.
+Saved display choices, selected borehole, and unit/timezone preferences are remembered per user through the server profile, with browser storage kept as a local fallback for UAT/demo resilience.
 
 ## Workbench Runtime
 
