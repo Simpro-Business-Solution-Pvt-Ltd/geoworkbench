@@ -257,7 +257,7 @@ export function App() {
   const setPersistedBorehole = (nextBoreholeId: number | null) => {
     setBoreholeId(nextBoreholeId);
     if (session) {
-      const nextSettings = { ...settingsFromUser(session.user), selectedBoreholeId: nextBoreholeId };
+      const nextSettings = { ...readUserSettings(session.user.id), selectedBoreholeId: nextBoreholeId };
       persistUserSettings(session.user.id, nextSettings);
       updatePreferencesMutation.mutate(serializeUserSettings(nextSettings));
     }
@@ -266,7 +266,7 @@ export function App() {
   const setPersistedDisplayChoice = (nextDisplayChoice: DisplayChoice) => {
     setDisplayChoice(nextDisplayChoice);
     if (session) {
-      const nextSettings = { ...settingsFromUser(session.user), displayChoice: nextDisplayChoice };
+      const nextSettings = { ...readUserSettings(session.user.id), displayChoice: nextDisplayChoice };
       persistUserSettings(session.user.id, nextSettings);
       updatePreferencesMutation.mutate(serializeUserSettings(nextSettings));
     }
@@ -276,7 +276,7 @@ export function App() {
     const normalized = normalizeUserPreferences(nextPreferences);
     setUserPreferences(normalized);
     if (session) {
-      const nextSettings = { ...settingsFromUser(session.user), preferences: normalized };
+      const nextSettings = { ...readUserSettings(session.user.id), preferences: normalized };
       persistUserSettings(session.user.id, nextSettings);
       updatePreferencesMutation.mutate(serializeUserSettings(nextSettings));
     }
