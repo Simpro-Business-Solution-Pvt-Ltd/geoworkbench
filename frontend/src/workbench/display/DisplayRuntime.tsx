@@ -1,67 +1,23 @@
-import type { PointerEvent, ReactNode } from "react";
+import type { PointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type {
-  BoreholeAiSummary,
   BoreholeWorkbench,
-  CoreImage,
-  Curve,
   DisplayLayout,
-  ExportJob,
-  ExportReadiness,
-  ImportProfile,
   LithologyInterval,
 } from "../../api/types";
-import type { UserPreferences } from "../../preferences/userPreferences";
 import { AiWorkflowPanel } from "../ai/AiWorkflowPanel";
 import { ExportPanel } from "../exports/ExportPanel";
-import { metricValue } from "../metrics/boreholeMetrics";
 import { LogWidget } from "../widgets/LogWidget";
 import { useWorkbenchStore } from "./workbenchStore";
 import { normalizeDisplayLayout } from "./displayEditorModel";
+import { CurveCatalogWidget } from "./runtime/CurveCatalogWidget";
+import { RuntimeWidgetFrame } from "./runtime/RuntimeWidgetFrame";
+import { SingleValueWidget } from "./runtime/SingleValueWidget";
+import { ValidationWidget } from "./runtime/ValidationWidget";
+import type { DisplayRuntimeProps } from "./runtime/runtimeTypes";
 
-type Props = {
-  data: BoreholeWorkbench;
-  aiSummary?: BoreholeAiSummary;
-  aiProvider?: Record<string, unknown>;
-  exportReadiness?: ExportReadiness;
-  exportJobs?: ExportJob[];
-  importProfiles?: ImportProfile[];
-  selectedInterval: LithologyInterval | null;
-  selectedCoreImage: CoreImage | null;
-  validationRunning: boolean;
-  aiGenerating: boolean;
-  aiActing: boolean;
-  exportCreating: boolean;
-  exportApproving: boolean;
-  sourceRegistering: boolean;
-  sourceUploading: boolean;
-  sourceProcessing: boolean;
-  sourceImporting: boolean;
-  sourceMerging: boolean;
-  intervalSaving: boolean;
-  preferences: UserPreferences;
-  onRunValidation: () => void;
-  onGenerateAi: () => void;
-  onAcceptSuggestion: (suggestionId: number) => void;
-  onRejectSuggestion: (suggestionId: number) => void;
-  onCreateExport: (exportType: string) => void;
-  onApproveExport: () => void;
-  onRegisterSourceFile: (payload: {
-    file_type: string;
-    original_name: string;
-    storage_path?: string;
-    file_metadata?: Record<string, unknown>;
-  }) => void;
-  onUploadSourceFile: (payload: { file_type: string; file: File }) => void;
-  onProcessSourceFile: (sourceFileId: number) => void;
-  onImportBoreholeFile: (sourceFileId: number) => void;
-  onMergeSourceFile: (sourceFileId: number) => void;
-  onSaveInterval: (intervalId: string, patch: Partial<LithologyInterval>) => void;
-  onSelectImage: (image: CoreImage) => void;
-};
-
-export function DisplayRuntime(props: Props) {
+export function DisplayRuntime(props: DisplayRuntimeProps) {
   const layout = useMemo(
     () => (props.data.layout ? normalizeDisplayLayout(props.data.layout as DisplayLayout, props.data.curves) : null),
     [props.data.curves, props.data.layout],
@@ -103,7 +59,11 @@ export function DisplayRuntime(props: Props) {
   );
 }
 
-function renderWidget(widgetId: string, widget: NonNullable<DisplayLayout["settings"]["widgets"]>[string], props: Props) {
+function renderWidget(
+  widgetId: string,
+  widget: NonNullable<DisplayLayout["settings"]["widgets"]>[string],
+  props: DisplayRuntimeProps,
+) {
   if (widget.type === "singleValue") {
     return (
       <SingleValueWidget
@@ -164,116 +124,7 @@ function renderWidget(widgetId: string, widget: NonNullable<DisplayLayout["setti
   );
 }
 
-function CurveCatalogWidget({ title, data }: { title: string; data: BoreholeWorkbench }) {
-  return (
-    <RuntimeWidgetFrame title={title}>
-      <div className="curve-catalog">
-        {data.curves.map((curve) => {
-          const depths = curve.samples.map((sample) => sample.depth);
-          const values = curve.samples.map((sample) => sample.value);
-          const fromDepth = depths.length ? Math.min(...depths) : null;
-          const toDepth = depths.length ? Math.max(...depths) : null;
-          const min = values.length ? Math.min(...values) : null;
-          const max = values.length ? Math.max(...values) : null;
-          return (
-            <article key={curve.id} className="curve-catalog-item">
-              <i style={{ background: curve.color }} />
-              <div>
-                <strong>{curve.label}</strong>
-                <span>
-                  {curve.unit || "-"} · {curve.source_type.replaceAll("_", " ")}
-                </span>
-                <small>
-                  {fromDepth !== null && toDepth !== null
-                    ? `${fromDepth.toFixed(1)}-${toDepth.toFixed(1)}m`
-                    : "no coverage"}{" "}
-                  · {curve.samples.length} samples
-                </small>
-              </div>
-              <b>
-                {min !== null && max !== null ? `${min.toFixed(1)} / ${max.toFixed(1)}` : "-"}
-              </b>
-            </article>
-          );
-        })}
-        {!data.curves.length && <div className="empty">No curves imported for this borehole.</div>}
-      </div>
-    </RuntimeWidgetFrame>
-  );
-}
-
-function RuntimeWidgetFrame({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <>
-      <div className="runtime-widget-header">
-        <strong>{title}</strong>
-      </div>
-      <div className="runtime-widget-body">{children}</div>
-    </>
-  );
-}
-
-function SingleValueWidget({
-  title,
-  metric,
-  data,
-  preferences,
-}: {
-  title: string;
-  metric: string;
-  data: BoreholeWorkbench;
-  preferences: UserPreferences;
-}) {
-  const value = metricValue(metric, data, preferences);
-  return (
-    <div className="runtime-kpi">
-      <span>{title}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function ValidationWidget(props: Props) {
-  const errors = props.data.validation_issues.filter((issue) => issue.severity === "error").length;
-  const warnings = props.data.validation_issues.filter((issue) => issue.severity === "warning").length;
-  const info = props.data.validation_issues.filter((issue) => issue.severity === "info").length;
-  return (
-    <RuntimeWidgetFrame title="Validation">
-      <button
-        type="button"
-        className="full-width-action"
-        disabled={props.validationRunning}
-        onClick={props.onRunValidation}
-      >
-        {props.validationRunning ? "Running validation..." : "Run validation"}
-      </button>
-      <div className="validation-summary">
-        <span>{errors} errors</span>
-        <span>{warnings} warnings</span>
-        <span>{info} info</span>
-      </div>
-      <div className="validation-list">
-        {props.data.validation_issues.slice(0, 8).map((issue) => (
-          <button
-            key={issue.id}
-            type="button"
-            className={`validation-item ${issue.severity}`}
-            onClick={() => {
-              if (issue.from_depth !== null) {
-                useWorkbenchStore.getState().setSelectedDepth(issue.from_depth);
-              }
-            }}
-          >
-            <strong>{issue.severity}</strong>
-            <span>{issue.message}</span>
-          </button>
-        ))}
-      </div>
-    </RuntimeWidgetFrame>
-  );
-}
-
-function IntervalDetailsWidget({ title, ...props }: Props & { title: string }) {
+function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps & { title: string }) {
   const selectedDepth = useWorkbenchStore((state) => state.selectedDepth);
   const setSelectedInterval = useWorkbenchStore((state) => state.setSelectedInterval);
   const intervalAtDepth = useMemo(() => {
