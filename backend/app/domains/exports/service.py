@@ -39,7 +39,24 @@ def default_export_profiles() -> list[ExportProfile]:
             name="Corrected Lithology CSV",
             export_type="corrected_lithology_csv",
             description="Delimited interval table for analytics or package import.",
-            mapping={"columns": ["borehole_code", "from_depth", "to_depth", "lithology_code", "seam_name", "rqd_percent"]},
+            mapping={
+                "columns": [
+                    {"source": "borehole.code", "target": "borehole_code"},
+                    {"source": "lithology.source_row", "target": "source_row"},
+                    {"source": "lithology.from_depth", "target": "from_depth"},
+                    {"source": "lithology.to_depth", "target": "to_depth"},
+                    {"source": "lithology.thickness", "target": "thickness"},
+                    {"source": "lithology.lithology_code", "target": "lithology_code"},
+                    {"source": "lithology.lithology_label", "target": "lithology_label"},
+                    {"source": "lithology.logged_color", "target": "logged_color"},
+                    {"source": "lithology.seam_name", "target": "seam_name"},
+                    {"source": "lithology.recovery", "target": "recovery"},
+                    {"source": "lithology.recovery_percent", "target": "recovery_percent"},
+                    {"source": "lithology.rqd_percent", "target": "rqd_percent"},
+                    {"source": "lithology.structural_features", "target": "structural_features"},
+                    {"source": "lithology.remark", "target": "remarks"},
+                ]
+            },
         ),
         ExportProfile(
             name="Curve LAS",

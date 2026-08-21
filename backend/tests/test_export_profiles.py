@@ -21,6 +21,20 @@ def test_default_export_profiles_include_mapping_details() -> None:
     assert profiles["curves_csv"].mapping["curve_dictionary"]
 
 
+def test_default_corrected_lithology_csv_uses_canonical_sources() -> None:
+    profile = {profile.export_type: profile for profile in default_export_profiles()}["corrected_lithology_csv"]
+    columns = profile.mapping["columns"]
+
+    assert all(isinstance(column, dict) for column in columns)
+    assert {column["target"] for column in columns} >= {"borehole_code", "from_depth", "to_depth", "rqd_percent"}
+    assert {column["source"] for column in columns} >= {
+        "borehole.code",
+        "lithology.from_depth",
+        "lithology.to_depth",
+        "lithology.rqd_percent",
+    }
+
+
 def test_default_export_profile_factory_returns_fresh_instances() -> None:
     first = default_export_profiles()
     second = default_export_profiles()
