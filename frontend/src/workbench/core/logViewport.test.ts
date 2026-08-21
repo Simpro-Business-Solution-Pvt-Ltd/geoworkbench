@@ -4,6 +4,7 @@ import { addBottomDepthPadding } from "./depthDomain";
 import {
   defaultPixelsPerDepth,
   resolveLogViewport,
+  resolveLogPointerPosition,
   scrollTopForDepthAtViewportY,
   zoomViewportAtDepth,
   zoomViewportToDepthSpan,
@@ -133,6 +134,41 @@ describe("resolveLogViewport", () => {
     });
 
     expect(focusedViewport.scale.depthToY(selectedDepth) - focusedViewport.scrollTop).toBeCloseTo(viewportY, 4);
+  });
+
+  it("resolves pointer depth from body coordinates while scrolled", () => {
+    const viewport = resolveLogViewport({
+      depthDomain: DEPTH_DOMAIN,
+      containerHeight: CONTAINER_HEIGHT,
+      headerHeight: HEADER_HEIGHT,
+      pixelsPerDepth: 4,
+      scrollTop: 320,
+      minPixelsPerDepth: 0.1,
+    });
+    const bodyTop = 100 - viewport.scrollTop;
+    const pointer = resolveLogPointerPosition(viewport, 220, bodyTop);
+
+    expect(pointer.contentY).toBeCloseTo(440, 4);
+    expect(pointer.viewportBodyY).toBeCloseTo(120, 4);
+    expect(pointer.depth).toBeCloseTo(viewport.scale.yToDepth(440), 4);
+  });
+
+  it("clamps pointer depth to the drawable body range", () => {
+    const viewport = resolveLogViewport({
+      depthDomain: DEPTH_DOMAIN,
+      containerHeight: CONTAINER_HEIGHT,
+      headerHeight: HEADER_HEIGHT,
+      pixelsPerDepth: 4,
+      scrollTop: 0,
+      minPixelsPerDepth: 0.1,
+    });
+    const above = resolveLogPointerPosition(viewport, 50, 100);
+    const below = resolveLogPointerPosition(viewport, 5000, 100);
+
+    expect(above.contentY).toBe(0);
+    expect(above.depth).toBeCloseTo(DEPTH_DOMAIN.fromDepth, 4);
+    expect(below.contentY).toBe(viewport.scale.drawableHeight);
+    expect(below.depth).toBeCloseTo(DEPTH_DOMAIN.toDepth, 4);
   });
 
   it("zooms around a pointer depth without changing the virtual domain", () => {

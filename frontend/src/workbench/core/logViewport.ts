@@ -31,6 +31,12 @@ export type LogViewportTransition = {
   viewport: LogViewportState;
 };
 
+export type LogPointerPosition = {
+  contentY: number;
+  viewportBodyY: number;
+  depth: number;
+};
+
 const DEFAULT_CONTAINER_HEIGHT = 640;
 const MIN_PIXELS_PER_DEPTH = 0.05;
 const MAX_PIXELS_PER_DEPTH = 256;
@@ -115,6 +121,19 @@ export function scrollTopForDepthAtViewportY(
   maxScrollTop: number,
 ) {
   return clampToBounds(scale.depthToY(depth) - viewportBodyY, 0, maxScrollTop);
+}
+
+export function resolveLogPointerPosition(
+  viewport: Pick<LogViewportState, "scale" | "scrollTop" | "visibleBodyHeight">,
+  clientY: number,
+  bodyTop: number,
+): LogPointerPosition {
+  const contentY = clampToBounds(clientY - bodyTop, 0, viewport.scale.drawableHeight);
+  return {
+    contentY,
+    viewportBodyY: clampToBounds(contentY - viewport.scrollTop, 0, viewport.visibleBodyHeight),
+    depth: viewport.scale.yToDepth(contentY),
+  };
 }
 
 export function zoomViewportAtDepth(

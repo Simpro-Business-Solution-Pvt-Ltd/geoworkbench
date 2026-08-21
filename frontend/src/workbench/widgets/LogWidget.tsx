@@ -14,9 +14,7 @@ import {
 import type { BoreholeWorkbench, DisplayTrack } from "../../api/types";
 import { addBottomDepthPadding, depthSpanSize, inferLogWidgetDepthSpan } from "../core/depthDomain";
 import type { LogTrackContext } from "../core/logTrackContext";
-import {
-  clampToBounds,
-} from "../core/logViewport";
+import { resolveLogPointerPosition } from "../core/logViewport";
 import { useLogViewportController } from "../core/useLogViewportController";
 import { handleTrackPointerEvent } from "../core/interactions";
 import { legendForIntervals } from "../core/lithologyPatterns";
@@ -116,13 +114,7 @@ export function LogWidget({ data }: Props) {
       const containerBounds = scrollRef.current?.getBoundingClientRect();
       const fallbackTop = (containerBounds?.top ?? 0) + headerHeight - viewport.scrollTop;
       const bodyTop = body?.getBoundingClientRect().top ?? fallbackTop;
-      const contentY = clampToBounds(clientY - bodyTop, 0, viewport.scale.drawableHeight);
-      const viewportBodyY = clampToBounds(contentY - viewport.scrollTop, 0, viewport.visibleBodyHeight);
-      return {
-        contentY,
-        viewportBodyY,
-        depth: viewport.scale.yToDepth(contentY),
-      };
+      return resolveLogPointerPosition(viewport, clientY, bodyTop);
     },
     [headerHeight, viewport],
   );
