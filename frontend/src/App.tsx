@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   approveBoreholeForExport,
   changePassword,
+  cloneDisplayLayout,
   createRole,
   createSourceFile,
   createExportJob,
@@ -515,6 +516,13 @@ export function App() {
   const resetCurrentLayout = useMutation({
     mutationFn: () => resetDisplayLayout(activeId as number),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workbench", activeId] }),
+  });
+  const cloneCurrentLayout = useMutation({
+    mutationFn: (layout: DisplayLayout) => cloneDisplayLayout(layout.id, `${layout.name} Copy`),
+    onSuccess: (layout) => {
+      if (activeId) setPersistedDisplayLayoutId(activeId, layout.id);
+      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
+    },
   });
   const registerSourceFile = useMutation({
     mutationFn: (payload: {
@@ -1171,6 +1179,7 @@ export function App() {
           layout={workbench.data?.layout ?? null}
           availableCurves={workbench.data?.curves ?? []}
           saving={saveDisplayLayout.isPending}
+          cloning={cloneCurrentLayout.isPending}
           resetting={resetCurrentLayout.isPending}
           onSave={(layout) =>
             saveDisplayLayout.mutate(layout, {
@@ -1180,6 +1189,7 @@ export function App() {
               },
             })
           }
+          onClone={(layout) => cloneCurrentLayout.mutate(layout)}
           onReset={() => resetCurrentLayout.mutate()}
           onClose={() => {
             setDisplayEditorOpen(false);

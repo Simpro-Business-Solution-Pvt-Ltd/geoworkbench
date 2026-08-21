@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from pathlib import Path
 import json
+from copy import deepcopy
 
 from app.db.models import Borehole, CoreImage, CorrectionAudit, Curve, DisplayLayout, LithologyInterval, Project, Site
 from app.domains.boreholes.schemas import (
@@ -274,6 +275,22 @@ def update_display_layout(
     db.commit()
     db.refresh(layout)
     return layout
+
+
+def clone_display_layout(db: Session, layout_id: int, name: str | None = None) -> DisplayLayout:
+    source = db.get(DisplayLayout, layout_id)
+    if source is None:
+        raise ValueError("Display layout not found")
+    clone = DisplayLayout(
+        borehole_id=source.borehole_id,
+        name=name or f"{source.name} Copy",
+        mode=source.mode,
+        settings=deepcopy(source.settings),
+    )
+    db.add(clone)
+    db.commit()
+    db.refresh(clone)
+    return clone
 
 
 def reset_borehole_display_layout(db: Session, borehole_id: int) -> DisplayLayout:

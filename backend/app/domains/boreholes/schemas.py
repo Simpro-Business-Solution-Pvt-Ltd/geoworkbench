@@ -115,6 +115,10 @@ class DisplayLayoutPatch(BaseModel):
     settings: dict | None = None
 
 
+class DisplayLayoutCloneRequest(BaseModel):
+    name: str | None = None
+
+
 class ValidationIssueOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

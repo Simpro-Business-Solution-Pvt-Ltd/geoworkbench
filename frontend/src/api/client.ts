@@ -299,6 +299,13 @@ export function updateDisplayLayout(
   });
 }
 
+export function cloneDisplayLayout(layoutId: number, name?: string): Promise<DisplayLayout> {
+  return request<DisplayLayout>(`/boreholes/display-layouts/${layoutId}/clone`, {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
 export function resetDisplayLayout(boreholeId: number): Promise<DisplayLayout> {
   return request<DisplayLayout>(`/boreholes/${boreholeId}/display-layout/reset`, {
     method: "POST",

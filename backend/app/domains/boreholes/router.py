@@ -6,6 +6,7 @@ from app.domains.boreholes import service
 from app.domains.boreholes.schemas import (
     BoreholeListItem,
     BoreholeStatusOut,
+    DisplayLayoutCloneRequest,
     BoreholeWorkbenchOut,
     DisplayLayoutOut,
     DisplayLayoutPatch,
@@ -49,6 +50,18 @@ def patch_display_layout(
 ) -> DisplayLayoutOut:
     try:
         return service.update_display_layout(db, layout_id, patch)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/display-layouts/{layout_id}/clone", response_model=DisplayLayoutOut)
+def clone_display_layout(
+    layout_id: int,
+    payload: DisplayLayoutCloneRequest | None = None,
+    db: Session = Depends(get_db),
+) -> DisplayLayoutOut:
+    try:
+        return service.clone_display_layout(db, layout_id, payload.name if payload else None)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

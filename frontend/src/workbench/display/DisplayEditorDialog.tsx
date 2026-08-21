@@ -13,8 +13,10 @@ type Props = {
   layout: DisplayLayout | null;
   availableCurves: Curve[];
   saving: boolean;
+  cloning: boolean;
   resetting: boolean;
   onSave: (layout: DisplayLayout) => void;
+  onClone: (layout: DisplayLayout) => void;
   onReset: () => void;
   onClose: () => void;
 };
@@ -24,8 +26,10 @@ export function DisplayEditorDialog({
   layout,
   availableCurves,
   saving,
+  cloning,
   resetting,
   onSave,
+  onClone,
   onReset,
   onClose,
 }: Props) {
@@ -165,6 +169,9 @@ export function DisplayEditorDialog({
           <div className="display-modal-actions">
             <button type="button" disabled={!history.length || saving} onClick={undo}>
               Undo
+            </button>
+            <button type="button" disabled={cloning || saving} onClick={() => onClone(draft)}>
+              {cloning ? "Cloning..." : "Clone display"}
             </button>
             <button type="button" disabled={resetting || saving} onClick={onReset}>
               {resetting ? "Resetting..." : "Reset default"}

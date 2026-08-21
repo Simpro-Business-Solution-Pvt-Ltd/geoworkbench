@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.models import Borehole, DisplayLayout, Project, Site
 from app.db.session import Base
-from app.domains.boreholes.service import get_workbench
+from app.domains.boreholes.service import clone_display_layout, get_workbench
 
 
 def test_workbench_returns_layout_options_and_uses_default_layout_when_not_selected() -> None:
@@ -33,6 +33,23 @@ def test_workbench_can_select_requested_display_layout() -> None:
         assert workbench.layout is not None
         assert workbench.layout.id == second_layout.id
         assert workbench.layout.name == "Curve Focus"
+    finally:
+        db.close()
+
+
+def test_display_layout_clone_copies_settings_for_same_borehole() -> None:
+    db = _test_session()
+    try:
+        borehole, first_layout, _second_layout = _seed_borehole_with_layouts(db)
+
+        clone = clone_display_layout(db, first_layout.id, "Stakeholder Review")
+
+        assert clone.id != first_layout.id
+        assert clone.borehole_id == borehole.id
+        assert clone.name == "Stakeholder Review"
+        assert clone.settings == first_layout.settings
+        clone.settings["widgets"] = {"new-widget": {"type": "single-value", "title": "New"}}
+        assert first_layout.settings["widgets"] == {}
     finally:
         db.close()
 
