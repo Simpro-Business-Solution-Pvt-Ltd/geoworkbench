@@ -2,6 +2,7 @@ import type { BoreholeWorkbench } from "../../api/types";
 import type { UserPreferences } from "../../preferences/userPreferences";
 import { formatDepth, formatMeasurement, formatNumber } from "../../preferences/userPreferences";
 import { buildCurveMetrics } from "./curveMetrics";
+import { buildIntervalMetrics } from "./intervalMetrics";
 import type { BoreholeMetric } from "./metricTypes";
 
 export function buildBoreholeMetrics(data: BoreholeWorkbench, preferences: UserPreferences) {
@@ -9,13 +10,6 @@ export function buildBoreholeMetrics(data: BoreholeWorkbench, preferences: UserP
   const attributes = (data.attributes ?? {}) as Record<string, unknown>;
   const collar = objectValue(attributes.collar);
   const excelMetadata = excelImportMetadata(data);
-  const seamThickness = data.seam_intervals.reduce((sum, item) => sum + Math.max(0, item.to_depth - item.from_depth), 0);
-  const recoveryValues = data.lithology_intervals
-    .map((item) => item.recovery_percent)
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-  const rqdValues = data.lithology_intervals
-    .map((item) => item.rqd)
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
 
   addMetric(metrics, {
     key: "total_depth",
@@ -26,58 +20,8 @@ export function buildBoreholeMetrics(data: BoreholeWorkbench, preferences: UserP
     category: "identity",
     source: "excel",
   });
-  addMetric(metrics, {
-    key: "interval_count",
-    label: "Lithology intervals",
-    value: formatNumber(data.lithology_intervals.length, preferences, 0),
-    rawValue: data.lithology_intervals.length,
-    category: "interval",
-    source: "derived",
-  });
+  for (const metric of buildIntervalMetrics(data, preferences)) addMetric(metrics, metric);
   for (const metric of buildCurveMetrics(data, preferences)) addMetric(metrics, metric);
-  addMetric(metrics, {
-    key: "corebox_count",
-    label: "Core images",
-    value: formatNumber(data.core_images.length, preferences, 0),
-    rawValue: data.core_images.length,
-    category: "interval",
-    source: "derived",
-  });
-  addMetric(metrics, {
-    key: "seam_count",
-    label: "Seams",
-    value: formatNumber(data.seam_intervals.length, preferences, 0),
-    rawValue: data.seam_intervals.length,
-    category: "interval",
-    source: "derived",
-  });
-  addMetric(metrics, {
-    key: "seam_thickness",
-    label: "Seam thickness",
-    value: formatDepth(seamThickness, preferences),
-    rawValue: seamThickness,
-    unit: preferences.depthUnit,
-    category: "interval",
-    source: "derived",
-  });
-  addMetric(metrics, {
-    key: "avg_recovery",
-    label: "Average recovery",
-    value: recoveryValues.length ? `${formatNumber(average(recoveryValues), preferences, 1)} %` : "-",
-    rawValue: recoveryValues.length ? average(recoveryValues) : null,
-    unit: "%",
-    category: "interval",
-    source: "excel",
-  });
-  addMetric(metrics, {
-    key: "avg_rqd",
-    label: "Average RQD",
-    value: rqdValues.length ? `${formatNumber(average(rqdValues) * 100, preferences, 1)} %` : "-",
-    rawValue: rqdValues.length ? average(rqdValues) : null,
-    unit: "%",
-    category: "interval",
-    source: "excel",
-  });
   addMetric(metrics, {
     key: "validation_issue_count",
     label: "Validation issues",
@@ -150,10 +94,6 @@ function addOptionalCoordinate(
     category: "collar",
     source: "excel",
   });
-}
-
-function average(values: number[]) {
-  return values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
 }
 
 function excelImportMetadata(data: BoreholeWorkbench) {
