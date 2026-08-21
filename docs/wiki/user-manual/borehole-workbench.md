@@ -306,6 +306,10 @@ The Correlation workspace shows multiple boreholes together for review. It suppo
 - Seam and lithology comparison.
 - Curve comparison.
 - AI/insight narrative for correlation scenarios.
+- Evidence summary for selected boreholes, common seam groups, gamma coverage, and depth/RL range.
+- Geologist observation notes from the insight dialog.
+
+Correlation insight notes are remembered in browser storage per selected borehole set for UAT continuity. They are useful for demo review and stakeholder discussion, but they are not yet the formal database-backed geological interpretation/audit workflow.
 
 The current correlation dataset includes synthetic aligned boreholes for demonstration while customer-provided datasets are still being normalized.
 
