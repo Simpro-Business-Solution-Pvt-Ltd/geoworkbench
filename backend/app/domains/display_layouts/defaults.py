@@ -1,11 +1,11 @@
 def default_borehole_layout() -> dict:
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "mode": "runtime",
         "regions": {
             "left": ["validation-panel", "ai-workflow"],
             "center": ["log-widget"],
-            "right": ["interval-details", "export-panel"],
+            "right": ["interval-details", "curve-catalog"],
         },
         "grid": {
             "columns": 12,
@@ -101,26 +101,7 @@ def default_borehole_layout() -> dict:
                         "title": "Curves",
                         "visible": True,
                         "width": 260,
-                        "curves": [
-                            {
-                                "curveKey": "gamma",
-                                "label": "Gamma",
-                                "unit": "API",
-                                "color": "#d97706",
-                                "visible": True,
-                                "scale": {"mode": "manual", "min": 0, "max": 150},
-                                "normalization": {"enabled": True, "method": "linear-track-scale"},
-                            },
-                            {
-                                "curveKey": "resistivity",
-                                "label": "Resistivity",
-                                "unit": "ohm.m",
-                                "color": "#2563eb",
-                                "visible": True,
-                                "scale": {"mode": "manual", "min": 0, "max": 80},
-                                "normalization": {"enabled": True, "method": "linear-track-scale"},
-                            },
-                        ],
+                        "curves": [],
                     },
                     {
                         "id": "remarks",
