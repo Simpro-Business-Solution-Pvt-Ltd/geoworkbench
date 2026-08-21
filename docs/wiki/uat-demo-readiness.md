@@ -6,6 +6,8 @@ This note maps the UAT/explore backlog to the current demo build. It is intended
 
 For the demo narrative and manual test path, use [Reliance UAT Story And Demo Script](user-manual/reliance-uat-story-and-demo-script.md) as the primary guide.
 
+For the current product/refinement milestone tracker, use [UAT Interpretation Platform Plan](user-manual/uat-interpretation-platform-plan.md).
+
 ## UAT Disclaimer
 
 This build is a working UAT preview for guided evaluation. It is intended to help stakeholders experience the application flow and suggest refinements. The UI/UX, template editor ergonomics, merge review screens, and customer-specific export formats are not final production design.

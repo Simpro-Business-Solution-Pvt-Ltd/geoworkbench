@@ -4,6 +4,8 @@ Updated: 2026-08-21
 
 This is the canonical story for the current GeoWorkbench UAT build. Use it for stakeholder demos, partner testing, and internal walkthroughs. Older planning documents are still useful as background, but this page is the main narrative for what the application is trying to prove now.
 
+For milestone tracking around data meaning, corrected interpretation, correlation value, and the configurable widget/display platform, use [UAT Interpretation Platform Plan](uat-interpretation-platform-plan.md).
+
 ## Product Story
 
 GeoWorkbench is a central geology workspace for coal borehole correction and interpretation. The application is designed around a practical problem: field data, Excel lithology sheets, LAS/geophysical curves, corebox images, remarks, corrections, and exports often move through disconnected files and manual review steps.
