@@ -56,9 +56,11 @@ def parse_las_file(path: Path) -> dict:
             parsed = _parse_mnemonic_line(line)
             if parsed is None:
                 continue
-            mnemonic, _unit, value, description = parsed
+            mnemonic, unit, value, description = parsed
             key = mnemonic.upper()
             numeric_value = _to_float(value)
+            if key == "NULL" and numeric_value is None:
+                numeric_value = _to_float(unit)
             well[key] = numeric_value if numeric_value is not None else (value or description)
             if key == "NULL" and numeric_value is not None:
                 null_value = numeric_value
