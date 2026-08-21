@@ -289,7 +289,7 @@ def _configure_layout(layout: dict, curve_summaries: list[dict], *, has_core_ima
     tracks = layout["widgets"]["log-widget"]["tracks"]
     for track in tracks:
         if track["id"] == "core-images":
-            track["visible"] = has_core_images
+            track["visible"] = True
         if track["id"] == "rqd":
             track["visible"] = False
         if track["id"] == "curves":
