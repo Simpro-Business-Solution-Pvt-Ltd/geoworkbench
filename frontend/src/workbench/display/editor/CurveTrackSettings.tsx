@@ -1,6 +1,7 @@
 import type { Curve, DisplayTrack } from "../../../api/types";
 import { curveFamilyLabel, curveMappingStatus, curveMnemonic } from "../../data/curveDictionary";
 import { defaultScaleForCurve } from "../trackCatalog";
+import { moveItem } from "./displayGridUtils";
 
 type Props = {
   track: DisplayTrack;
@@ -41,7 +42,8 @@ export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props
           </button>
         ))}
       </div>
-      {track.curves?.map((curve) => (
+      {!missingCurves.length && <small>All available curves are already configured on this track.</small>}
+      {track.curves?.map((curve, index) => (
         <div key={curve.curveKey} className="curve-editor">
           {(() => {
             const sourceCurve = availableCurves.find((item) => item.key === curve.curveKey);
@@ -150,6 +152,36 @@ export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props
           >
             Remove curve
           </button>
+          <div className="curve-action-row">
+            <button
+              type="button"
+              disabled={index === 0}
+              onClick={() => patchTrack({ curves: moveItem(track.curves ?? [], index, index - 1) })}
+            >
+              Move up
+            </button>
+            <button
+              type="button"
+              disabled={index === (track.curves?.length ?? 0) - 1}
+              onClick={() => patchTrack({ curves: moveItem(track.curves ?? [], index, index + 1) })}
+            >
+              Move down
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const sourceCurve = availableCurves.find((item) => item.key === curve.curveKey);
+                if (!sourceCurve) return;
+                patchTrack({
+                  curves: track.curves?.map((item) =>
+                    item.curveKey === curve.curveKey ? { ...item, scale: defaultScaleForCurve(sourceCurve) } : item,
+                  ),
+                });
+              }}
+            >
+              Reset scale
+            </button>
+          </div>
         </div>
       ))}
     </div>

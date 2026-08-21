@@ -3597,8 +3597,18 @@ h2 {
   text-transform: uppercase;
 }
 
-.curve-editor button {
+.curve-editor > button {
   justify-self: start;
+}
+
+.curve-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.curve-action-row button {
+  flex: 1 1 auto;
 }
 
 .curve-scale-grid {
