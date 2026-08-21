@@ -233,7 +233,7 @@ def get_workbench(db: Session, borehole_id: int, display_layout_id: int | None =
 
 
 def update_lithology_interval(
-    db: Session, interval_id: str, patch: LithologyIntervalPatch
+    db: Session, interval_id: str, patch: LithologyIntervalPatch, actor: str = "system"
 ) -> LithologyInterval:
     interval = db.get(LithologyInterval, interval_id)
     if interval is None:
@@ -251,13 +251,14 @@ def update_lithology_interval(
             interval.attributes,
             GEOLOGIST_CORRECTED,
             source_type="manual_edit",
-            actor="demo-user",
+            actor=actor,
             note="Central geologist correction saved from workbench.",
         )
         db.add(
             CorrectionAudit(
                 borehole_id=interval.borehole_id,
                 interval_id=interval.id,
+                changed_by=actor,
                 before_values={**before_values, "attributes": before_attributes},
                 after_values={**after_values, "attributes": interval.attributes},
             )

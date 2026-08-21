@@ -16,14 +16,17 @@ def test_manual_lithology_edit_marks_interval_as_geologist_corrected() -> None:
             db,
             interval.id,
             LithologyIntervalPatch(remark="Corrected after central review"),
+            actor="Central Geologist",
         )
 
         assert updated.remark == "Corrected after central review"
         assert updated.attributes["data_stage"] == "geologist_corrected"
         assert updated.attributes["stage_source_type"] == "manual_edit"
+        assert updated.attributes["stage_actor"] == "Central Geologist"
 
         audit = db.scalar(select(CorrectionAudit).where(CorrectionAudit.interval_id == interval.id))
         assert audit is not None
+        assert audit.changed_by == "Central Geologist"
         assert audit.before_values["remark"] == "Original site note"
         assert audit.before_values["attributes"]["data_stage"] == "raw_imported"
         assert audit.after_values["remark"] == "Corrected after central review"
@@ -63,4 +66,3 @@ def _seed_interval(db: Session) -> LithologyInterval:
     db.commit()
     db.refresh(interval)
     return interval
-

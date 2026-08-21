@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.domains.auth.router import current_user
 from app.domains.boreholes import service
 from app.domains.boreholes.schemas import (
     BoreholeListItem,
@@ -36,10 +37,14 @@ def get_workbench(
 
 @router.patch("/intervals/{interval_id}", response_model=LithologyIntervalOut)
 def patch_interval(
-    interval_id: str, patch: LithologyIntervalPatch, db: Session = Depends(get_db)
+    interval_id: str,
+    patch: LithologyIntervalPatch,
+    db: Session = Depends(get_db),
+    user=Depends(current_user),
 ) -> LithologyIntervalOut:
     try:
-        return service.update_lithology_interval(db, interval_id, patch)
+        actor = user.display_name or user.username
+        return service.update_lithology_interval(db, interval_id, patch, actor=actor)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
