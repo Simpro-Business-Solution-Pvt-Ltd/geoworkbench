@@ -77,7 +77,7 @@ python backend/scripts/import_reliance_data.py
 ## Notes For UAT
 
 - Real Reliance data is now available as boreholes `MGCA-08` to `MGCA-23`.
-- Corebox image tracks are hidden for these boreholes because no corebox image package was supplied.
+- Corebox image tracks show an empty availability state for these boreholes because no corebox image package was supplied.
 - RQD track is hidden because this batch does not contain RQD values.
 - The workbench displays Reliance LAS curves such as Natural Gamma, Resistivity, Point Resistance, SP, Caliper, Density, Bed Resolution Density, Inclination, Azimuth, and Neutron where present.
-- Validation now groups missing RQD/corebox-image findings so the user sees data-availability issues without thousands of repeated warnings.
+- Validation now groups missing RQD findings and treats absent corebox packages as data availability, not a geological validation defect.
