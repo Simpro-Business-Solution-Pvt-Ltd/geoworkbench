@@ -1,7 +1,11 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.db.models import AuthSession, User
 from app.db.session import Base
+from app.domains.correlation.router import _username_from_authorization
 from app.domains.correlation.schemas import CorrelationObservationCreate
 from app.domains.correlation.service import correlation_key, create_observation, list_observations
 
@@ -35,6 +39,34 @@ def test_correlation_observations_are_persisted_by_borehole_set() -> None:
         assert notes[0].borehole_ids == [2, 3, 4]
         assert notes[0].created_by == "central-geologist"
         assert notes[0].observation_metadata == {"source": "correlation_dialog"}
+    finally:
+        db.close()
+
+
+def test_correlation_router_resolves_author_from_bearer_token() -> None:
+    db = _test_session()
+    try:
+        user = User(
+            username="geologist",
+            display_name="Central Geologist",
+            role="central_geologist",
+            is_active=1,
+        )
+        db.add(user)
+        db.flush()
+        db.add(
+            AuthSession(
+                user_id=user.id,
+                token="token-123",
+                client_type="web",
+                expires_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
+            )
+        )
+        db.commit()
+
+        assert _username_from_authorization(db, "Bearer token-123") == "geologist"
+        assert _username_from_authorization(db, None) == "demo-user"
+        assert _username_from_authorization(db, "Bearer missing") == "demo-user"
     finally:
         db.close()
 
