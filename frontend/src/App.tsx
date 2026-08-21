@@ -24,6 +24,7 @@ import {
   createExportJob,
   createUser,
   deactivateUser,
+  deleteDisplayLayout,
   acceptAiSuggestion,
   getExportReadiness,
   generateAiSuggestions,
@@ -519,6 +520,13 @@ export function App() {
   });
   const cloneCurrentLayout = useMutation({
     mutationFn: (layout: DisplayLayout) => cloneDisplayLayout(layout.id, `${layout.name} Copy`),
+    onSuccess: (layout) => {
+      if (activeId) setPersistedDisplayLayoutId(activeId, layout.id);
+      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
+    },
+  });
+  const deleteCurrentLayout = useMutation({
+    mutationFn: (layout: DisplayLayout) => deleteDisplayLayout(layout.id),
     onSuccess: (layout) => {
       if (activeId) setPersistedDisplayLayoutId(activeId, layout.id);
       queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
@@ -1180,7 +1188,9 @@ export function App() {
           availableCurves={workbench.data?.curves ?? []}
           saving={saveDisplayLayout.isPending}
           cloning={cloneCurrentLayout.isPending}
+          deleting={deleteCurrentLayout.isPending}
           resetting={resetCurrentLayout.isPending}
+          canDelete={(workbench.data?.display_layouts ?? []).length > 1}
           onSave={(layout) =>
             saveDisplayLayout.mutate(layout, {
               onSuccess: () => {
@@ -1190,6 +1200,7 @@ export function App() {
             })
           }
           onClone={(layout) => cloneCurrentLayout.mutate(layout)}
+          onDelete={(layout) => deleteCurrentLayout.mutate(layout)}
           onReset={() => resetCurrentLayout.mutate()}
           onClose={() => {
             setDisplayEditorOpen(false);

@@ -306,6 +306,12 @@ export function cloneDisplayLayout(layoutId: number, name?: string): Promise<Dis
   });
 }
 
+export function deleteDisplayLayout(layoutId: number): Promise<DisplayLayout> {
+  return request<DisplayLayout>(`/boreholes/display-layouts/${layoutId}`, {
+    method: "DELETE",
+  });
+}
+
 export function resetDisplayLayout(boreholeId: number): Promise<DisplayLayout> {
   return request<DisplayLayout>(`/boreholes/${boreholeId}/display-layout/reset`, {
     method: "POST",

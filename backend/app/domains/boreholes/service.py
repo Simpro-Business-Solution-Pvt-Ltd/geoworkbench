@@ -293,6 +293,25 @@ def clone_display_layout(db: Session, layout_id: int, name: str | None = None) -
     return clone
 
 
+def delete_display_layout(db: Session, layout_id: int) -> DisplayLayout:
+    layout = db.scalar(
+        select(DisplayLayout)
+        .where(DisplayLayout.id == layout_id)
+        .options(selectinload(DisplayLayout.borehole).selectinload(Borehole.display_layouts))
+    )
+    if layout is None:
+        raise ValueError("Display layout not found")
+    borehole = layout.borehole
+    remaining = [item for item in _display_layout_options(borehole) if item.id != layout.id]
+    if not remaining:
+        raise ValueError("At least one display layout must remain")
+    fallback = remaining[0]
+    db.delete(layout)
+    db.commit()
+    db.refresh(fallback)
+    return fallback
+
+
 def reset_borehole_display_layout(db: Session, borehole_id: int) -> DisplayLayout:
     borehole = db.scalar(
         select(Borehole)

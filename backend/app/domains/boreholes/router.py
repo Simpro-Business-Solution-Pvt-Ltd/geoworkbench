@@ -66,6 +66,15 @@ def clone_display_layout(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.delete("/display-layouts/{layout_id}", response_model=DisplayLayoutOut)
+def delete_display_layout(layout_id: int, db: Session = Depends(get_db)) -> DisplayLayoutOut:
+    try:
+        return service.delete_display_layout(db, layout_id)
+    except ValueError as exc:
+        status_code = 400 if "must remain" in str(exc) else 404
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+
+
 @router.post("/{borehole_id}/display-layout/reset", response_model=DisplayLayoutOut)
 def reset_display_layout(
     borehole_id: int, db: Session = Depends(get_db)

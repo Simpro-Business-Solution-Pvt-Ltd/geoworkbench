@@ -14,9 +14,12 @@ type Props = {
   availableCurves: Curve[];
   saving: boolean;
   cloning: boolean;
+  deleting: boolean;
   resetting: boolean;
+  canDelete: boolean;
   onSave: (layout: DisplayLayout) => void;
   onClone: (layout: DisplayLayout) => void;
+  onDelete: (layout: DisplayLayout) => void;
   onReset: () => void;
   onClose: () => void;
 };
@@ -27,9 +30,12 @@ export function DisplayEditorDialog({
   availableCurves,
   saving,
   cloning,
+  deleting,
   resetting,
+  canDelete,
   onSave,
   onClone,
+  onDelete,
   onReset,
   onClose,
 }: Props) {
@@ -172,6 +178,15 @@ export function DisplayEditorDialog({
             </button>
             <button type="button" disabled={cloning || saving} onClick={() => onClone(draft)}>
               {cloning ? "Cloning..." : "Clone display"}
+            </button>
+            <button
+              type="button"
+              disabled={!canDelete || deleting || saving}
+              onClick={() => {
+                if (window.confirm(`Delete display "${draft.name}"?`)) onDelete(draft);
+              }}
+            >
+              {deleting ? "Deleting..." : "Delete display"}
             </button>
             <button type="button" disabled={resetting || saving} onClick={onReset}>
               {resetting ? "Resetting..." : "Reset default"}

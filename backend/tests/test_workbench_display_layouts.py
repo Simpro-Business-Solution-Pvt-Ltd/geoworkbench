@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.models import Borehole, DisplayLayout, Project, Site
 from app.db.session import Base
-from app.domains.boreholes.service import clone_display_layout, get_workbench
+from app.domains.boreholes.service import clone_display_layout, delete_display_layout, get_workbench
 
 
 def test_workbench_returns_layout_options_and_uses_default_layout_when_not_selected() -> None:
@@ -50,6 +50,36 @@ def test_display_layout_clone_copies_settings_for_same_borehole() -> None:
         assert clone.settings == first_layout.settings
         clone.settings["widgets"] = {"new-widget": {"type": "single-value", "title": "New"}}
         assert first_layout.settings["widgets"] == {}
+    finally:
+        db.close()
+
+
+def test_display_layout_delete_returns_fallback_layout() -> None:
+    db = _test_session()
+    try:
+        borehole, first_layout, second_layout = _seed_borehole_with_layouts(db)
+
+        fallback = delete_display_layout(db, second_layout.id)
+        workbench = get_workbench(db, borehole.id)
+
+        assert fallback.id == first_layout.id
+        assert [layout.id for layout in workbench.display_layouts] == [first_layout.id]
+    finally:
+        db.close()
+
+
+def test_display_layout_delete_keeps_at_least_one_layout() -> None:
+    db = _test_session()
+    try:
+        _borehole, first_layout, second_layout = _seed_borehole_with_layouts(db)
+
+        delete_display_layout(db, second_layout.id)
+        try:
+            delete_display_layout(db, first_layout.id)
+        except ValueError as exc:
+            assert str(exc) == "At least one display layout must remain"
+        else:
+            raise AssertionError("Expected last display layout delete to fail")
     finally:
         db.close()
 
