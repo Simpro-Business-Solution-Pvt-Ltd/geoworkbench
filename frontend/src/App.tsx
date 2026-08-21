@@ -137,6 +137,7 @@ type DisplayChoice = "saved" | "default";
 
 type PersistedUserSettings = {
   selectedBoreholeId: number | null;
+  selectedDisplayLayoutIds: Record<string, number | null>;
   displayChoice: DisplayChoice;
   preferences: UserPreferences;
 };
@@ -144,6 +145,7 @@ type PersistedUserSettings = {
 const USER_SETTINGS_KEY = "geoworkbench.userSettings.v1";
 const USER_SETTINGS_DEFAULT: PersistedUserSettings = {
   selectedBoreholeId: null,
+  selectedDisplayLayoutIds: {},
   displayChoice: "saved",
   preferences: DEFAULT_USER_PREFERENCES,
 };
@@ -179,6 +181,10 @@ const readUserSettings = (userId: number): PersistedUserSettings => {
   if (!stored) return USER_SETTINGS_DEFAULT;
   return {
     selectedBoreholeId: stored.selectedBoreholeId ?? USER_SETTINGS_DEFAULT.selectedBoreholeId,
+    selectedDisplayLayoutIds:
+      typeof stored.selectedDisplayLayoutIds === "object" && stored.selectedDisplayLayoutIds !== null
+        ? stored.selectedDisplayLayoutIds
+        : USER_SETTINGS_DEFAULT.selectedDisplayLayoutIds,
     displayChoice: stored.displayChoice === "default" ? "default" : "saved",
     preferences: normalizeUserPreferences(stored.preferences),
   };
@@ -190,6 +196,7 @@ const objectValue = (value: unknown): Record<string, unknown> | null =>
 const serializeUserSettings = (settings: PersistedUserSettings) => ({
   schemaVersion: 1,
   selectedBoreholeId: settings.selectedBoreholeId,
+  selectedDisplayLayoutIds: settings.selectedDisplayLayoutIds,
   displayChoice: settings.displayChoice,
   preferences: settings.preferences,
 });
@@ -204,9 +211,19 @@ const settingsFromUser = (user: User): PersistedUserSettings => {
     typeof raw.selectedBoreholeId === "number" || raw.selectedBoreholeId === null
       ? raw.selectedBoreholeId
       : local.selectedBoreholeId;
+  const rawLayoutIds = objectValue(raw.selectedDisplayLayoutIds);
+  const selectedDisplayLayoutIds = rawLayoutIds
+    ? Object.fromEntries(
+        Object.entries(rawLayoutIds).filter((entry): entry is [string, number | null] => {
+          const value = entry[1];
+          return typeof value === "number" || value === null;
+        }),
+      )
+    : local.selectedDisplayLayoutIds;
   const displayChoice = raw.displayChoice === "default" || raw.displayChoice === "saved" ? raw.displayChoice : local.displayChoice;
   return {
     selectedBoreholeId,
+    selectedDisplayLayoutIds,
     displayChoice,
     preferences: normalizeUserPreferences(preferenceSource as Partial<UserPreferences>),
   };
@@ -222,6 +239,7 @@ export function App() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("users");
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(true);
   const [selectedAccessRole, setSelectedAccessRole] = useState("system_admin");
+  const [selectedDisplayLayoutIds, setSelectedDisplayLayoutIds] = useState<Record<string, number | null>>({});
   const [displayChoice, setDisplayChoice] = useState<DisplayChoice>("saved");
   const [userPreferences, setUserPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES);
   const [displayEditorOpen, setDisplayEditorOpen] = useState(false);
@@ -267,6 +285,19 @@ export function App() {
     setDisplayChoice(nextDisplayChoice);
     if (session) {
       const nextSettings = { ...readUserSettings(session.user.id), displayChoice: nextDisplayChoice };
+      persistUserSettings(session.user.id, nextSettings);
+      updatePreferencesMutation.mutate(serializeUserSettings(nextSettings));
+    }
+  };
+
+  const setPersistedDisplayLayoutId = (nextBoreholeId: number, nextLayoutId: number | null) => {
+    const nextDisplayLayoutIds = { ...selectedDisplayLayoutIds, [String(nextBoreholeId)]: nextLayoutId };
+    setSelectedDisplayLayoutIds(nextDisplayLayoutIds);
+    if (session) {
+      const nextSettings = {
+        ...readUserSettings(session.user.id),
+        selectedDisplayLayoutIds: nextDisplayLayoutIds,
+      };
       persistUserSettings(session.user.id, nextSettings);
       updatePreferencesMutation.mutate(serializeUserSettings(nextSettings));
     }
@@ -332,11 +363,12 @@ export function App() {
     refetchInterval: profileOpen ? 15000 : false,
   });
   const activeId = boreholeId ?? boreholes.data?.[0]?.id;
+  const selectedDisplayLayoutId = activeId ? selectedDisplayLayoutIds[String(activeId)] ?? null : null;
   const selectedBorehole = boreholes.data?.find((item) => item.id === activeId) ?? boreholes.data?.[0];
   const correlationIds = useMemo(() => (boreholes.data ?? []).slice(0, 5).map((item) => item.id), [boreholes.data]);
   const workbench = useQuery({
-    queryKey: ["workbench", activeId],
-    queryFn: () => getWorkbench(activeId as number),
+    queryKey: ["workbench", activeId, displayChoice === "saved" ? selectedDisplayLayoutId : null],
+    queryFn: () => getWorkbench(activeId as number, displayChoice === "saved" ? selectedDisplayLayoutId : null),
     enabled: isAuthed && Boolean(activeId),
   });
   const aiSummary = useQuery({
@@ -398,6 +430,7 @@ export function App() {
     if (!session) return;
     const userSettings = settingsFromUser(session.user);
     setUserPreferences(userSettings.preferences);
+    setSelectedDisplayLayoutIds(userSettings.selectedDisplayLayoutIds);
     persistUserSettings(session.user.id, userSettings);
   }, [session]);
 
@@ -405,6 +438,7 @@ export function App() {
     if (!session || !boreholes.data?.length) return;
     const userSettings = settingsFromUser(session.user);
     setUserPreferences(userSettings.preferences);
+    setSelectedDisplayLayoutIds(userSettings.selectedDisplayLayoutIds);
     if (userSettings.displayChoice !== displayChoice) {
       setDisplayChoice(userSettings.displayChoice);
     }
@@ -675,6 +709,11 @@ export function App() {
       },
     };
   }, [displayChoice, workbench.data]);
+  const displayLayoutOptions = workbench.data?.display_layouts ?? [];
+  const activeDisplayLayoutName =
+    displayChoice === "default"
+      ? "Default correction display"
+      : workbench.data?.layout?.name ?? "Saved borehole display";
 
   const openWorkbench = (id = activeId) => {
     if (id) {
@@ -823,8 +862,23 @@ export function App() {
             <div className="selected-summary">
               <div className="selected-borehole-stack">
                 <span className="selected-code">{selectedBorehole.code}</span>
-                <small>{displayChoice === "default" ? "Default display" : "Saved display"}</small>
+                <small>{activeDisplayLayoutName}</small>
               </div>
+              {displayChoice === "saved" && displayLayoutOptions.length > 1 && activeId && (
+                <label className="selected-display-select">
+                  <span>Display</span>
+                  <select
+                    value={workbench.data?.layout?.id ?? ""}
+                    onChange={(event) => setPersistedDisplayLayoutId(activeId, Number(event.target.value))}
+                  >
+                    {displayLayoutOptions.map((layout) => (
+                      <option key={layout.id} value={layout.id}>
+                        {layout.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <span className="selected-context">
                 <Building2 size={14} strokeWidth={2} />
                 {selectedBorehole.project_code} / {selectedBorehole.site_code}
