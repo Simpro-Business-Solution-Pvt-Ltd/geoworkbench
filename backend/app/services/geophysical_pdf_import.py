@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Borehole, Curve, CurveSample, SourceImport
 from app.services.curve_dictionary import curve_presentation
+from app.services.data_stage import RAW_IMPORTED, merge_stage_metadata
 
 
 @dataclass(frozen=True)
@@ -320,15 +321,20 @@ def import_digitized_pdf_curves(
             unit=curve_data["unit"],
             source_type=curve_data["source_type"],
             color=curve_data["color"],
-            curve_metadata={
-                "mnemonic": curve_data["mnemonic"],
-                "description": curve_data["label"],
-                "source_file": pdf_path.name,
-                "source_parser": "pinnacle_composite_pdf_digitized",
-                "value_min": curve_data["value_min"],
-                "value_max": curve_data["value_max"],
-                **curve_data["dictionary"],
-            },
+            curve_metadata=merge_stage_metadata(
+                {
+                    "mnemonic": curve_data["mnemonic"],
+                    "description": curve_data["label"],
+                    "source_file": pdf_path.name,
+                    "source_parser": "pinnacle_composite_pdf_digitized",
+                    "value_min": curve_data["value_min"],
+                    "value_max": curve_data["value_max"],
+                    **curve_data["dictionary"],
+                },
+                RAW_IMPORTED,
+                source_type="geophysical_pdf",
+                source_name=pdf_path.name,
+            ),
         )
         curve.samples = [
             CurveSample(depth=sample["depth"], value=sample["value"])

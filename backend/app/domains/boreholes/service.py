@@ -19,6 +19,7 @@ from app.domains.boreholes.schemas import (
 from app.domains.display_layouts.defaults import default_borehole_layout
 from app.services.las_import import display_curve_samples
 from app.domains.quality.service import get_quality_settings_payload
+from app.services.data_stage import GEOLOGIST_CORRECTED, merge_stage_metadata
 from app.services.validation.borehole_validation import replace_validation_issues, validate_borehole
 
 
@@ -231,17 +232,25 @@ def update_lithology_interval(
 
     updates = patch.model_dump(exclude_unset=True)
     before_values = {field: getattr(interval, field) for field in updates}
+    before_attributes = dict(interval.attributes or {})
     for field, value in updates.items():
         setattr(interval, field, value)
 
     after_values = {field: getattr(interval, field) for field in updates}
     if before_values != after_values:
+        interval.attributes = merge_stage_metadata(
+            interval.attributes,
+            GEOLOGIST_CORRECTED,
+            source_type="manual_edit",
+            actor="demo-user",
+            note="Central geologist correction saved from workbench.",
+        )
         db.add(
             CorrectionAudit(
                 borehole_id=interval.borehole_id,
                 interval_id=interval.id,
-                before_values=before_values,
-                after_values=after_values,
+                before_values={**before_values, "attributes": before_attributes},
+                after_values={**after_values, "attributes": interval.attributes},
             )
         )
     db.add(interval)

@@ -49,6 +49,8 @@ Each import template stores a mapping JSON. The common examples are:
 
 Extra fields can be mapped into interval attributes by using an agreed field name in the mapping. Frequently used fields can later become first-class columns.
 
+Imported interval rows are tagged with provenance metadata such as `data_stage`, `stage_source_type`, and `stage_source_name`. The current Excel import stage is `raw_imported` unless a customer-specific corrected-data template explicitly changes that behavior in a later release.
+
 ### LAS Template
 
 ```json
@@ -67,6 +69,8 @@ Extra fields can be mapped into interval attributes by using an agreed field nam
 LAS import preserves all valid samples. Display optimization can be added later without dropping source data.
 
 The curve dictionary is used to classify source mnemonics into canonical families for display, analytics, validation, and export. Unknown mnemonics are still imported as curves and are shown as unmapped until an admin updates the template/dictionary.
+
+Imported curves keep the source mnemonic, source filename, and data stage in curve metadata so export templates and future analytics can separate LAS curves from PDF-digitized or derived/demo curves.
 
 ## Merge Choices
 

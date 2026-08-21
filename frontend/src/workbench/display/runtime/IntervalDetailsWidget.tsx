@@ -6,6 +6,12 @@ import { buildBoreholeMetadata, MetadataField } from "./intervalMetadata";
 import { RuntimeWidgetFrame } from "./RuntimeWidgetFrame";
 import type { DisplayRuntimeProps } from "./runtimeTypes";
 
+function metadataText(attributes: Record<string, unknown> | null | undefined, key: string): string {
+  const value = attributes?.[key];
+  if (value === null || value === undefined || value === "") return "-";
+  return String(value);
+}
+
 export function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps & { title: string }) {
   const selectedDepth = useWorkbenchStore((state) => state.selectedDepth);
   const setSelectedInterval = useWorkbenchStore((state) => state.setSelectedInterval);
@@ -66,10 +72,14 @@ export function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps &
               <span>
                 {interval.lithology_code} · {interval.lithology_label}
               </span>
-              <small>Source row {interval.source_row ?? "-"}</small>
+              <small>
+                {metadataText(interval.attributes, "data_stage_label")} · source row {interval.source_row ?? "-"}
+              </small>
             </div>
             <div className="field-grid">
               <MetadataField label="Thickness" value={`${(interval.to_depth - interval.from_depth).toFixed(2)} m`} />
+              <MetadataField label="Data stage" value={metadataText(interval.attributes, "data_stage_label")} />
+              <MetadataField label="Stage source" value={metadataText(interval.attributes, "stage_source_type")} />
               <MetadataField label="Logged color" value={interval.logged_color || "-"} />
               <MetadataField label="Seam" value={interval.seam_name || "-"} />
               <MetadataField

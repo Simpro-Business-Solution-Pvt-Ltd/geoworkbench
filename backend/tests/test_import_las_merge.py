@@ -65,6 +65,9 @@ def test_las_source_file_merges_curves_into_existing_borehole(tmp_path: Path) ->
 
         curves = list(db.scalars(select(Curve).where(Curve.borehole_id == borehole.id).order_by(Curve.key)))
         assert [curve.key for curve in curves] == ["gamma", "resistivity"]
+        assert curves[0].curve_metadata["data_stage"] == "raw_imported"
+        assert curves[0].curve_metadata["stage_source_type"] == "las"
+        assert curves[0].curve_metadata["stage_source_name"] == las_path.name
         sample_counts = {
             curve.key: len(
                 list(db.scalars(select(CurveSample).where(CurveSample.curve_id == curve.id)))

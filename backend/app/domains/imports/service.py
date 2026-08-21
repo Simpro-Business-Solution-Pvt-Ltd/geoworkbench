@@ -18,6 +18,7 @@ from app.services.geophysical_pdf_import import (
 )
 from app.services.las_import import import_las_curves, profile_las_file
 from app.services.curve_dictionary import curve_dictionary_mapping
+from app.services.data_stage import RAW_IMPORTED, merge_stage_metadata
 
 
 def default_import_profiles() -> list[ImportProfile]:
@@ -455,13 +456,18 @@ def merge_source_file_into_borehole(
                         rqd=item.get("rqd"),
                         structural_features=item.get("structuralFeatures"),
                         remark=item.get("remark"),
-                        attributes={
-                            "lithology_source": item.get("lithologySource"),
-                            "grain_size": item.get("grainSize"),
-                            "core_dip": item.get("coreDip"),
-                            "rqd_source": item.get("rqdSource"),
-                            "rqd_piece_lengths": item.get("rqdPieceLengths"),
-                        },
+                        attributes=merge_stage_metadata(
+                            {
+                                "lithology_source": item.get("lithologySource"),
+                                "grain_size": item.get("grainSize"),
+                                "core_dip": item.get("coreDip"),
+                                "rqd_source": item.get("rqdSource"),
+                                "rqd_piece_lengths": item.get("rqdPieceLengths"),
+                            },
+                            RAW_IMPORTED,
+                            source_type="excel",
+                            source_name=source_file.original_name,
+                        ),
                     )
                 )
                 inserted_intervals += 1
@@ -484,7 +490,12 @@ def merge_source_file_into_borehole(
                         thickness=item.get("thickness"),
                         lithology_code=item.get("lithologyCode"),
                         lithology_label=item.get("lithologyLabel"),
-                        attributes={"source_row": item.get("sourceRow")},
+                        attributes=merge_stage_metadata(
+                            {"source_row": item.get("sourceRow")},
+                            RAW_IMPORTED,
+                            source_type="excel",
+                            source_name=source_file.original_name,
+                        ),
                     )
                 )
                 inserted_seams += 1

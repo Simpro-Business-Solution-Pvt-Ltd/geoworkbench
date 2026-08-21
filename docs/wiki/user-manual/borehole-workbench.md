@@ -118,6 +118,23 @@ Use **Edit correction** from the metadata panel to edit the currently displayed 
 
 Saving the editor updates the interval and records a correction audit entry.
 
+Saved manual edits also move the interval's data stage to **Geologist corrected**. The source row and stage/source metadata remain visible in the depth metadata panel so reviewers can distinguish imported field/customer data from central geology corrections.
+
+### Data Stage And Provenance
+
+GeoWorkbench keeps lightweight provenance metadata on intervals, seams, and curves:
+
+| Stage | Meaning |
+| --- | --- |
+| Raw imported | Data loaded from Excel, LAS, PDF digitization, or other source-file imports. |
+| Field submitted | Data submitted from the mobile/site workflow. |
+| Imported interpreted | Customer-provided interpreted/consolidated datasets where raw versus corrected status is not yet separated. |
+| System suggested | Derived or AI/rule-assisted content that needs geologist review. |
+| Geologist corrected | Data manually corrected and saved from the central workbench. |
+| Approved final | Reserved for a future formal finalization/approval step. |
+
+For UAT, this is traceability metadata, not a full maker-checker approval workflow. Formal approval, notification, and digital-signature steps can be added after Reliance confirms the governance process.
+
 ## Display Setup
 
 Use **Display setup** when a geologist wants a different workbench arrangement for a review workflow.
@@ -282,6 +299,8 @@ Current supported paths:
 
 Merge options include replacing overlapping intervals/curves or appending only new non-overlapping data. Source files remain visible for audit and review.
 
+Imported Excel intervals and LAS/PDF curves are tagged with their data stage and source filename. When the same borehole receives data in batches, the merge mode decides whether overlapping intervals/curves are replaced or only new depths are appended.
+
 For template details, see **Import, Merge, And Export Templates** in the wiki navigation.
 
 ## Export Center
@@ -296,6 +315,8 @@ Current supported exports:
 - Curve CSV.
 
 Readiness checks consider validation errors/warnings, source data, curves, and open AI suggestions. Export readiness is advisory except where validation errors block approval. The UAT build does not yet implement a full maker-checker export approval workflow.
+
+The export page lets users choose the intended correction stage for the export package. In the current UAT build this stage is stored with the export job for traceability; customer-specific final export filtering by approved/corrected stage should be finalized once Reliance confirms the exact review process.
 
 ## Correlation View
 

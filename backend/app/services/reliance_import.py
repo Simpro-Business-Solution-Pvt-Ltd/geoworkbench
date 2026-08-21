@@ -21,6 +21,7 @@ from app.db.models import (
 from app.domains.display_layouts.defaults import default_borehole_layout
 from app.services.excel_import import normalize_lithology
 from app.services.las_import import import_las_curves, profile_las_file
+from app.services.data_stage import IMPORTED_INTERPRETED, merge_stage_metadata
 from app.services.validation.borehole_validation import replace_validation_issues, validate_borehole
 
 
@@ -357,13 +358,18 @@ def import_reliance_dataset(db: Session, data_root: Path, las_root: Path | None 
                     rqd=None,
                     structural_features=item.get("structural_features"),
                     remark=item.get("other_details"),
-                    attributes={
-                        "formation": item.get("formation"),
-                        "floor_depth": item.get("floor_depth"),
-                        "recovery_thickness": item.get("recovery_thickness"),
-                        "extrapolated_thickness": item.get("extrapolated_thickness"),
-                        "lithology_source": item.get("lithology_source"),
-                    },
+                    attributes=merge_stage_metadata(
+                        {
+                            "formation": item.get("formation"),
+                            "floor_depth": item.get("floor_depth"),
+                            "recovery_thickness": item.get("recovery_thickness"),
+                            "extrapolated_thickness": item.get("extrapolated_thickness"),
+                            "lithology_source": item.get("lithology_source"),
+                        },
+                        IMPORTED_INTERPRETED,
+                        source_type="reliance_consolidated_excel",
+                        source_name="RelianceData/Data_10BH.zip",
+                    ),
                 )
             )
 
@@ -379,11 +385,16 @@ def import_reliance_dataset(db: Session, data_root: Path, las_root: Path | None 
                     thickness=item.get("thickness"),
                     lithology_code=None,
                     lithology_label=None,
-                    attributes={
-                        **{k: v for k, v in item.items() if k not in {"source_row", "name", "from_depth", "to_depth", "thickness"}},
-                        "band_by_band": band_rows.get(key, []),
-                        "overall_analysis": analysis_rows.get(key, []),
-                    },
+                    attributes=merge_stage_metadata(
+                        {
+                            **{k: v for k, v in item.items() if k not in {"source_row", "name", "from_depth", "to_depth", "thickness"}},
+                            "band_by_band": band_rows.get(key, []),
+                            "overall_analysis": analysis_rows.get(key, []),
+                        },
+                        IMPORTED_INTERPRETED,
+                        source_type="reliance_consolidated_excel",
+                        source_name="RelianceData/Data_10BH.zip",
+                    ),
                 )
             )
 

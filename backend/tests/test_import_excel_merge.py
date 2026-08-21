@@ -61,6 +61,9 @@ def test_excel_source_file_merges_known_template_intervals(tmp_path: Path) -> No
         ]
         assert intervals[-1].rqd == 0.72
         assert intervals[-1].attributes["grain_size"] == "Fine"
+        assert intervals[-1].attributes["data_stage"] == "raw_imported"
+        assert intervals[-1].attributes["stage_source_type"] == "excel"
+        assert intervals[-1].attributes["stage_source_name"] == workbook_path.name
         assert db.scalar(select(SeamInterval).where(SeamInterval.borehole_id == borehole.id)).name == "S1"
         assert (
             db.scalar(select(SourceImport).where(SourceImport.borehole_id == borehole.id)).status

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Borehole, Curve, CurveSample, SourceImport
 from app.services.curve_dictionary import curve_presentation, normalize_curve_key
+from app.services.data_stage import RAW_IMPORTED, merge_stage_metadata
 
 
 @dataclass(frozen=True)
@@ -212,13 +213,18 @@ def import_las_curves(
             unit=curve_info["unit"],
             source_type="las",
             color=curve_info["color"],
-            curve_metadata={
-                "mnemonic": curve_info["mnemonic"],
-                "description": curve_info["description"],
-                **curve_info["dictionary"],
-                "source_sample_count": curve_info["sample_count"],
-                "source_file": las_path.name,
-            },
+            curve_metadata=merge_stage_metadata(
+                {
+                    "mnemonic": curve_info["mnemonic"],
+                    "description": curve_info["description"],
+                    **curve_info["dictionary"],
+                    "source_sample_count": curve_info["sample_count"],
+                    "source_file": las_path.name,
+                },
+                RAW_IMPORTED,
+                source_type="las",
+                source_name=las_path.name,
+            ),
         )
         borehole.curves.append(curve)
         db.add(curve)

@@ -22,6 +22,7 @@ from app.domains.mobile.schemas import (
     MobileDemoCopyCreate,
     MobileFieldSubmissionCreate,
 )
+from app.services.data_stage import FIELD_SUBMITTED, merge_stage_metadata
 from app.services.validation.borehole_validation import replace_validation_issues, validate_borehole
 
 
@@ -138,6 +139,13 @@ def submit_field_data(db: Session, payload: MobileFieldSubmissionCreate) -> Fiel
                     rqd=item.rqd,
                     structural_features=item.structural_features,
                     remark=item.remark,
+                    attributes=merge_stage_metadata(
+                        {},
+                        FIELD_SUBMITTED,
+                        source_type="mobile_interval_form",
+                        source_name=payload.submission_type,
+                        actor=payload.submitted_by,
+                    ),
                 )
             )
     replace_validation_issues(borehole, validate_borehole(borehole))
@@ -195,6 +203,14 @@ def create_demo_copy(db: Session, payload: MobileDemoCopyCreate) -> Borehole:
                 remark=item.remark,
                 image_box=item.image_box,
                 image_file=item.image_file,
+                attributes=merge_stage_metadata(
+                    item.attributes,
+                    FIELD_SUBMITTED,
+                    source_type="mobile_demo_copy",
+                    source_name=source.code,
+                    actor=payload.submitted_by,
+                    note="Copied from an existing borehole for field submission demonstration.",
+                ),
             )
         )
     for item in source.seam_intervals:
@@ -209,6 +225,14 @@ def create_demo_copy(db: Session, payload: MobileDemoCopyCreate) -> Borehole:
                 lithology_code=item.lithology_code,
                 lithology_label=item.lithology_label,
                 image_box=item.image_box,
+                attributes=merge_stage_metadata(
+                    item.attributes,
+                    FIELD_SUBMITTED,
+                    source_type="mobile_demo_copy",
+                    source_name=source.code,
+                    actor=payload.submitted_by,
+                    note="Copied from an existing borehole for field submission demonstration.",
+                ),
             )
         )
     for curve in source.curves:
@@ -218,6 +242,14 @@ def create_demo_copy(db: Session, payload: MobileDemoCopyCreate) -> Borehole:
             unit=curve.unit,
             source_type="mobile_demo_copy",
             color=curve.color,
+            curve_metadata=merge_stage_metadata(
+                curve.curve_metadata,
+                FIELD_SUBMITTED,
+                source_type="mobile_demo_copy",
+                source_name=source.code,
+                actor=payload.submitted_by,
+                note="Copied from an existing borehole for field submission demonstration.",
+            ),
         )
         next_curve.samples = [
             CurveSample(depth=sample.depth, value=sample.value) for sample in curve.samples

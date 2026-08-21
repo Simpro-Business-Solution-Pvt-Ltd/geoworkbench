@@ -20,6 +20,7 @@ from app.db.models import (
     SourceImport,
 )
 from app.domains.display_layouts.defaults import default_borehole_layout
+from app.services.data_stage import RAW_IMPORTED, SYSTEM_SUGGESTED, merge_stage_metadata
 from app.services.validation.borehole_validation import replace_validation_issues, validate_borehole
 
 
@@ -497,6 +498,7 @@ def import_normalized_dataset(
     if existing is not None:
         return existing
 
+    source_workbook = dataset["borehole"].get("sourceWorkbook") or "Excel workbook"
     borehole = Borehole(
         site=site,
         code=code,
@@ -527,13 +529,18 @@ def import_normalized_dataset(
                 rqd=item.get("rqd"),
                 structural_features=item.get("structuralFeatures"),
                 remark=item.get("remark"),
-                attributes={
-                    "lithology_source": item.get("lithologySource"),
-                    "grain_size": item.get("grainSize"),
-                    "core_dip": item.get("coreDip"),
-                    "rqd_source": item.get("rqdSource"),
-                    "rqd_piece_lengths": item.get("rqdPieceLengths"),
-                },
+                attributes=merge_stage_metadata(
+                    {
+                        "lithology_source": item.get("lithologySource"),
+                        "grain_size": item.get("grainSize"),
+                        "core_dip": item.get("coreDip"),
+                        "rqd_source": item.get("rqdSource"),
+                        "rqd_piece_lengths": item.get("rqdPieceLengths"),
+                    },
+                    RAW_IMPORTED,
+                    source_type="excel",
+                    source_name=source_workbook,
+                ),
             )
         )
     for item in dataset["seamIntervals"]:
@@ -547,7 +554,12 @@ def import_normalized_dataset(
                 thickness=item.get("thickness"),
                 lithology_code=item.get("lithologyCode"),
                 lithology_label=item.get("lithologyLabel"),
-                attributes={"source_row": item.get("sourceRow")},
+                attributes=merge_stage_metadata(
+                    {"source_row": item.get("sourceRow")},
+                    RAW_IMPORTED,
+                    source_type="excel",
+                    source_name=source_workbook,
+                ),
             )
         )
 
@@ -575,6 +587,13 @@ def import_normalized_dataset(
                     unit=unit,
                     color=color,
                     source_type="synthetic_from_excel_profile",
+                    curve_metadata=merge_stage_metadata(
+                        {"source_generator": "excel_profile_demo_curve"},
+                        SYSTEM_SUGGESTED,
+                        source_type="derived_curve",
+                        source_name=source_workbook,
+                        note="Synthetic curve generated from lithology profile for demonstration.",
+                    ),
                     samples=samples_by_curve[key],
                 )
             )
