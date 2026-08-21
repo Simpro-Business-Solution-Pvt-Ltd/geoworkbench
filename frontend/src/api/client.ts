@@ -167,8 +167,9 @@ export function listBoreholes(): Promise<BoreholeListItem[]> {
   return request<BoreholeListItem[]>("/boreholes");
 }
 
-export function getWorkbench(boreholeId: number): Promise<BoreholeWorkbench> {
-  return request<BoreholeWorkbench>(`/boreholes/${boreholeId}/workbench`);
+export function getWorkbench(boreholeId: number, displayLayoutId?: number | null): Promise<BoreholeWorkbench> {
+  const query = displayLayoutId ? `?display_layout_id=${displayLayoutId}` : "";
+  return request<BoreholeWorkbench>(`/boreholes/${boreholeId}/workbench${query}`);
 }
 
 export function updateInterval(

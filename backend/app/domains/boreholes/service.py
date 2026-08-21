@@ -71,7 +71,18 @@ def list_boreholes(db: Session) -> list[BoreholeListItem]:
     ]
 
 
-def get_workbench(db: Session, borehole_id: int) -> BoreholeWorkbenchOut:
+def _display_layout_options(borehole: Borehole) -> list[DisplayLayout]:
+    return sorted(borehole.display_layouts, key=lambda item: item.id or 0)
+
+
+def _select_display_layout(borehole: Borehole, display_layout_id: int | None = None) -> DisplayLayout | None:
+    layouts = _display_layout_options(borehole)
+    if display_layout_id is not None:
+        return next((layout for layout in layouts if layout.id == display_layout_id), None)
+    return layouts[0] if layouts else None
+
+
+def get_workbench(db: Session, borehole_id: int, display_layout_id: int | None = None) -> BoreholeWorkbenchOut:
     borehole = db.scalar(
         select(Borehole)
         .where(Borehole.id == borehole_id)
@@ -155,7 +166,8 @@ def get_workbench(db: Session, borehole_id: int) -> BoreholeWorkbenchOut:
             )
         )
 
-    layout = borehole.display_layouts[0] if borehole.display_layouts else None
+    layout_options = _display_layout_options(borehole)
+    layout = _select_display_layout(borehole, display_layout_id)
     return BoreholeWorkbenchOut(
         id=borehole.id,
         code=borehole.code,
@@ -179,6 +191,15 @@ def get_workbench(db: Session, borehole_id: int) -> BoreholeWorkbenchOut:
         )
         if layout
         else None,
+        display_layouts=[
+            DisplayLayoutOut(
+                id=option.id,
+                name=option.name,
+                mode=option.mode,
+                settings=option.settings,
+            )
+            for option in layout_options
+        ],
         validation_issues=sorted(
             borehole.validation_issues,
             key=lambda item: (

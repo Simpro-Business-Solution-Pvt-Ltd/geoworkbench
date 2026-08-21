@@ -364,6 +364,7 @@ export type BoreholeWorkbench = {
   curves: Curve[];
   core_images: CoreImage[];
   layout: DisplayLayout | null;
+  display_layouts?: DisplayLayout[];
   validation_issues: ValidationIssue[];
   ai_suggestions: AiSuggestion[];
   source_imports: SourceImport[];

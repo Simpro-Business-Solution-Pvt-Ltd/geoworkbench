@@ -186,6 +186,7 @@ class BoreholeWorkbenchOut(BaseModel):
     curves: list[CurveOut]
     core_images: list[CoreImageOut]
     layout: DisplayLayoutOut | None
+    display_layouts: list[DisplayLayoutOut] = []
     validation_issues: list[ValidationIssueOut]
     ai_suggestions: list[AiSuggestionOut]
     source_imports: list[SourceImportOut]

@@ -22,9 +22,13 @@ def list_boreholes(db: Session = Depends(get_db)) -> list[BoreholeListItem]:
 
 
 @router.get("/{borehole_id}/workbench", response_model=BoreholeWorkbenchOut)
-def get_workbench(borehole_id: int, db: Session = Depends(get_db)) -> BoreholeWorkbenchOut:
+def get_workbench(
+    borehole_id: int,
+    display_layout_id: int | None = None,
+    db: Session = Depends(get_db),
+) -> BoreholeWorkbenchOut:
     try:
-        return service.get_workbench(db, borehole_id)
+        return service.get_workbench(db, borehole_id, display_layout_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
