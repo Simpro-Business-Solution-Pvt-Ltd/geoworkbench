@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -150,7 +151,10 @@ def ensure_roles(db: Session) -> None:
                 role.description = definition["description"]
                 changed = True
     if changed:
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
     for role in db.scalars(select(Role)).all():
         default_permissions = DEFAULT_ROLE_PERMISSIONS.get(role.key, [])
         existing_permissions = {
@@ -162,7 +166,10 @@ def ensure_roles(db: Session) -> None:
         for permission_key in default_permissions:
             if permission_key not in existing_permissions:
                 db.add(RolePermission(role_id=role.id, permission_key=permission_key, enabled=1))
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
 
 
 def list_configured_roles(db: Session) -> list[Role]:
@@ -478,6 +485,10 @@ def ensure_demo_users(db: Session) -> None:
                     mobile_number=demo_user["mobile_number"],
                 )
             )
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
             continue
         changed = False
         if not user.display_name:
@@ -497,7 +508,10 @@ def ensure_demo_users(db: Session) -> None:
             changed = True
         if changed:
             db.add(user)
-    db.commit()
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
 
 
 def create_session(db: Session, user: User, client_type: str) -> AuthSession:
