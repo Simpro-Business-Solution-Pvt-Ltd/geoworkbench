@@ -22,6 +22,8 @@ def _load_borehole(db: Session, borehole_id: int) -> Borehole:
             selectinload(Borehole.core_images),
             selectinload(Borehole.validation_issues),
             selectinload(Borehole.ai_suggestions),
+            selectinload(Borehole.source_imports),
+            selectinload(Borehole.source_files),
         )
     )
     if borehole is None:
@@ -346,6 +348,28 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
     intervals = borehole.lithology_intervals
     coal = [item for item in intervals if "COAL" in (item.lithology_code or "")]
     warnings = [item for item in borehole.validation_issues if item.severity in {"error", "warning"}]
+    open_suggestions = [item for item in borehole.ai_suggestions if item.status == "open"]
+    coal_thickness = round(
+        sum(max(0, item.to_depth - item.from_depth) for item in coal),
+        2,
+    )
+    seam_names = sorted(
+        {
+            name.strip()
+            for name in [
+                *[item.seam_name or "" for item in intervals],
+                *[item.name or "" for item in borehole.seam_intervals],
+            ]
+            if name and name.strip()
+        }
+    )
+    curve_coverage = [_curve_coverage_summary(curve) for curve in borehole.curves]
+    curve_coverage_text = _curve_coverage_sentence(curve_coverage)
+    core_image_status = (
+        f"{len(borehole.core_images)} core image record(s) available"
+        if borehole.core_images
+        else "corebox image package not supplied"
+    )
     top_codes: dict[str, int] = {}
     for interval in intervals:
         code = interval.lithology_code or "UNKNOWN"
@@ -353,8 +377,12 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
     common = sorted(top_codes.items(), key=lambda item: item[1], reverse=True)[:5]
     deterministic_summary = (
         f"{borehole.code} covers {borehole.total_depth:.1f}m with {len(intervals)} lithology intervals. "
-        f"Coal/carbonaceous intervals appear in {len(coal)} rows. "
-        f"Current validation has {len(warnings)} error/warning items requiring review before export. "
+        f"Coal/carbonaceous intervals appear in {len(coal)} rows with about {coal_thickness:.2f}m combined thickness. "
+        f"{len(seam_names)} seam marker(s) are available"
+        f"{': ' + ', '.join(seam_names[:6]) if seam_names else ''}. "
+        f"{curve_coverage_text} Source evidence includes {len(borehole.source_imports)} import batch(es), "
+        f"{len(borehole.source_files)} source file(s), and {core_image_status}. "
+        f"Current validation has {len(warnings)} error/warning items and {len(open_suggestions)} open AI/rule suggestion(s). "
         f"{summary_config['geologist_approval_note']}"
     )
     summary = deterministic_summary
@@ -368,10 +396,24 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
                 "lithology_intervals": len(intervals),
                 "seam_intervals": len(borehole.seam_intervals),
                 "curves": len(borehole.curves),
+                "core_images": len(borehole.core_images),
+                "source_imports": len(borehole.source_imports),
+                "source_files": len(borehole.source_files),
             },
             "top_lithology_codes": common,
+            "coal_carbonaceous": {
+                "interval_count": len(coal),
+                "combined_thickness_m": coal_thickness,
+            },
+            "seam_markers": seam_names,
+            "curve_coverage": curve_coverage,
+            "source_evidence": {
+                "source_imports": len(borehole.source_imports),
+                "source_files": len(borehole.source_files),
+                "core_image_status": core_image_status,
+            },
             "validation_error_warning_count": len(warnings),
-            "open_suggestion_count": len([item for item in borehole.ai_suggestions if item.status == "open"]),
+            "open_suggestion_count": len(open_suggestions),
             "important_rule_findings": [
                 {
                     "code": item.code,
@@ -422,13 +464,49 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
             "lithology_intervals": len(intervals),
             "seam_intervals": len(borehole.seam_intervals),
             "curves": len(borehole.curves),
+            "core_images": len(borehole.core_images),
+            "source_imports": len(borehole.source_imports),
+            "source_files": len(borehole.source_files),
             "coal_interval_count": len(coal),
+            "coal_combined_thickness_m": coal_thickness,
+            "seam_markers": seam_names,
+            "curve_coverage": curve_coverage,
+            "core_image_status": core_image_status,
             "validation_error_warning_count": len(warnings),
+            "open_suggestion_count": len(open_suggestions),
             "top_lithology_codes": common,
             "deterministic_summary": deterministic_summary,
             "ai_provider": provider,
         },
     }
+
+
+def _curve_coverage_summary(curve: Curve) -> dict:
+    depths = [sample.depth for sample in curve.samples]
+    if not depths:
+        return {
+            "key": curve.key,
+            "label": curve.label,
+            "sample_count": 0,
+            "from_depth": None,
+            "to_depth": None,
+        }
+    return {
+        "key": curve.key,
+        "label": curve.label,
+        "sample_count": len(depths),
+        "from_depth": round(min(depths), 3),
+        "to_depth": round(max(depths), 3),
+    }
+
+
+def _curve_coverage_sentence(curve_coverage: list[dict]) -> str:
+    available = [item for item in curve_coverage if item["sample_count"]]
+    if not available:
+        return "No geophysical curve samples are available. "
+    labels = ", ".join(str(item["label"]) for item in available[:4])
+    sample_count = sum(int(item["sample_count"]) for item in available)
+    return f"{len(available)} curve(s) are available ({labels}) with {sample_count} sample point(s). "
 
 
 def provider_status() -> dict:

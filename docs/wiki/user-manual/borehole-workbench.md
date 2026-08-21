@@ -260,6 +260,8 @@ Implemented behavior:
 - Show an AI/provider status indicator.
 - Produce a borehole summary using deterministic metrics and, when enabled/reachable, a local LLM.
 
+The summary evidence bundle includes total depth, lithology interval count, coal/carbonaceous combined thickness, seam markers, curve coverage, source import/file counts, corebox package availability, validation counts, and open AI/rule suggestions.
+
 Important: AI output is advisory. The geologist remains responsible for accepting, rejecting, or editing corrections.
 
 ## Quality Rule Configuration
