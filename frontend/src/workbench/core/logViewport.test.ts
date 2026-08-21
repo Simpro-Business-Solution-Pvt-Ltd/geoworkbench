@@ -5,6 +5,7 @@ import {
   defaultPixelsPerDepth,
   resolveLogViewport,
   resolveLogPointerPosition,
+  resolveTrackPointerPosition,
   scrollTopForDepthAtViewportY,
   zoomViewportAtDepth,
   zoomViewportToDepthSpan,
@@ -169,6 +170,21 @@ describe("resolveLogViewport", () => {
     expect(above.depth).toBeCloseTo(DEPTH_DOMAIN.fromDepth, 4);
     expect(below.contentY).toBe(viewport.scale.drawableHeight);
     expect(below.depth).toBeCloseTo(DEPTH_DOMAIN.toDepth, 4);
+  });
+
+  it("resolves track pointer depth from the shared body coordinate mapping", () => {
+    const viewport = resolveLogViewport({
+      depthDomain: DEPTH_DOMAIN,
+      containerHeight: CONTAINER_HEIGHT,
+      headerHeight: HEADER_HEIGHT,
+      pixelsPerDepth: 2,
+      scrollTop: 160,
+      minPixelsPerDepth: 0.1,
+    });
+    const pointer = resolveTrackPointerPosition(viewport.scale, 260, 80);
+
+    expect(pointer.contentY).toBe(180);
+    expect(pointer.depth).toBeCloseTo(viewport.scale.yToDepth(180), 4);
   });
 
   it("zooms around a pointer depth without changing the virtual domain", () => {

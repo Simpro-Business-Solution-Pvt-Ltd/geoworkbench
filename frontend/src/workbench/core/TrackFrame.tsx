@@ -1,7 +1,7 @@
 import { type MouseEvent, type ReactNode } from "react";
 
 import type { BoreholeWorkbench, DisplayTrack } from "../../api/types";
-import { clampToBounds } from "./logViewport";
+import { resolveTrackPointerPosition } from "./logViewport";
 import type { LogTrackContext } from "./logTrackContext";
 import type { DepthScale } from "./depthScale";
 import { emptyTrackObject, type TrackObject, type TrackPointerEvent } from "./trackObject";
@@ -41,8 +41,9 @@ export function TrackFrame({
     const body = event.currentTarget.querySelector<HTMLElement>(".track-body");
     const bounds = body?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
     const localX = event.clientX - bounds.left;
-    const localY = clampToBounds(event.clientY - bounds.top, 0, scale.drawableHeight);
-    const depth = scale.yToDepth(localY);
+    const pointer = resolveTrackPointerPosition(scale, event.clientY, bounds.top);
+    const localY = pointer.contentY;
+    const depth = pointer.depth;
     const object = hitTest?.({ depth, localX, localY }) ?? emptyTrackObject(depth);
     onTrackEvent({
       type,

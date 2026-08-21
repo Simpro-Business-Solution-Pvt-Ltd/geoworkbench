@@ -37,6 +37,11 @@ export type LogPointerPosition = {
   depth: number;
 };
 
+export type TrackPointerPosition = {
+  contentY: number;
+  depth: number;
+};
+
 const DEFAULT_CONTAINER_HEIGHT = 640;
 const MIN_PIXELS_PER_DEPTH = 0.05;
 const MAX_PIXELS_PER_DEPTH = 256;
@@ -123,16 +128,27 @@ export function scrollTopForDepthAtViewportY(
   return clampToBounds(scale.depthToY(depth) - viewportBodyY, 0, maxScrollTop);
 }
 
+export function resolveTrackPointerPosition(
+  scale: DepthScale,
+  clientY: number,
+  bodyTop: number,
+): TrackPointerPosition {
+  const contentY = clampToBounds(clientY - bodyTop, 0, scale.drawableHeight);
+  return {
+    contentY,
+    depth: scale.yToDepth(contentY),
+  };
+}
+
 export function resolveLogPointerPosition(
   viewport: Pick<LogViewportState, "scale" | "scrollTop" | "visibleBodyHeight">,
   clientY: number,
   bodyTop: number,
 ): LogPointerPosition {
-  const contentY = clampToBounds(clientY - bodyTop, 0, viewport.scale.drawableHeight);
+  const pointer = resolveTrackPointerPosition(viewport.scale, clientY, bodyTop);
   return {
-    contentY,
-    viewportBodyY: clampToBounds(contentY - viewport.scrollTop, 0, viewport.visibleBodyHeight),
-    depth: viewport.scale.yToDepth(contentY),
+    ...pointer,
+    viewportBodyY: clampToBounds(pointer.contentY - viewport.scrollTop, 0, viewport.visibleBodyHeight),
   };
 }
 
