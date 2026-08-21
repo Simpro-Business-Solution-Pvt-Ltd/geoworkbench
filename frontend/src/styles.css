@@ -2689,6 +2689,28 @@ button.active {
   white-space: nowrap;
 }
 
+.export-audit-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.export-audit-facts small {
+  border: 1px solid var(--gw-border);
+  border-radius: 999px;
+  background: var(--gw-surface);
+  color: var(--gw-muted);
+  padding: 3px 7px;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.export-audit-facts b {
+  color: var(--gw-text);
+}
+
 .workflow-row-actions {
   display: flex;
   flex-wrap: wrap;

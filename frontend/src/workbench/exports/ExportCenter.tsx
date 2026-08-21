@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { exportDownloadUrl } from "../../api/client";
 import type { BoreholeWorkbench, ExportJob, ExportProfile, ExportReadiness } from "../../api/types";
+import { exportAuditFacts } from "./exportJobAudit";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -329,6 +330,13 @@ export function ExportCenter({
                 <div>
                   <strong>{job.export_type.replaceAll("_", " ")}</strong>
                   <span>{job.file_name}</span>
+                  <div className="export-audit-facts">
+                    {exportAuditFacts(job).map((fact) => (
+                      <small key={`${job.id}:${fact.label}`}>
+                        <b>{fact.label}</b> {fact.value}
+                      </small>
+                    ))}
+                  </div>
                 </div>
                 <small>{job.status}</small>
                 <div className="workflow-row-actions">
