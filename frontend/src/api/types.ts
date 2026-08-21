@@ -298,6 +298,17 @@ export type FieldSubmission = {
   payload: Record<string, unknown> | null;
 };
 
+export type CorrectionAudit = {
+  id: number;
+  interval_id: string;
+  entity_type: string;
+  changed_by: string;
+  changed_at: string;
+  change_reason: string | null;
+  before_values: Record<string, unknown>;
+  after_values: Record<string, unknown>;
+};
+
 export type SourceFile = {
   id: number;
   borehole_id: number | null;
@@ -370,4 +381,5 @@ export type BoreholeWorkbench = {
   source_imports: SourceImport[];
   field_submissions: FieldSubmission[];
   source_files: SourceFile[];
+  correction_audits?: CorrectionAudit[];
 };

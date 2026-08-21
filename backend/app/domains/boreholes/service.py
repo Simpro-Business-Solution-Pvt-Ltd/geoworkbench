@@ -13,6 +13,7 @@ from app.domains.boreholes.schemas import (
     CurveOut,
     DisplayLayoutPatch,
     CurveSampleOut,
+    CorrectionAuditOut,
     DisplayLayoutOut,
     LithologyIntervalPatch,
 )
@@ -170,6 +171,13 @@ def get_workbench(db: Session, borehole_id: int, display_layout_id: int | None =
 
     layout_options = _display_layout_options(borehole)
     layout = _select_display_layout(borehole, display_layout_id)
+    correction_audits = list(
+        db.scalars(
+            select(CorrectionAudit)
+            .where(CorrectionAudit.borehole_id == borehole.id)
+            .order_by(CorrectionAudit.changed_at.desc(), CorrectionAudit.id.desc())
+        )
+    )
     return BoreholeWorkbenchOut(
         id=borehole.id,
         code=borehole.code,
@@ -220,6 +228,7 @@ def get_workbench(db: Session, borehole_id: int, display_layout_id: int | None =
         source_imports=sorted(borehole.source_imports, key=lambda item: item.id),
         field_submissions=sorted(borehole.field_submissions, key=lambda item: item.id),
         source_files=sorted(borehole.source_files, key=lambda item: item.id),
+        correction_audits=[CorrectionAuditOut.model_validate(item) for item in correction_audits],
     )
 
 

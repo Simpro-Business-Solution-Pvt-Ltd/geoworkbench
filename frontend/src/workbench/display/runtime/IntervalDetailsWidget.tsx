@@ -12,6 +12,17 @@ function metadataText(attributes: Record<string, unknown> | null | undefined, ke
   return String(value);
 }
 
+function formatAuditTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function auditFieldSummary(audit: { after_values: Record<string, unknown> }): string {
+  const fields = Object.keys(audit.after_values).filter((field) => field !== "attributes");
+  return fields.length ? fields.join(", ") : "metadata";
+}
+
 export function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps & { title: string }) {
   const selectedDepth = useWorkbenchStore((state) => state.selectedDepth);
   const setSelectedInterval = useWorkbenchStore((state) => state.setSelectedInterval);
@@ -41,6 +52,10 @@ export function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps &
   }, [props.data.core_images, selectedDepth]);
   const interval = selectedDepth !== null ? intervalAtDepth : props.selectedInterval;
   const coreImage = selectedDepth !== null ? coreImageAtDepth : props.selectedCoreImage;
+  const correctionAudits = useMemo(
+    () => (interval ? (props.data.correction_audits ?? []).filter((audit) => audit.interval_id === interval.id) : []),
+    [interval, props.data.correction_audits],
+  );
   const boreholeMetadata = buildBoreholeMetadata(props.data);
   const [editorOpen, setEditorOpen] = useState(false);
 
@@ -126,6 +141,18 @@ export function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps &
                   <MetadataField key={item.label} label={item.label} value={item.value} />
                 ))}
               </div>
+            </details>
+            <details className="metadata-collapsible">
+              <summary>Correction history</summary>
+              {correctionAudits.length === 0 && <div className="empty compact-empty">No saved corrections for this interval.</div>}
+              {correctionAudits.slice(0, 5).map((audit) => (
+                <div key={audit.id} className="audit-row">
+                  <strong>{auditFieldSummary(audit)}</strong>
+                  <span>
+                    {audit.changed_by} · {formatAuditTime(audit.changed_at)}
+                  </span>
+                </div>
+              ))}
             </details>
           </>
         )}

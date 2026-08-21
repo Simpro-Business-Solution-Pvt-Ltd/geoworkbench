@@ -4866,6 +4866,32 @@ h2 {
   font-size: 11px;
 }
 
+.compact-empty {
+  margin: 0 8px 8px;
+  padding: 8px;
+  font-size: 11px;
+}
+
+.audit-row {
+  display: grid;
+  gap: 3px;
+  margin: 0 8px 8px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  padding: 8px;
+}
+
+.audit-row strong {
+  color: var(--gw-text);
+  font-size: 12px;
+}
+
+.audit-row span {
+  color: var(--gw-muted);
+  font-size: 11px;
+}
+
 .edit-form label {
   display: grid;
   gap: 5px;

@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db.models import Borehole, DisplayLayout, Project, Site
+from app.db.models import Borehole, CorrectionAudit, DisplayLayout, LithologyInterval, Project, Site
 from app.db.session import Base
 from app.domains.boreholes.service import clone_display_layout, delete_display_layout, get_workbench
 
@@ -19,6 +19,9 @@ def test_workbench_returns_layout_options_and_uses_default_layout_when_not_selec
             (first_layout.id, "Default Review"),
             (second_layout.id, "Curve Focus"),
         ]
+        assert len(workbench.correction_audits) == 1
+        assert workbench.correction_audits[0].interval_id == "bh-layout-01-lith-1"
+        assert workbench.correction_audits[0].after_values["remark"] == "Updated"
     finally:
         db.close()
 
@@ -112,8 +115,25 @@ def _seed_borehole_with_layouts(db: Session) -> tuple[Borehole, DisplayLayout, D
         mode="runtime",
         settings={"schemaVersion": 2, "grid": {"columns": 24, "rowHeight": 12, "items": []}, "widgets": {}},
     )
+    interval = LithologyInterval(
+        borehole=borehole,
+        id="bh-layout-01-lith-1",
+        from_depth=0.0,
+        to_depth=1.0,
+        lithology_code="SH",
+        lithology_label="Shale",
+    )
     db.add(project)
-    db.add_all([first_layout, second_layout])
+    db.add_all([first_layout, second_layout, interval])
+    db.flush()
+    db.add(
+        CorrectionAudit(
+            borehole_id=borehole.id,
+            interval_id=interval.id,
+            before_values={"remark": "Original"},
+            after_values={"remark": "Updated"},
+        )
+    )
     db.commit()
     db.refresh(borehole)
     db.refresh(first_layout)

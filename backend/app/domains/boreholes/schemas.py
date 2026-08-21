@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 from app.domains.imports.schemas import SourceFileOut
 
@@ -174,6 +176,19 @@ class FieldSubmissionOut(BaseModel):
     payload: dict | None
 
 
+class CorrectionAuditOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    interval_id: str
+    entity_type: str
+    changed_by: str
+    changed_at: datetime
+    change_reason: str | None
+    before_values: dict
+    after_values: dict
+
+
 class BoreholeWorkbenchOut(BaseModel):
     id: int
     code: str
@@ -196,3 +211,4 @@ class BoreholeWorkbenchOut(BaseModel):
     source_imports: list[SourceImportOut]
     field_submissions: list[FieldSubmissionOut]
     source_files: list[SourceFileOut]
+    correction_audits: list[CorrectionAuditOut] = []
