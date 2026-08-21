@@ -291,7 +291,8 @@ def _column_mapping(profile: ExportProfile | None, fallback: list[tuple[str, str
     mapped: list[tuple[str, str]] = []
     for item in columns:
         if isinstance(item, str):
-            mapped.append((item, item))
+            if "." in item:
+                mapped.append((item, item))
         elif isinstance(item, dict):
             source = str(item.get("source") or item.get("key") or "")
             target = str(item.get("target") or item.get("label") or source)

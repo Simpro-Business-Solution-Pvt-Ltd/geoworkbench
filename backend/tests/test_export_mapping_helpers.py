@@ -24,6 +24,26 @@ def test_column_mapping_accepts_dict_templates_and_falls_back_when_empty() -> No
     assert _column_mapping(ExportProfile(name="Empty", export_type="x", mapping={"columns": []}), fallback) == fallback
 
 
+def test_column_mapping_ignores_legacy_display_only_string_columns() -> None:
+    fallback = [("lithology.from_depth", "from_depth")]
+    legacy_profile = ExportProfile(
+        name="Legacy CSV",
+        export_type="corrected_lithology_csv",
+        mapping={"columns": ["borehole_code", "from_depth", "to_depth"]},
+    )
+    canonical_profile = ExportProfile(
+        name="Canonical Strings",
+        export_type="corrected_lithology_csv",
+        mapping={"columns": ["borehole.code", "lithology.from_depth"]},
+    )
+
+    assert _column_mapping(legacy_profile, fallback) == fallback
+    assert _column_mapping(canonical_profile, fallback) == [
+        ("borehole.code", "borehole.code"),
+        ("lithology.from_depth", "lithology.from_depth"),
+    ]
+
+
 def test_interval_value_reads_canonical_fields_and_extension_attributes() -> None:
     borehole = SimpleNamespace(code="BH-01", title="Borehole 01")
     interval = SimpleNamespace(
