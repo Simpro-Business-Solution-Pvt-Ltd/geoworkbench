@@ -107,12 +107,26 @@ def ensure_default_export_profiles(db: Session) -> None:
         if existing is None:
             db.add(profile)
             changed = True
-        elif profile.export_type in {"curves_las", "curves_csv"} and "curve_dictionary" not in existing.mapping:
-            existing.mapping = {**existing.mapping, "curve_dictionary": curve_dictionary_mapping()}
+        elif refreshed_mapping := refreshed_default_export_mapping(existing, profile):
+            existing.mapping = refreshed_mapping
             db.add(existing)
             changed = True
     if changed:
         db.commit()
+
+
+def refreshed_default_export_mapping(existing: ExportProfile, default: ExportProfile) -> dict | None:
+    mapping = existing.mapping or {}
+    if default.export_type in {"curves_las", "curves_csv"} and "curve_dictionary" not in mapping:
+        return {**mapping, "curve_dictionary": curve_dictionary_mapping()}
+    if default.export_type == "corrected_lithology_csv" and _has_legacy_csv_column_mapping(mapping):
+        return default.mapping
+    return None
+
+
+def _has_legacy_csv_column_mapping(mapping: dict) -> bool:
+    columns = mapping.get("columns")
+    return isinstance(columns, list) and any(isinstance(item, str) for item in columns)
 
 
 def list_export_profiles(db: Session) -> list[ExportProfile]:

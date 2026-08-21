@@ -1,4 +1,5 @@
-from app.domains.exports.service import default_export_profiles
+from app.db.models import ExportProfile
+from app.domains.exports.service import default_export_profiles, refreshed_default_export_mapping
 
 
 def test_default_export_profiles_cover_uat_formats() -> None:
@@ -41,3 +42,16 @@ def test_default_export_profile_factory_returns_fresh_instances() -> None:
 
     assert first[0] is not second[0]
     assert first[0].mapping is not second[0].mapping
+
+
+def test_legacy_corrected_lithology_csv_profile_mapping_is_refreshed() -> None:
+    default = {profile.export_type: profile for profile in default_export_profiles()}["corrected_lithology_csv"]
+    existing = ExportProfile(
+        name=default.name,
+        export_type=default.export_type,
+        mapping={"columns": ["borehole_code", "from_depth", "to_depth", "rqd_percent"]},
+    )
+
+    refreshed = refreshed_default_export_mapping(existing, default)
+
+    assert refreshed == default.mapping
