@@ -3,8 +3,17 @@ import type { UserPreferences } from "../../preferences/userPreferences";
 import { formatDepth, formatNumber } from "../../preferences/userPreferences";
 import type { BoreholeMetric } from "./metricTypes";
 
+const CORRECTED_STAGES = new Set(["geologist_corrected", "approved_final"]);
+
 export function buildIntervalMetrics(data: BoreholeWorkbench, preferences: UserPreferences): BoreholeMetric[] {
   const seamThickness = data.seam_intervals.reduce((sum, item) => sum + Math.max(0, item.to_depth - item.from_depth), 0);
+  const correctedIntervals = data.lithology_intervals.filter((item) => {
+    const stage = item.attributes?.data_stage;
+    return typeof stage === "string" && CORRECTED_STAGES.has(stage);
+  });
+  const correctedPercent = data.lithology_intervals.length
+    ? (correctedIntervals.length / data.lithology_intervals.length) * 100
+    : null;
   const recoveryValues = data.lithology_intervals
     .map((item) => item.recovery_percent)
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
@@ -18,6 +27,23 @@ export function buildIntervalMetrics(data: BoreholeWorkbench, preferences: UserP
       label: "Lithology intervals",
       value: formatNumber(data.lithology_intervals.length, preferences, 0),
       rawValue: data.lithology_intervals.length,
+      category: "interval",
+      source: "derived",
+    },
+    {
+      key: "corrected_interval_count",
+      label: "Corrected intervals",
+      value: formatNumber(correctedIntervals.length, preferences, 0),
+      rawValue: correctedIntervals.length,
+      category: "interval",
+      source: "derived",
+    },
+    {
+      key: "corrected_interval_percent",
+      label: "Correction progress",
+      value: correctedPercent !== null ? `${formatNumber(correctedPercent, preferences, 1)} %` : "-",
+      rawValue: correctedPercent,
+      unit: "%",
       category: "interval",
       source: "derived",
     },

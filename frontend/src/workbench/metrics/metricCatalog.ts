@@ -12,6 +12,8 @@ export const SINGLE_VALUE_METRICS: MetricCatalogItem[] = [
   { value: "curve_depth_to", label: "Curve coverage to", category: "curve" },
   { value: "curve_coverage_percent", label: "Curve coverage %", category: "curve" },
   { value: "corebox_count", label: "Corebox images", category: "interval" },
+  { value: "corrected_interval_count", label: "Corrected intervals", category: "interval" },
+  { value: "corrected_interval_percent", label: "Correction progress %", category: "interval" },
   { value: "seam_count", label: "Seams", category: "interval" },
   { value: "seam_thickness", label: "Seam thickness", category: "interval" },
   { value: "avg_recovery", label: "Average recovery", category: "interval" },

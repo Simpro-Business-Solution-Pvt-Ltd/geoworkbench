@@ -12,10 +12,10 @@ describe("metricBuilderRegistry", () => {
     expect(metrics.slice(0, 6).map((metric) => metric.key)).toEqual([
       "total_depth",
       "interval_count",
+      "corrected_interval_count",
+      "corrected_interval_percent",
       "corebox_count",
       "seam_count",
-      "seam_thickness",
-      "avg_recovery",
     ]);
     expect(metrics.map((metric) => metric.key)).toContain("validation_issue_count");
     expect(metrics.map((metric) => metric.key)).toContain("ai_suggestion_count");

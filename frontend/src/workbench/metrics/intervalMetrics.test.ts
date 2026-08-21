@@ -11,6 +11,8 @@ describe("buildIntervalMetrics", () => {
     expect(metrics.get("interval_count")?.value).toBe("2");
     expect(metrics.get("seam_count")?.value).toBe("1");
     expect(metrics.get("seam_thickness")?.value).toBe("3 m");
+    expect(metrics.get("corrected_interval_count")?.value).toBe("1");
+    expect(metrics.get("corrected_interval_percent")?.value).toBe("50 %");
     expect(metrics.get("avg_recovery")?.value).toBe("85 %");
     expect(metrics.get("avg_rqd")?.value).toBe("50 %");
   });
@@ -56,6 +58,7 @@ function sampleWorkbench(): BoreholeWorkbench {
         source_row: null,
         image_box: null,
         image_file: null,
+        attributes: { data_stage: "raw_imported" },
       },
       {
         id: "2",
@@ -74,6 +77,7 @@ function sampleWorkbench(): BoreholeWorkbench {
         source_row: null,
         image_box: null,
         image_file: null,
+        attributes: { data_stage: "geologist_corrected" },
       },
     ],
     seam_intervals: [
