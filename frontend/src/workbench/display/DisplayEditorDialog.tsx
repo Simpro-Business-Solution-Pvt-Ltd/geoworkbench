@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { Curve, DisplayGridItem, DisplayLayout, DisplayWidget } from "../../api/types";
-import {
-  createWidgetId,
-  defaultGridItem,
-  normalizeDisplayLayout,
-  WIDGET_CATALOG,
-} from "./displayEditorModel";
+import { defaultGridItem, normalizeDisplayLayout } from "./displayEditorModel";
 import { DisplayGridCanvas } from "./editor/DisplayGridCanvas";
 import { clampGridItem } from "./editor/displayGridUtils";
 import { WidgetInspector } from "./editor/WidgetInspector";
 import { WidgetSettingsDialog } from "./editor/WidgetSettingsDialog";
+import { createWidgetId, WIDGET_CATALOG } from "./widgetCatalog";
 
 type Props = {
   open: boolean;

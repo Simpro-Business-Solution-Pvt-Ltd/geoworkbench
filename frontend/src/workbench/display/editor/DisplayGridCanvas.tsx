@@ -4,7 +4,7 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 import type { DisplayGridItem, DisplayLayout, DisplayWidget } from "../../../api/types";
-import { widgetLabel } from "../displayEditorModel";
+import { widgetLabel } from "../widgetCatalog";
 import { commitGridLayout, toReactGridLayout } from "./displayGridUtils";
 import { useElementWidth } from "./useElementWidth";
 
