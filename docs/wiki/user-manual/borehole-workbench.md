@@ -332,9 +332,10 @@ The Correlation workspace shows multiple boreholes together for review. It suppo
 - Curve comparison.
 - AI/insight narrative for correlation scenarios.
 - Evidence summary for selected boreholes, common seam groups, gamma coverage, and depth/RL range.
+- Recommended action for each insight, such as confirming RL, reviewing missing markers, importing missing curve evidence, or recording a lithology-only decision.
 - Geologist observation notes from the insight dialog.
 
-Correlation insight notes are saved in the application database per selected borehole set for UAT continuity. They are useful for demo review and stakeholder discussion, but they are still lighter than a formal maker-checker geological interpretation workflow.
+Correlation insight notes are saved in the application database per selected borehole set for UAT continuity. Drafting a note from an insight includes the finding, evidence, and recommended action so the geologist can turn a rule/AI prompt into an interpretation record. These notes are useful for demo review and stakeholder discussion, but they are still lighter than a formal maker-checker geological interpretation workflow.
 
 The current correlation dataset includes synthetic aligned boreholes for demonstration while customer-provided datasets are still being normalized.
 

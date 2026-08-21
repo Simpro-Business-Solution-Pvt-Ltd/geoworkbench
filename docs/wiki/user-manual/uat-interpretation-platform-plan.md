@@ -34,7 +34,7 @@ For each customer data package, first profile the files before deciding UI behav
 | Recovery | Available for many intervals | Core recovery/quality evidence | Recovery track, interval details, quality rules |
 | RQD | No values in current Reliance import | Rock quality/geotechnical evidence where supplied | RQD track and interval details when data exists |
 | LAS curves | Available | Geophysical support for lithology/seam interpretation | Curve tracks, curve catalog, correlation, AI evidence |
-| Corebox images | Not supplied for current Reliance package | Visual evidence for core condition and lithology | Core image track and image viewer when supplied |
+| Corebox images | Not supplied for current Reliance package | Visual evidence for core condition and lithology | Core image track shows a missing-image state until linked image packages are supplied |
 | Remarks/features | Available where present | Field/geologist observations | Remarks track, interval details, AI context |
 | Source/import batches | Available as parsed import records | Traceability from source package to model | Import Center, metadata, audit facts |
 
@@ -43,6 +43,7 @@ Acceptance checks for this pass:
 - The workbench clearly shows which useful tracks are available for the selected borehole.
 - Empty data areas are not presented as if they are missing due to a software bug.
 - Missing RL/elevation, water level, RQD, or core images are framed as data availability items.
+- Existing saved displays may need reset or reimport with the latest Reliance layout defaults to show the explicit missing-core-image track state.
 - The team can answer: "What did Reliance provide, what did we derive, and what do we still need?"
 
 ## Pass 2: Raw Data To Corrected Interpretation

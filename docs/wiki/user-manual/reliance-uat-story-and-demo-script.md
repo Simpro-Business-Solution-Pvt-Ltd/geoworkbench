@@ -186,6 +186,7 @@ Do:
 - Switch between synthetic/demo and received data sets if both are available.
 - Show depth/RL toggle.
 - Open AI insights.
+- Point out the recommended action attached to each insight.
 - Draft/save a correlation note.
 - Close, refresh, reopen, and show the note persists with author and timestamp.
 
