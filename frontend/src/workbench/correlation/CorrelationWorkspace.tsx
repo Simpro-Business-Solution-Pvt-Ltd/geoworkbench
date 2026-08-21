@@ -371,7 +371,7 @@ function CorrelationInsightsDialog({
             <div className="saved-correlation-notes">
               {savedNotes.map((item) => (
                 <article key={item.id}>
-                  <strong>{new Date(item.created_at).toLocaleString()}</strong>
+                  <strong>{item.created_by} · {new Date(item.created_at).toLocaleString()}</strong>
                   <span>{item.text}</span>
                 </article>
               ))}
