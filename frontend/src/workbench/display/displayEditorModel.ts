@@ -32,8 +32,9 @@ export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: C
   draft.settings.regions = draft.settings.regions ?? {
     left: ["validation-panel", "ai-workflow"],
     center: ["log-widget"],
-    right: ["interval-details", "export-panel"],
+    right: ["interval-details", "curve-catalog"],
   };
+  draft.settings.regions = pruneRegions(draft.settings.regions, new Set(Object.keys(draft.settings.widgets)));
   draft.settings.grid = draft.settings.grid ?? {
     columns: 12,
     rowHeight: 72,
@@ -107,4 +108,10 @@ export function defaultGridItem(widgetId: string, index: number): DisplayGridIte
     return { widgetId, x: 3, y: 0, w: 6, h: 8 };
   }
   return { widgetId, x: (index % 3) * 4, y: Math.floor(index / 3) * 3, w: 3, h: 2 };
+}
+
+function pruneRegions(regions: Record<string, string[]>, widgetIds: Set<string>) {
+  return Object.fromEntries(
+    Object.entries(regions).map(([region, ids]) => [region, ids.filter((widgetId) => widgetIds.has(widgetId))]),
+  );
 }
