@@ -80,6 +80,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   const domain = useMemo(() => correlationDomain(loaded, alignMode), [loaded, alignMode]);
   const seamRows = useMemo(() => seamCorrelationRows(loaded), [loaded]);
   const insights = useMemo(() => buildCorrelationInsights(loaded, seamRows), [loaded, seamRows]);
+  const stats = useMemo(() => correlationStats(loaded, seamRows, domain, alignMode), [alignMode, domain, loaded, seamRows]);
   const correlationKey = useMemo(() => selectedIds.slice().sort((a, b) => a - b).join(":"), [selectedIds]);
   const savedNotes = savedNotesByKey[correlationKey] ?? [];
 
@@ -147,6 +148,12 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         </span>
         <span>
           <i className="gamma-swatch" /> Red curve is normalized Natural Gamma for visual comparison.
+        </span>
+        <span>
+          <b>Evidence</b> {stats.boreholes} boreholes · {stats.commonSeams} common seam groups · {stats.gammaCoverage}
+        </span>
+        <span>
+          <b>Range</b> {stats.rangeLabel}
         </span>
       </div>
 
@@ -594,6 +601,25 @@ function buildCorrelationInsights(items: BoreholeWorkbench[], seamRows: SeamCorr
   }
 
   return insights.slice(0, 5);
+}
+
+function correlationStats(
+  items: BoreholeWorkbench[],
+  seamRows: SeamCorrelationRow[],
+  domain: { min: number; max: number },
+  alignMode: AlignMode,
+) {
+  const gammaCount = items.filter((item) => item.curves.some((curve) => ["ngam", "gamma"].includes(curve.key))).length;
+  const commonSeams = seamRows.filter((row) => row.presentCount >= Math.max(2, Math.ceil(items.length * 0.6))).length;
+  return {
+    boreholes: items.length,
+    commonSeams,
+    gammaCoverage: items.length ? `${gammaCount}/${items.length} with gamma` : "no curve evidence",
+    rangeLabel:
+      alignMode === "rl"
+        ? `${domain.min.toFixed(0)}-${domain.max.toFixed(0)} RL`
+        : `${domain.min.toFixed(0)}-${domain.max.toFixed(0)} m`,
+  };
 }
 
 function metadataFor(data: BoreholeWorkbench): BoreholeMeta {
