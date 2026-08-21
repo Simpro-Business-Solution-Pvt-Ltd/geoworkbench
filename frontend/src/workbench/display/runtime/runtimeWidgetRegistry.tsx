@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { BoreholeWorkbench, DisplayLayout } from "../../../api/types";
+import type { DisplayLayout } from "../../../api/types";
 import { AiWorkflowPanel } from "../../ai/AiWorkflowPanel";
 import { ExportPanel } from "../../exports/ExportPanel";
 import { LogWidget } from "../../widgets/LogWidget";
@@ -9,6 +9,7 @@ import { IntervalDetailsWidget } from "./IntervalDetailsWidget";
 import { RuntimeWidgetFrame } from "./RuntimeWidgetFrame";
 import { SingleValueWidget } from "./SingleValueWidget";
 import { ValidationWidget } from "./ValidationWidget";
+import { withRuntimeLogWidget } from "./runtimeLogWidgetModel";
 import type { DisplayRuntimeProps } from "./runtimeTypes";
 
 type RuntimeWidget = NonNullable<DisplayLayout["settings"]["widgets"]>[string];
@@ -111,12 +112,4 @@ export function renderRuntimeWidget(widgetId: string, widget: RuntimeWidget, pro
       <div className="empty">No runtime renderer is registered for {widget.type}.</div>
     </RuntimeWidgetFrame>
   );
-}
-
-function withRuntimeLogWidget(data: BoreholeWorkbench, widgetId: string, widget: RuntimeWidget): BoreholeWorkbench {
-  if (widgetId === "log-widget") return data;
-  if (!data.layout) return data;
-  const layout = structuredClone(data.layout);
-  layout.settings.widgets = { ...(layout.settings.widgets ?? {}), "log-widget": widget };
-  return { ...data, layout };
 }
