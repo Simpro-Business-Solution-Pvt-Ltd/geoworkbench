@@ -1,8 +1,8 @@
 import type { BoreholeWorkbench } from "../../api/types";
 import type { UserPreferences } from "../../preferences/userPreferences";
-import { formatDepth } from "../../preferences/userPreferences";
 import { buildCollarMetrics } from "./collarMetrics";
 import { buildCurveMetrics } from "./curveMetrics";
+import { buildIdentityMetrics } from "./identityMetrics";
 import { buildIntervalMetrics } from "./intervalMetrics";
 import type { BoreholeMetric } from "./metricTypes";
 import { buildQualityMetrics } from "./qualityMetrics";
@@ -10,15 +10,7 @@ import { buildQualityMetrics } from "./qualityMetrics";
 export function buildBoreholeMetrics(data: BoreholeWorkbench, preferences: UserPreferences) {
   const metrics = new Map<string, BoreholeMetric>();
 
-  addMetric(metrics, {
-    key: "total_depth",
-    label: "Total depth",
-    value: formatDepth(data.total_depth, preferences),
-    rawValue: data.total_depth,
-    unit: preferences.depthUnit,
-    category: "identity",
-    source: "excel",
-  });
+  for (const metric of buildIdentityMetrics(data, preferences)) addMetric(metrics, metric);
   for (const metric of buildIntervalMetrics(data, preferences)) addMetric(metrics, metric);
   for (const metric of buildCurveMetrics(data, preferences)) addMetric(metrics, metric);
   for (const metric of buildCollarMetrics(data, preferences)) addMetric(metrics, metric);
