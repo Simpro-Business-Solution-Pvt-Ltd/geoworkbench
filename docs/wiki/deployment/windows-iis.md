@@ -62,6 +62,9 @@ Environment:
 
 ```text
 GEOWORKBENCH_DATABASE_URL=postgresql+psycopg://user:password@db-server:5432/geoworkbench
+GEOWORKBENCH_AI_PROVIDER=lmstudio
+GEOWORKBENCH_AI_BASE_URL=http://<local-ai-host>:1234/v1
+GEOWORKBENCH_AI_MODEL=google/gemma-4-12b-qat
 GEOWORKBENCH_OBJECT_STORAGE_PROVIDER=s3
 GEOWORKBENCH_S3_ENDPOINT_URL=http://127.0.0.1:9000
 GEOWORKBENCH_S3_BUCKET=geoworkbench
@@ -97,6 +100,28 @@ npm run build
 10. Start internal MinIO if using object storage; see `docs/wiki/deployment/local-minio.md`.
 11. Configure backup jobs for PostgreSQL and MinIO object data.
 
+## Server Refresh Checklist
+
+Use this sequence for a controlled UAT refresh:
+
+1. Stop the FastAPI Windows Service.
+2. Pull the approved branch and record the commit:
+
+```powershell
+git status --short --branch
+git pull
+git rev-parse HEAD
+```
+
+3. Install/update backend dependencies.
+4. Run migrations from `backend`.
+5. Build frontend from `frontend`.
+6. Replace the IIS site `dist` folder atomically or during a short maintenance window.
+7. Start the FastAPI Windows Service.
+8. Verify `/health`, `/api/diagnostics/health`, sign-in, workbench, import, export, and correlation notes.
+
+Keep the previous `dist` folder and backend release directory until the UAT smoke script passes.
+
 ## Smoke Test
 
 After the Windows service and IIS reverse proxy are running, execute the UAT smoke script from the repository root:
@@ -112,6 +137,15 @@ For the production HTTPS binding:
 ```
 
 The script checks health, diagnostics, local login, current user session, borehole list, and the first borehole workbench payload.
+
+For handover evidence, save:
+
+- Smoke script console output.
+- Diagnostics response with secrets redacted.
+- IIS HTTPS binding screenshot or exported configuration.
+- Windows Service status screenshot or `Get-Service` output.
+- PostgreSQL database and backup job evidence.
+- Upload/export storage path or bucket evidence.
 
 ## Notes
 

@@ -303,6 +303,8 @@ Merge options include replacing overlapping intervals/curves or appending only n
 
 Imported Excel intervals and LAS/PDF curves are tagged with their data stage and source filename. When the same borehole receives data in batches, the merge mode decides whether overlapping intervals/curves are replaced or only new depths are appended.
 
+The Source Queue and Parsed Imports lists show compact audit facts such as adapter, template, row count, seam count, curve count, depth range, storage mode, file size, and selected merge mode when those details are available from the parser or merge step.
+
 For template details, see **Import, Merge, And Export Templates** in the wiki navigation.
 
 ## Export Center
@@ -332,7 +334,7 @@ The Correlation workspace shows multiple boreholes together for review. It suppo
 - Evidence summary for selected boreholes, common seam groups, gamma coverage, and depth/RL range.
 - Geologist observation notes from the insight dialog.
 
-Correlation insight notes are remembered in browser storage per selected borehole set for UAT continuity. They are useful for demo review and stakeholder discussion, but they are not yet the formal database-backed geological interpretation/audit workflow.
+Correlation insight notes are saved in the application database per selected borehole set for UAT continuity. They are useful for demo review and stakeholder discussion, but they are still lighter than a formal maker-checker geological interpretation workflow.
 
 The current correlation dataset includes synthetic aligned boreholes for demonstration while customer-provided datasets are still being normalized.
 

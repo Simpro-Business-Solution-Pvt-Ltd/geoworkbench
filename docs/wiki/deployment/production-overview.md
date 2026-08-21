@@ -27,6 +27,19 @@ Users
 - Migrations must run before the API starts after a release.
 - Backups must cover both PostgreSQL and uploaded file/object storage.
 
+## Evaluation Deployment Position
+
+For the Reliance evaluation server, the preferred first deployment is:
+
+- IIS HTTPS reverse proxy.
+- FastAPI bound to `127.0.0.1:8081` as a Windows Service.
+- External PostgreSQL configured through `GEOWORKBENCH_DATABASE_URL`.
+- Durable upload/export storage outside the repository checkout.
+- Local AI endpoint configured through environment variables.
+- UAT smoke evidence captured after each refresh.
+
+Container runtime such as Podman may be used later for MinIO or auxiliary services. The main application does not require a container route for the first UAT deployment.
+
 ## Supported Profiles
 
 - Windows VM + IIS + Windows Services.
