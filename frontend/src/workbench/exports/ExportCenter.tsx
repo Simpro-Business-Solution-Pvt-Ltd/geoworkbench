@@ -419,6 +419,14 @@ function ExportProfileDialog({
       setError("Mapping JSON is not valid.");
     }
   };
+  const formatMapping = () => {
+    try {
+      setMappingText(JSON.stringify(JSON.parse(mappingText), null, 2));
+      setError(null);
+    } catch {
+      setError("Mapping JSON is not valid.");
+    }
+  };
 
   const selectedCurves = selectedCurveKeys(mappingText);
   const setCurveKeys = (curveKeys: string[]) => {
@@ -489,6 +497,12 @@ function ExportProfileDialog({
             )}
             {error && <span className="mapping-error">{error}</span>}
             <div className="mapping-dialog-actions">
+              <button type="button" onClick={formatMapping}>
+                Format JSON
+              </button>
+              <button type="button" onClick={() => setMappingText(JSON.stringify(profile.mapping, null, 2))}>
+                Restore saved mapping
+              </button>
               <button type="button" onClick={save} disabled={saving || !name.trim()}>
                 {saving ? "Saving..." : "Save template"}
               </button>
