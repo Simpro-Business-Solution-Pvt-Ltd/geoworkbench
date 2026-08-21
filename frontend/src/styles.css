@@ -4477,6 +4477,31 @@ h2 {
   background: #ede3d2;
 }
 
+.image-track-empty {
+  position: absolute;
+  inset: 8px 6px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  border: 1px dashed rgb(105 82 51 / 55%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 34%);
+  color: #5f4625;
+  padding: 8px;
+  text-align: center;
+}
+
+.image-track-empty strong {
+  font-size: 11px;
+}
+
+.image-track-empty span {
+  max-width: 140px;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
 .core-strip {
   position: absolute;
   left: 4px;

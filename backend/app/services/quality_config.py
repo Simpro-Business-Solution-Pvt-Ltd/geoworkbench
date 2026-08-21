@@ -86,7 +86,7 @@ DEFAULT_VALIDATION_RULES: list[dict[str, Any]] = [
     {
         "code": "missing_core_image_link",
         "label": "Missing core image link",
-        "description": "Flags intervals that are not linked to a core image box.",
+        "description": "Flags missing interval-to-corebox links only after corebox images are available for the borehole.",
         "enabled": True,
         "severity": "info",
     },

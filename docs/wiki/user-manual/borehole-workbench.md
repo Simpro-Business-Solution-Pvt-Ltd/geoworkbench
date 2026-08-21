@@ -238,11 +238,11 @@ The workbench has deterministic validation rules for common borehole data issues
 - Coal/carbonaceous intervals without seam labels.
 - Curves with no samples.
 - Curve coverage mismatch.
-- Missing core image links.
+- Missing interval-to-corebox links after a corebox image package is available.
 - Missing recovery or RQD data.
 - Curve/lithology disagreement.
 - Caliper washout warning.
-- Core image depth mapping missing or conflicting.
+- Core image depth mapping missing or conflicting after images are supplied.
 
 Validation findings are shown in the validation panel and can be used by the AI suggestion workflow.
 

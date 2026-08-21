@@ -64,6 +64,12 @@ export function ImageTrack({ data, track, context }: Props) {
           : null;
       }}
     >
+      {preparedImages.length === 0 && (
+        <div className="image-track-empty">
+          <strong>No core images</strong>
+          <span>Corebox image package not supplied for this borehole.</span>
+        </div>
+      )}
       {visibleImages.map((preparedImage) => {
         const { image, fromDepth, toDepth } = preparedImage;
         const renderModel = resolveCoreImageRenderModel(preparedImage, scale);

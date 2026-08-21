@@ -28,7 +28,7 @@ def validate_borehole(borehole: Borehole, settings: dict | None = None) -> list[
     findings.extend(validate_recovery_and_rqd(intervals))
     findings.extend(validate_seam_labels(intervals))
     findings.extend(validate_curve_ranges(borehole, borehole.curves))
-    findings.extend(validate_core_image_links(intervals))
+    findings.extend(validate_core_image_links(borehole, intervals))
     findings.extend(validate_required_interval_metrics(intervals))
     findings.extend(validate_curve_lithology_alignment(borehole, intervals, borehole.curves))
     findings.extend(validate_caliper_washout(borehole, borehole.curves))
@@ -242,20 +242,10 @@ def validate_curve_ranges(borehole: Borehole, curves: list[Curve]) -> list[Valid
     return findings
 
 
-def validate_core_image_links(intervals: list[LithologyInterval]) -> list[ValidationFinding]:
+def validate_core_image_links(borehole: Borehole, intervals: list[LithologyInterval]) -> list[ValidationFinding]:
     findings: list[ValidationFinding] = []
-    if intervals and all(interval.image_box is None for interval in intervals):
-        return [
-            ValidationFinding(
-                code="core_images_not_loaded",
-                severity="info",
-                message="No lithology intervals are linked to corebox images for this borehole.",
-                from_depth=intervals[0].from_depth,
-                to_depth=intervals[-1].to_depth,
-                entity_type="borehole",
-                metadata={"missing_interval_count": len(intervals)},
-            )
-        ]
+    if not borehole.core_images and all(interval.image_box is None for interval in intervals):
+        return []
     for interval in intervals:
         if interval.image_box is None:
             findings.append(
