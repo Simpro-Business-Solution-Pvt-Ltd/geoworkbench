@@ -64,17 +64,17 @@ export function DisplayEditorDialog({
 
   if (!layout || !draft) {
     return (
-      <div className="display-modal-backdrop">
-        <div className="display-modal">
-          <div className="display-modal-header">
+      <section className="display-editor-page">
+        <div className="display-editor-frame">
+          <div className="display-editor-header">
             <strong>Display Editor</strong>
             <button type="button" onClick={onClose}>
               Close
             </button>
           </div>
-          <div className="display-modal-empty">No display layout is available for this borehole.</div>
+          <div className="display-editor-empty">No display layout is available for this borehole.</div>
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -165,14 +165,14 @@ export function DisplayEditorDialog({
   };
 
   return (
-    <div className="display-modal-backdrop">
-      <div className="display-modal">
-        <div className="display-modal-header">
+    <section className="display-editor-page">
+      <div className="display-editor-frame">
+        <div className="display-editor-header">
           <div>
             <strong>Display Editor</strong>
             <span>{draft.name}</span>
           </div>
-          <div className="display-modal-actions">
+          <div className="display-editor-actions">
             <button type="button" disabled={!history.length || saving} onClick={undo}>
               Undo
             </button>
@@ -287,6 +287,6 @@ export function DisplayEditorDialog({
           />
         )}
       </div>
-    </div>
+    </section>
   );
 }

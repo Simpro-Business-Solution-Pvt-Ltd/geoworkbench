@@ -3264,7 +3264,7 @@ h2 {
   gap: 8px;
 }
 
-.display-modal-backdrop {
+.display-editor-page {
   min-height: 0;
   height: calc(100vh - 58px);
   display: grid;
@@ -3272,7 +3272,7 @@ h2 {
   padding: 12px;
 }
 
-.display-modal {
+.display-editor-frame {
   display: grid;
   grid-template-rows: 56px 1fr;
   width: 100%;
@@ -3285,7 +3285,7 @@ h2 {
   box-shadow: 0 8px 22px var(--gw-shadow);
 }
 
-.display-modal-header {
+.display-editor-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3295,21 +3295,21 @@ h2 {
   background: var(--gw-surface-alt);
 }
 
-.display-modal-header strong {
+.display-editor-header strong {
   color: var(--gw-text);
 }
 
-.display-modal-header > div:first-child {
+.display-editor-header > div:first-child {
   display: grid;
   gap: 2px;
 }
 
-.display-modal-header span {
+.display-editor-header span {
   color: var(--gw-muted);
   font-size: 12px;
 }
 
-.display-modal-actions,
+.display-editor-actions,
 .widget-action-row {
   display: flex;
   flex-wrap: wrap;
@@ -3429,7 +3429,7 @@ h2 {
   opacity: 0.18;
 }
 
-.display-modal-empty {
+.display-editor-empty {
   color: var(--gw-text);
   padding: 18px;
 }
