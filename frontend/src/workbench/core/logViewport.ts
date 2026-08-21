@@ -25,6 +25,12 @@ export type LogViewportState = {
   maxScrollTop: number;
 };
 
+export type LogViewportTransition = {
+  pixelsPerDepth: number;
+  scrollTop: number;
+  viewport: LogViewportState;
+};
+
 const DEFAULT_CONTAINER_HEIGHT = 640;
 const MIN_PIXELS_PER_DEPTH = 0.05;
 const MAX_PIXELS_PER_DEPTH = 256;
@@ -109,6 +115,85 @@ export function scrollTopForDepthAtViewportY(
   maxScrollTop: number,
 ) {
   return clampToBounds(scale.depthToY(depth) - viewportBodyY, 0, maxScrollTop);
+}
+
+export function zoomViewportAtDepth(
+  config: LogViewportConfig,
+  depth: number,
+  factor: number,
+  viewportBodyY?: number,
+): LogViewportTransition {
+  const currentViewport = resolveLogViewport(config);
+  const nextPixelsPerDepth = clampToBounds(
+    currentViewport.pixelsPerDepth * factor,
+    currentViewport.minPixelsPerDepth,
+    currentViewport.maxPixelsPerDepth,
+  );
+  const nextViewportAtTop = resolveLogViewport({
+    ...config,
+    pixelsPerDepth: nextPixelsPerDepth,
+    scrollTop: 0,
+  });
+  const nextScrollTop = scrollTopForDepthAtViewportY(
+    nextViewportAtTop.scale,
+    depth,
+    viewportBodyY ?? currentViewport.visibleBodyHeight / 2,
+    nextViewportAtTop.maxScrollTop,
+  );
+  const nextViewport = resolveLogViewport({
+    ...config,
+    pixelsPerDepth: nextPixelsPerDepth,
+    scrollTop: nextScrollTop,
+  });
+
+  return {
+    pixelsPerDepth: nextViewport.pixelsPerDepth,
+    scrollTop: nextViewport.scrollTop,
+    viewport: nextViewport,
+  };
+}
+
+export function zoomViewportToDepthSpan(
+  config: LogViewportConfig,
+  fromDepth: number,
+  toDepth: number,
+  minDepthSpan = 0.05,
+): LogViewportTransition {
+  const currentViewport = resolveLogViewport(config);
+  const startDepth = clampToBounds(
+    Math.min(fromDepth, toDepth),
+    currentViewport.depthDomain.fromDepth,
+    currentViewport.depthDomain.toDepth,
+  );
+  const endDepth = clampToBounds(
+    Math.max(fromDepth, toDepth),
+    currentViewport.depthDomain.fromDepth,
+    currentViewport.depthDomain.toDepth,
+  );
+  const requestedSpan = Math.max(minDepthSpan, endDepth - startDepth);
+  const nextPixelsPerDepth = pixelsPerDepthForSpan(
+    requestedSpan,
+    currentViewport.visibleBodyHeight,
+    currentViewport.minPixelsPerDepth,
+    currentViewport.maxPixelsPerDepth,
+  );
+  const nextViewportAtTop = resolveLogViewport({
+    ...config,
+    pixelsPerDepth: nextPixelsPerDepth,
+    scrollTop: 0,
+  });
+  const nextScrollTop = scrollTopForDepthAtViewportY(nextViewportAtTop.scale, startDepth, 0, nextViewportAtTop.maxScrollTop);
+  const nextViewport = resolveLogViewport({
+    ...config,
+    pixelsPerDepth: nextPixelsPerDepth,
+    scrollTop: nextScrollTop,
+  });
+
+  return {
+    pixelsPerDepth: nextViewport.pixelsPerDepth,
+    scrollTop: nextViewport.scrollTop,
+    viewport: nextViewport,
+  };
 }
 
 function getVisibleBodyHeight(containerHeight: number, headerHeight: number) {

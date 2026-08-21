@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { addBottomDepthPadding } from "./depthDomain";
-import { defaultPixelsPerDepth, resolveLogViewport, scrollTopForDepthAtViewportY } from "./logViewport";
+import {
+  defaultPixelsPerDepth,
+  resolveLogViewport,
+  scrollTopForDepthAtViewportY,
+  zoomViewportAtDepth,
+  zoomViewportToDepthSpan,
+} from "./logViewport";
 
 const DEPTH_DOMAIN = { fromDepth: 0, toDepth: 604.3 };
 const CONTAINER_HEIGHT = 640;
@@ -71,6 +77,40 @@ describe("resolveLogViewport", () => {
     expect(bottomViewport.visibleDepthSpan.toDepth).toBeCloseTo(DEPTH_DOMAIN.toDepth, 4);
   });
 
+  it("keeps visible depth monotonic while scrolling through a zoomed domain", () => {
+    const topViewport = resolveLogViewport({
+      depthDomain: DEPTH_DOMAIN,
+      containerHeight: CONTAINER_HEIGHT,
+      headerHeight: HEADER_HEIGHT,
+      pixelsPerDepth: 4,
+      scrollTop: 0,
+      minPixelsPerDepth: 0.1,
+    });
+    const middleViewport = resolveLogViewport({
+      depthDomain: DEPTH_DOMAIN,
+      containerHeight: CONTAINER_HEIGHT,
+      headerHeight: HEADER_HEIGHT,
+      pixelsPerDepth: 4,
+      scrollTop: topViewport.maxScrollTop / 2,
+      minPixelsPerDepth: 0.1,
+    });
+    const bottomViewport = resolveLogViewport({
+      depthDomain: DEPTH_DOMAIN,
+      containerHeight: CONTAINER_HEIGHT,
+      headerHeight: HEADER_HEIGHT,
+      pixelsPerDepth: 4,
+      scrollTop: topViewport.maxScrollTop,
+      minPixelsPerDepth: 0.1,
+    });
+
+    expect(topViewport.visibleDepthSpan.fromDepth).toBeLessThan(middleViewport.visibleDepthSpan.fromDepth);
+    expect(middleViewport.visibleDepthSpan.fromDepth).toBeLessThan(bottomViewport.visibleDepthSpan.fromDepth);
+    expect(topViewport.visibleDepthSpan.toDepth - topViewport.visibleDepthSpan.fromDepth).toBeCloseTo(
+      middleViewport.visibleDepthSpan.toDepth - middleViewport.visibleDepthSpan.fromDepth,
+      2,
+    );
+  });
+
   it("maps a selected depth to a scrollTop that preserves the pointer viewport y", () => {
     const viewport = resolveLogViewport({
       depthDomain: DEPTH_DOMAIN,
@@ -93,5 +133,52 @@ describe("resolveLogViewport", () => {
     });
 
     expect(focusedViewport.scale.depthToY(selectedDepth) - focusedViewport.scrollTop).toBeCloseTo(viewportY, 4);
+  });
+
+  it("zooms around a pointer depth without changing the virtual domain", () => {
+    const transition = zoomViewportAtDepth(
+      {
+        depthDomain: DEPTH_DOMAIN,
+        containerHeight: CONTAINER_HEIGHT,
+        headerHeight: HEADER_HEIGHT,
+        pixelsPerDepth: 1,
+        scrollTop: 0,
+        minPixelsPerDepth: 0.1,
+      },
+      250,
+      2,
+      180,
+    );
+
+    expect(transition.viewport.depthDomain).toEqual(DEPTH_DOMAIN);
+    expect(transition.pixelsPerDepth).toBe(2);
+    expect(transition.viewport.scale.depthToY(250) - transition.scrollTop).toBeCloseTo(180, 4);
+  });
+
+  it("rubber-band zoom creates a smaller visible span and preserves bottom scroll reach", () => {
+    const transition = zoomViewportToDepthSpan(
+      {
+        depthDomain: DEPTH_DOMAIN,
+        containerHeight: CONTAINER_HEIGHT,
+        headerHeight: HEADER_HEIGHT,
+        pixelsPerDepth: 1,
+        scrollTop: 0,
+        minPixelsPerDepth: 0.1,
+      },
+      120,
+      160,
+    );
+    const bottomViewport = resolveLogViewport({
+      depthDomain: DEPTH_DOMAIN,
+      containerHeight: CONTAINER_HEIGHT,
+      headerHeight: HEADER_HEIGHT,
+      pixelsPerDepth: transition.pixelsPerDepth,
+      scrollTop: transition.viewport.maxScrollTop,
+      minPixelsPerDepth: 0.1,
+    });
+
+    expect(transition.viewport.depthDomain).toEqual(DEPTH_DOMAIN);
+    expect(transition.viewport.visibleDepthSpan.toDepth - transition.viewport.visibleDepthSpan.fromDepth).toBeLessThan(DEPTH_DOMAIN.toDepth - DEPTH_DOMAIN.fromDepth);
+    expect(bottomViewport.visibleDepthSpan.toDepth).toBeCloseTo(DEPTH_DOMAIN.toDepth, 4);
   });
 });

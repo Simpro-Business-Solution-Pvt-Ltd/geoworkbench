@@ -17,9 +17,9 @@ import type { LogTrackContext } from "../core/logTrackContext";
 import {
   clampToBounds,
   defaultPixelsPerDepth,
-  pixelsPerDepthForSpan,
   resolveLogViewport,
-  scrollTopForDepthAtViewportY,
+  zoomViewportAtDepth,
+  zoomViewportToDepthSpan,
 } from "../core/logViewport";
 import { handleTrackPointerEvent } from "../core/interactions";
 import { legendForIntervals } from "../core/lithologyPatterns";
@@ -177,55 +177,44 @@ export function LogWidget({ data }: Props) {
 
   const applyZoomAtDepth = useCallback(
     (depth: number, factor: number, viewportBodyY = viewport.visibleBodyHeight / 2) => {
-      const nextPixelsPerDepth = clampToBounds(
-        viewport.pixelsPerDepth * factor,
-        viewport.minPixelsPerDepth,
-        viewport.maxPixelsPerDepth,
-      );
-      const nextViewport = resolveLogViewport({
-        depthDomain,
-        containerHeight,
-        headerHeight,
-        pixelsPerDepth: nextPixelsPerDepth,
-        scrollTop: 0,
-        minPixelsPerDepth: defaultScale,
-      });
-      const nextScrollTop = scrollTopForDepthAtViewportY(
-        nextViewport.scale,
+      const transition = zoomViewportAtDepth(
+        {
+          depthDomain,
+          containerHeight,
+          headerHeight,
+          pixelsPerDepth: viewport.pixelsPerDepth,
+          scrollTop: viewport.scrollTop,
+          minPixelsPerDepth: defaultScale,
+        },
         depth,
+        factor,
         viewportBodyY,
-        nextViewport.maxScrollTop,
       );
-      setPixelsPerDepth(nextPixelsPerDepth);
-      setZoomPinned(nextPixelsPerDepth > defaultScale + ZOOM_EPSILON);
-      syncScrollElement(nextScrollTop, nextViewport.maxScrollTop);
+      setPixelsPerDepth(transition.pixelsPerDepth);
+      setZoomPinned(transition.pixelsPerDepth > defaultScale + ZOOM_EPSILON);
+      syncScrollElement(transition.scrollTop, transition.viewport.maxScrollTop);
     },
     [containerHeight, defaultScale, depthDomain, headerHeight, syncScrollElement, viewport],
   );
 
   const zoomToDepthWindow = useCallback(
     (fromDepth: number, toDepth: number) => {
-      const startDepth = clampToBounds(Math.min(fromDepth, toDepth), depthDomain.fromDepth, depthDomain.toDepth);
-      const endDepth = clampToBounds(Math.max(fromDepth, toDepth), depthDomain.fromDepth, depthDomain.toDepth);
-      const requestedSpan = Math.max(RECTANGULAR_ZOOM_MIN_DEPTH, endDepth - startDepth);
-      const nextPixelsPerDepth = pixelsPerDepthForSpan(
-        requestedSpan,
-        viewport.visibleBodyHeight,
-        viewport.minPixelsPerDepth,
-        viewport.maxPixelsPerDepth,
+      const transition = zoomViewportToDepthSpan(
+        {
+          depthDomain,
+          containerHeight,
+          headerHeight,
+          pixelsPerDepth: viewport.pixelsPerDepth,
+          scrollTop: viewport.scrollTop,
+          minPixelsPerDepth: defaultScale,
+        },
+        fromDepth,
+        toDepth,
+        RECTANGULAR_ZOOM_MIN_DEPTH,
       );
-      const nextViewport = resolveLogViewport({
-        depthDomain,
-        containerHeight,
-        headerHeight,
-        pixelsPerDepth: nextPixelsPerDepth,
-        scrollTop: 0,
-        minPixelsPerDepth: defaultScale,
-      });
-      const nextScrollTop = scrollTopForDepthAtViewportY(nextViewport.scale, startDepth, 0, nextViewport.maxScrollTop);
-      setPixelsPerDepth(nextPixelsPerDepth);
-      setZoomPinned(nextPixelsPerDepth > defaultScale + ZOOM_EPSILON);
-      syncScrollElement(nextScrollTop, nextViewport.maxScrollTop);
+      setPixelsPerDepth(transition.pixelsPerDepth);
+      setZoomPinned(transition.pixelsPerDepth > defaultScale + ZOOM_EPSILON);
+      syncScrollElement(transition.scrollTop, transition.viewport.maxScrollTop);
     },
     [containerHeight, defaultScale, depthDomain, headerHeight, syncScrollElement, viewport],
   );
