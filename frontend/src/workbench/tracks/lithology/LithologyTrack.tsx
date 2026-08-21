@@ -2,6 +2,7 @@ import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { lithologyPattern } from "../../core/lithologyPatterns";
 import { TrackFrame } from "../../core/TrackFrame";
+import { isCorrectedInterval } from "../../display/runtime/correctionDisplay";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -37,7 +38,7 @@ export function LithologyTrack({ data, track, context }: Props) {
           const pattern = lithologyPattern(interval.lithology_code);
           return (
             <div
-              className={`lithology-block lithology-pattern ${pattern.className}`}
+              className={`lithology-block lithology-pattern ${pattern.className} ${isCorrectedInterval(interval) ? "corrected-interval" : ""}`}
               key={interval.id}
               style={{
                 ...scale.intervalToStyle(interval.from_depth, interval.to_depth),

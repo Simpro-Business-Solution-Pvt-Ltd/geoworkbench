@@ -4170,6 +4170,10 @@ h2 {
   font-size: 10px;
 }
 
+.lithology-block.corrected-interval {
+  box-shadow: inset 3px 0 0 var(--gw-accent), inset 0 0 0 1px color-mix(in srgb, var(--gw-accent) 35%, transparent);
+}
+
 .lithology-pattern {
   background-blend-mode: multiply;
 }
@@ -4804,9 +4808,56 @@ h2 {
   padding: 10px;
 }
 
+.interval-card.corrected {
+  border-color: color-mix(in srgb, var(--gw-accent) 55%, var(--gw-border));
+  background: color-mix(in srgb, var(--gw-accent-soft) 55%, var(--gw-surface-alt));
+}
+
 .interval-card span {
   color: var(--gw-text);
   font-size: 13px;
+}
+
+.correction-status-card {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 8px;
+  margin-bottom: 10px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface-alt);
+  padding: 8px;
+}
+
+.correction-status-card.corrected {
+  border-color: color-mix(in srgb, var(--gw-accent) 48%, var(--gw-border));
+}
+
+.correction-status-card div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.correction-status-card span {
+  color: var(--gw-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.correction-status-card strong,
+.correction-status-card small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--gw-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.correction-status-card small {
+  grid-column: 1 / -1;
+  color: var(--gw-muted);
 }
 
 .field-grid {
@@ -4940,6 +4991,12 @@ h2 {
 .audit-row span {
   color: var(--gw-muted);
   font-size: 11px;
+}
+
+.audit-row small {
+  color: var(--gw-text);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .edit-form label {

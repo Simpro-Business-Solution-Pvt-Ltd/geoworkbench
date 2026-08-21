@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useWorkbenchStore } from "../workbenchStore";
+import {
+  correctionChangePreview,
+  correctionFieldSummary,
+  intervalStageLabel,
+  isCorrectedInterval,
+} from "./correctionDisplay";
 import { FloatingIntervalEditor } from "./FloatingIntervalEditor";
 import { buildBoreholeMetadata, MetadataField } from "./intervalMetadata";
 import { RuntimeWidgetFrame } from "./RuntimeWidgetFrame";
@@ -19,8 +25,7 @@ function formatAuditTime(value: string): string {
 }
 
 function auditFieldSummary(audit: { after_values: Record<string, unknown> }): string {
-  const fields = Object.keys(audit.after_values).filter((field) => field !== "attributes");
-  return fields.length ? fields.join(", ") : "metadata";
+  return correctionFieldSummary(audit);
 }
 
 export function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps & { title: string }) {
@@ -56,6 +61,7 @@ export function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps &
     () => (interval ? (props.data.correction_audits ?? []).filter((audit) => audit.interval_id === interval.id) : []),
     [interval, props.data.correction_audits],
   );
+  const latestCorrection = correctionAudits[0] ?? null;
   const boreholeMetadata = buildBoreholeMetadata(props.data);
   const [editorOpen, setEditorOpen] = useState(false);
 
@@ -76,7 +82,7 @@ export function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps &
         )}
         {interval && (
           <>
-            <div className="interval-card">
+            <div className={`interval-card ${isCorrectedInterval(interval) ? "corrected" : ""}`}>
               <small>
                 {selectedDepth !== null ? `Ruler depth ${selectedDepth.toFixed(2)} m` : "Selected interval"} ·{" "}
                 {selectedDepth !== null ? "containing interval" : "stored selection"}
@@ -88,12 +94,27 @@ export function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps &
                 {interval.lithology_code} · {interval.lithology_label}
               </span>
               <small>
-                {metadataText(interval.attributes, "data_stage_label")} · source row {interval.source_row ?? "-"}
+                {intervalStageLabel(interval)} · source row {interval.source_row ?? "-"}
               </small>
+            </div>
+            <div className={`correction-status-card ${isCorrectedInterval(interval) ? "corrected" : ""}`}>
+              <div>
+                <span>Interpretation stage</span>
+                <strong>{intervalStageLabel(interval)}</strong>
+              </div>
+              <div>
+                <span>Latest correction</span>
+                <strong>
+                  {latestCorrection
+                    ? `${auditFieldSummary(latestCorrection)} · ${formatAuditTime(latestCorrection.changed_at)}`
+                    : "No manual correction saved"}
+                </strong>
+              </div>
+              {latestCorrection && <small>{correctionChangePreview(latestCorrection)}</small>}
             </div>
             <div className="field-grid">
               <MetadataField label="Thickness" value={`${(interval.to_depth - interval.from_depth).toFixed(2)} m`} />
-              <MetadataField label="Data stage" value={metadataText(interval.attributes, "data_stage_label")} />
+              <MetadataField label="Data stage" value={intervalStageLabel(interval)} />
               <MetadataField label="Stage source" value={metadataText(interval.attributes, "stage_source_type")} />
               <MetadataField label="Logged color" value={interval.logged_color || "-"} />
               <MetadataField label="Seam" value={interval.seam_name || "-"} />
@@ -151,6 +172,7 @@ export function IntervalDetailsWidget({ title, ...props }: DisplayRuntimeProps &
                   <span>
                     {audit.changed_by} · {formatAuditTime(audit.changed_at)}
                   </span>
+                  <small>{correctionChangePreview(audit)}</small>
                 </div>
               ))}
             </details>
