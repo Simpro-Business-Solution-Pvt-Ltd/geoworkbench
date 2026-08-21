@@ -354,6 +354,23 @@ class ExportJob(Base):
     borehole: Mapped[Borehole] = relationship(back_populates="export_jobs")
 
 
+class CorrelationObservation(Base):
+    __tablename__ = "correlation_observations"
+    __table_args__ = (
+        Index("ix_correlation_observations_key_created", "correlation_key", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    correlation_key: Mapped[str] = mapped_column(String(255), index=True)
+    borehole_ids: Mapped[list[int]] = mapped_column(JSON)
+    text: Mapped[str] = mapped_column(Text)
+    created_by: Mapped[str] = mapped_column(String(160), default="demo-user")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    observation_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
 class SeamInterval(Base):
     __tablename__ = "seam_intervals"
     __table_args__ = (

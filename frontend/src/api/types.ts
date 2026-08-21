@@ -359,6 +359,16 @@ export type ExportProfile = {
   mapping: Record<string, unknown>;
 };
 
+export type CorrelationObservation = {
+  id: number;
+  correlation_key: string;
+  borehole_ids: number[];
+  text: string;
+  created_by: string;
+  created_at: string;
+  observation_metadata: Record<string, unknown> | null;
+};
+
 export type BoreholeWorkbench = {
   id: number;
   code: string;

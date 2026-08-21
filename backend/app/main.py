@@ -13,6 +13,7 @@ from app.db.session import engine
 from app.domains.boreholes.router import router as borehole_router
 from app.domains.ai.router import router as ai_router
 from app.domains.auth.router import router as auth_router
+from app.domains.correlation.router import router as correlation_router
 from app.domains.exports.router import router as exports_router
 from app.domains.imports.router import router as imports_router
 from app.domains.mobile.router import router as mobile_router
@@ -37,6 +38,7 @@ app.mount("/assets/corebox", StaticFiles(directory=settings.repo_root / "MTSE-65
 app.include_router(borehole_router, prefix=f"{settings.api_prefix}/boreholes", tags=["boreholes"])
 app.include_router(ai_router, prefix=f"{settings.api_prefix}/ai", tags=["ai"])
 app.include_router(auth_router, prefix=f"{settings.api_prefix}/auth", tags=["auth"])
+app.include_router(correlation_router, prefix=f"{settings.api_prefix}/correlation", tags=["correlation"])
 app.include_router(exports_router, prefix=f"{settings.api_prefix}/exports", tags=["exports"])
 app.include_router(imports_router, prefix=f"{settings.api_prefix}/imports", tags=["imports"])
 app.include_router(mobile_router, prefix=f"{settings.api_prefix}/mobile", tags=["mobile"])

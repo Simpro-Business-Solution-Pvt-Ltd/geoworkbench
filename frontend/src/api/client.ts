@@ -6,6 +6,7 @@ import type {
   DisplayLayout,
   ExportJob,
   ExportProfile,
+  CorrelationObservation,
   ExportReadiness,
   ImportProfile,
   LithologyInterval,
@@ -400,4 +401,20 @@ export function createExportJob(
 
 export function exportDownloadUrl(exportJobId: number): string {
   return `${API_BASE}/exports/jobs/${exportJobId}/download`;
+}
+
+export function listCorrelationObservations(boreholeIds: number[]): Promise<CorrelationObservation[]> {
+  const ids = boreholeIds.slice().sort((a, b) => a - b).join(",");
+  return request<CorrelationObservation[]>(`/correlation/observations?borehole_ids=${encodeURIComponent(ids)}`);
+}
+
+export function createCorrelationObservation(payload: {
+  borehole_ids: number[];
+  text: string;
+  observation_metadata?: Record<string, unknown> | null;
+}): Promise<CorrelationObservation> {
+  return request<CorrelationObservation>("/correlation/observations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
