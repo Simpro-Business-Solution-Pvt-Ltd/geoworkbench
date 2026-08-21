@@ -67,8 +67,10 @@ Run this in one pass after deployment or after pulling the latest feature branch
 2. Change unit/timezone preferences, refresh the browser, and confirm they persist.
 3. Select a Reliance borehole and saved/default display, refresh, and confirm the same context reloads.
 4. Open Workbench and confirm the runtime display renders KPI widgets, log widget, interval details, validation, AI workflow, and curve catalog.
-5. In Display setup, add a single-value widget and choose **Curve coverage %** or curve coverage depth range.
-6. Open the curve catalog and confirm LAS curves show mnemonic, family, mapping status, coverage, sample count, and min/max.
-7. Run validation and confirm depth-linked issues still move the selected depth.
-8. Open Import and Export pages and confirm template/profile lists still load.
-9. Open Wiki and confirm user docs are visible, with developer architecture docs visible only for developer/admin users.
+5. In Display setup, clone the saved display, confirm the top-bar display selector can switch to the clone, then add a single-value widget and choose **Curve coverage %** or curve coverage depth range.
+6. Open log widget settings, add/reorder tracks, reorder curves, reset a curve scale, and save the display.
+7. Delete the cloned display and confirm the original display remains available.
+8. Open the curve catalog and confirm LAS curves show mnemonic, family, mapping status, coverage, sample count, and min/max.
+9. Run validation and confirm depth-linked issues still move the selected depth.
+10. Open Import and Export pages and confirm template/profile lists still load.
+11. Open Wiki and confirm user docs are visible, with developer architecture docs visible only for developer/admin users.

@@ -118,6 +118,30 @@ Use **Edit correction** from the metadata panel to edit the currently displayed 
 
 Saving the editor updates the interval and records a correction audit entry.
 
+## Display Setup
+
+Use **Display setup** when a geologist wants a different workbench arrangement for a review workflow.
+
+Current display-management support:
+
+- Choose **Saved display** or **Default correction display** from the dashboard.
+- If a borehole has multiple saved layouts, choose the active layout from the top bar display selector.
+- Clone a display before experimenting with a new arrangement.
+- Delete a cloned/saved display when it is no longer needed; the system keeps at least one display layout for the borehole.
+- Save changes to make runtime mode match the edited layout.
+- Use **Cancel** to leave the editor without applying the current draft.
+- Use **Undo** to reverse the latest edit step while the editor is open.
+
+The editor supports:
+
+- Add, remove, clone, drag, and resize widgets on the grid.
+- Add or remove tracks inside the log widget.
+- Reorder tracks, change track width, hide/show tracks, and set track header height.
+- Configure curve tracks with selected LAS/geophysical curves.
+- Reorder curves in a curve track.
+- Set curve visibility, color, tooltip behavior, line style, and min/max normalization range.
+- Reset a curve scale back to the range detected from the imported source samples.
+
 ## Corebox Image Track
 
 The image track is intended to show depth-aligned corebox visual evidence beside lithology and curve tracks.
