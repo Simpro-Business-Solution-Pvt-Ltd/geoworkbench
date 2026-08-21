@@ -20,8 +20,8 @@ from app.services.las_import import import_las_curves, profile_las_file
 from app.services.curve_dictionary import curve_dictionary_mapping
 
 
-def ensure_default_profiles(db: Session) -> None:
-    profiles = [
+def default_import_profiles() -> list[ImportProfile]:
+    return [
         ImportProfile(
             name="PBH Excel Workbook",
             profile_type="excel",
@@ -107,6 +107,10 @@ def ensure_default_profiles(db: Session) -> None:
             mapping={"box_number": "filename_number", "depth_mapping": "manual_or_inferred"},
         ),
     ]
+
+
+def ensure_default_profiles(db: Session) -> None:
+    profiles = default_import_profiles()
     changed = False
     for profile in profiles:
         existing = db.scalar(select(ImportProfile).where(ImportProfile.name == profile.name))
