@@ -34,6 +34,18 @@ type SeamCorrelationRow = {
   items: Array<{ borehole: string; top: number; bottom: number; thickness: number }>;
 };
 
+type CollarContextRow = {
+  borehole: string;
+  x: number | null;
+  y: number | null;
+  rlLabel: string;
+  rlSource: BoreholeMeta["rlSource"];
+  waterLevel: number | null;
+  distanceFromReference: number | null;
+  seamCount: number;
+  curveCount: number;
+};
+
 export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }: Props) {
   const syntheticIds = useMemo(
     () => boreholes.filter((item) => item.project_code === "DEMO-COAL-BLOCK").slice(0, 5).map((item) => item.id),
@@ -63,8 +75,12 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
     .filter((item): item is BoreholeWorkbench => Boolean(item));
   const domain = useMemo(() => correlationDomain(loaded, alignMode), [loaded, alignMode]);
   const seamRows = useMemo(() => seamCorrelationRows(loaded), [loaded]);
+  const collarRows = useMemo(() => collarContextRows(loaded), [loaded]);
   const insights = useMemo(() => buildCorrelationInsights(loaded, seamRows), [loaded, seamRows]);
-  const stats = useMemo(() => correlationStats(loaded, seamRows, domain, alignMode), [alignMode, domain, loaded, seamRows]);
+  const stats = useMemo(
+    () => correlationStats(loaded, seamRows, collarRows, domain, alignMode),
+    [alignMode, collarRows, domain, loaded, seamRows],
+  );
   const correlationKey = useMemo(() => selectedIds.slice().sort((a, b) => a - b).join(":"), [selectedIds]);
   const observationsQuery = useQuery({
     queryKey: ["correlation-observations", correlationKey],
@@ -150,6 +166,12 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         <span>
           <b>Range</b> {stats.rangeLabel}
         </span>
+        <span>
+          <b>Spatial</b> {stats.spatialLabel}
+        </span>
+        <span className={stats.rlDefaulted ? "correlation-warning-text" : ""}>
+          <b>RL</b> {stats.rlLabel}
+        </span>
       </div>
 
       <div className="correlation-selector compact">
@@ -230,6 +252,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         <CorrelationInsightsDialog
           insights={insights}
           seamRows={seamRows}
+          collarRows={collarRows}
           boreholeCount={loaded.length}
           reviewedInsightIds={reviewedInsightIds}
           savedNotes={observationsQuery.data ?? []}
@@ -253,6 +276,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
 function CorrelationInsightsDialog({
   insights,
   seamRows,
+  collarRows,
   boreholeCount,
   reviewedInsightIds,
   savedNotes,
@@ -264,6 +288,7 @@ function CorrelationInsightsDialog({
 }: {
   insights: CorrelationInsight[];
   seamRows: SeamCorrelationRow[];
+  collarRows: CollarContextRow[];
   boreholeCount: number;
   reviewedInsightIds: Set<string>;
   savedNotes: CorrelationObservation[];
@@ -321,7 +346,31 @@ function CorrelationInsightsDialog({
               ))}
             </div>
           </section>
-          <section className="correlation-seam-table">
+          <section className="correlation-context-stack">
+            <div className="correlation-collar-table">
+              <div className="correlation-section-title">
+                <strong>Collar And Spatial Context</strong>
+                <span>{collarRows.length} boreholes</span>
+              </div>
+              <div className="collar-table">
+                <span>Borehole</span>
+                <span>Coordinates</span>
+                <span>Distance</span>
+                <span>Evidence</span>
+                <span>RL / WL</span>
+                {collarRows.map((row) => (
+                  <Fragment key={row.borehole}>
+                    <b>{row.borehole}</b>
+                    <span>{formatCoordinatePair(row)}</span>
+                    <span>{formatDistance(row.distanceFromReference)}</span>
+                    <span>{row.seamCount} seams · {row.curveCount} curves</span>
+                    <span>{row.rlLabel}{row.waterLevel !== null ? ` / WL ${row.waterLevel.toFixed(1)}m` : ""}</span>
+                  </Fragment>
+                ))}
+                {!collarRows.length && <span className="empty-row">No boreholes selected.</span>}
+              </div>
+            </div>
+            <section className="correlation-seam-table">
             <div className="correlation-section-title">
               <strong>Seam Continuity</strong>
               <span>{seamRows.length} seam groups</span>
@@ -378,6 +427,7 @@ function CorrelationInsightsDialog({
               {notesLoading && <small>Loading saved correlation notes...</small>}
               {!notesLoading && !savedNotes.length && <small>No saved correlation notes for this borehole set.</small>}
             </div>
+            </section>
           </section>
         </div>
       </div>
@@ -492,6 +542,28 @@ function seamCorrelationRows(items: BoreholeWorkbench[]): SeamCorrelationRow[] {
     .sort((a, b) => b.presentCount - a.presentCount || a.minTop - b.minTop);
 }
 
+function collarContextRows(items: BoreholeWorkbench[]): CollarContextRow[] {
+  const reference = items.map((item) => metadataFor(item)).find((meta) => meta.x !== null && meta.y !== null) ?? null;
+  return items.map((item) => {
+    const meta = metadataFor(item);
+    const distanceFromReference =
+      reference && meta.x !== null && meta.y !== null
+        ? Math.hypot(meta.x - reference.x!, meta.y - reference.y!)
+        : null;
+    return {
+      borehole: item.code,
+      x: meta.x,
+      y: meta.y,
+      rlLabel: rlLabel(meta),
+      rlSource: meta.rlSource,
+      waterLevel: meta.waterLevel,
+      distanceFromReference,
+      seamCount: item.seam_intervals.length,
+      curveCount: item.curves.length,
+    };
+  });
+}
+
 function buildCorrelationInsights(items: BoreholeWorkbench[], seamRows: SeamCorrelationRow[]): CorrelationInsight[] {
   if (!items.length) {
     return [
@@ -517,6 +589,10 @@ function buildCorrelationInsights(items: BoreholeWorkbench[], seamRows: SeamCorr
   }));
   const curveGaps = curveCoverage.filter((item) => !item.hasGamma || item.curves < 2);
   const defaultRl = items.filter((item) => metadataFor(item).rlSource === "default");
+  const missingCoordinates = items.filter((item) => {
+    const meta = metadataFor(item);
+    return meta.x === null || meta.y === null;
+  });
 
   insights.push({
     id: "selected",
@@ -537,6 +613,17 @@ function buildCorrelationInsights(items: BoreholeWorkbench[], seamRows: SeamCorr
       detail:
         "One or more selected boreholes do not expose collar reduced level in the imported metadata. RL alignment is using a placeholder datum for those boreholes.",
       evidence: defaultRl.map((item) => item.code).join(" · "),
+    });
+  }
+
+  if (missingCoordinates.length) {
+    insights.push({
+      id: "missing-coordinates",
+      severity: "review",
+      title: "Spatial context is incomplete",
+      detail:
+        "Some selected boreholes do not expose collar coordinates. Spatial distance and nearby-borehole correlation confidence should be reviewed.",
+      evidence: missingCoordinates.map((item) => item.code).join(" · "),
     });
   }
 
@@ -596,11 +683,17 @@ function buildCorrelationInsights(items: BoreholeWorkbench[], seamRows: SeamCorr
 function correlationStats(
   items: BoreholeWorkbench[],
   seamRows: SeamCorrelationRow[],
+  collarRows: CollarContextRow[],
   domain: { min: number; max: number },
   alignMode: AlignMode,
 ) {
   const gammaCount = items.filter((item) => item.curves.some((curve) => ["ngam", "gamma"].includes(curve.key))).length;
   const commonSeams = seamRows.filter((row) => row.presentCount >= Math.max(2, Math.ceil(items.length * 0.6))).length;
+  const distances = collarRows
+    .map((row) => row.distanceFromReference)
+    .filter((value): value is number => value !== null && value > 0);
+  const coordinateCount = collarRows.filter((row) => row.x !== null && row.y !== null).length;
+  const defaultRlCount = collarRows.filter((row) => row.rlSource === "default").length;
   return {
     boreholes: items.length,
     commonSeams,
@@ -609,7 +702,32 @@ function correlationStats(
       alignMode === "rl"
         ? `${domain.min.toFixed(0)}-${domain.max.toFixed(0)} RL`
         : `${domain.min.toFixed(0)}-${domain.max.toFixed(0)} m`,
+    spatialLabel: !items.length
+      ? "not evaluated"
+      : coordinateCount < items.length
+        ? `${coordinateCount}/${items.length} with coordinates`
+        : distances.length
+          ? `within ${formatDistance(Math.max(...distances))}`
+          : "reference borehole",
+    rlLabel: defaultRlCount
+      ? `${defaultRlCount}/${items.length} estimated`
+      : items.length
+        ? "from supplied metadata"
+        : "not evaluated",
+    rlDefaulted: defaultRlCount > 0,
   };
+}
+
+function formatCoordinatePair(row: CollarContextRow): string {
+  if (row.x === null || row.y === null) return "-";
+  return `${row.x.toFixed(1)}, ${row.y.toFixed(1)}`;
+}
+
+function formatDistance(value: number | null): string {
+  if (value === null) return "-";
+  if (value < 1) return "reference";
+  if (value >= 1000) return `${(value / 1000).toFixed(2)} km`;
+  return `${value.toFixed(0)} m`;
 }
 
 function correlationDomain(items: BoreholeWorkbench[], alignMode: AlignMode): { min: number; max: number } {
