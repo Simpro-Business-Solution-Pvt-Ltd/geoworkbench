@@ -421,11 +421,14 @@ function ExportProfileDialog({
   };
 
   const selectedCurves = selectedCurveKeys(mappingText);
+  const setCurveKeys = (curveKeys: string[]) => {
+    setMappingText(JSON.stringify({ ...safeMapping(mappingText), curves: curveKeys }, null, 2));
+  };
   const toggleCurve = (curveKey: string) => {
     const nextKeys = selectedCurves.includes(curveKey)
       ? selectedCurves.filter((key: string) => key !== curveKey)
       : [...selectedCurves, curveKey];
-    setMappingText(JSON.stringify({ ...safeMapping(mappingText), curves: nextKeys }, null, 2));
+    setCurveKeys(nextKeys);
   };
 
   return (
@@ -459,6 +462,14 @@ function ExportProfileDialog({
                 <div>
                   <strong>Curves in selected borehole</strong>
                   <span>Select none to export all curves.</span>
+                </div>
+                <div className="curve-template-actions">
+                  <button type="button" onClick={() => setCurveKeys(curves.map((curve) => curve.key))}>
+                    Use all curves
+                  </button>
+                  <button type="button" onClick={() => setCurveKeys([])}>
+                    Clear selection
+                  </button>
                 </div>
                 <div className="curve-template-grid">
                   {curves.map((curve) => (

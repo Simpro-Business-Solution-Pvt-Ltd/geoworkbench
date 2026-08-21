@@ -2911,6 +2911,20 @@ button.active {
   font-size: 12px;
 }
 
+.curve-template-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.curve-template-actions button {
+  border-color: var(--gw-border);
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
 .curve-template-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
