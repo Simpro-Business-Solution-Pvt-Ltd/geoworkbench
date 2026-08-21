@@ -4,6 +4,7 @@ import { useQueries } from "@tanstack/react-query";
 import { getWorkbench } from "../../api/client";
 import type { BoreholeListItem, BoreholeWorkbench, Curve, LithologyInterval } from "../../api/types";
 import { lithologyPattern } from "../core/lithologyPatterns";
+import { metadataFor, rlLabel, type BoreholeMeta } from "./correlationMetadata";
 
 type Props = {
   boreholes: BoreholeListItem[];
@@ -13,13 +14,6 @@ type Props = {
 
 type AlignMode = "depth" | "rl";
 type CorrelationDatasetMode = "synthetic" | "received" | "custom";
-
-type BoreholeMeta = {
-  rl: number;
-  x: number | null;
-  y: number | null;
-  waterLevel: number | null;
-};
 
 type CorrelationInsight = {
   id: string;
@@ -427,7 +421,7 @@ function CorrelationColumn({
       <header>
         <strong>{data.code}</strong>
         <span>
-          RL {meta.rl.toFixed(1)}m · {data.seam_intervals.length} seams · {seamThickness.toFixed(1)}m coal
+          {rlLabel(meta)} · {data.seam_intervals.length} seams · {seamThickness.toFixed(1)}m coal
         </span>
         <small>0-{data.total_depth.toFixed(0)}m TD</small>
         <button type="button" onClick={() => onOpenWorkbench(data.id)}>
@@ -538,6 +532,7 @@ function buildCorrelationInsights(items: BoreholeWorkbench[], seamRows: SeamCorr
     hasGamma: item.curves.some((curve) => ["ngam", "gamma"].includes(curve.key)),
   }));
   const curveGaps = curveCoverage.filter((item) => !item.hasGamma || item.curves < 2);
+  const defaultRl = items.filter((item) => metadataFor(item).rlSource === "default");
 
   insights.push({
     id: "selected",
@@ -549,6 +544,17 @@ function buildCorrelationInsights(items: BoreholeWorkbench[], seamRows: SeamCorr
         : "No dominant common seam group is visible across the selected boreholes.",
     evidence: selectedCodes,
   });
+
+  if (defaultRl.length) {
+    insights.push({
+      id: "rl-defaulted",
+      severity: "watch",
+      title: "RL datum needs confirmation",
+      detail:
+        "One or more selected boreholes do not expose collar reduced level in the imported metadata. RL alignment is using a placeholder datum for those boreholes.",
+      evidence: defaultRl.map((item) => item.code).join(" · "),
+    });
+  }
 
   if (missingSeams.length) {
     const seam = missingSeams[0];
@@ -620,24 +626,6 @@ function correlationStats(
         ? `${domain.min.toFixed(0)}-${domain.max.toFixed(0)} RL`
         : `${domain.min.toFixed(0)}-${domain.max.toFixed(0)} m`,
   };
-}
-
-function metadataFor(data: BoreholeWorkbench): BoreholeMeta {
-  const summary = data.source_imports.find((item) => item.summary?.rl_m)?.summary ?? {};
-  return {
-    rl: numberValue(summary.rl_m, 220),
-    x: nullableNumber(summary.collar_x),
-    y: nullableNumber(summary.collar_y),
-    waterLevel: nullableNumber(summary.water_level_m),
-  };
-}
-
-function numberValue(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function nullableNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function correlationDomain(items: BoreholeWorkbench[], alignMode: AlignMode): { min: number; max: number } {
