@@ -1,17 +1,8 @@
 import type { BoreholeWorkbench } from "../../api/types";
 import type { UserPreferences } from "../../preferences/userPreferences";
 import { formatDepth, formatMeasurement, formatNumber } from "../../preferences/userPreferences";
-
-export type BoreholeMetric = {
-  key: string;
-  label: string;
-  value: string;
-  rawValue: unknown;
-  unit?: string;
-  category: "identity" | "collar" | "interval" | "curve" | "quality" | "ai";
-  source: "excel" | "las" | "mobile" | "derived" | "rules" | "ai" | "unknown";
-  confidence?: number;
-};
+import { buildCurveMetrics } from "./curveMetrics";
+import type { BoreholeMetric } from "./metricTypes";
 
 export function buildBoreholeMetrics(data: BoreholeWorkbench, preferences: UserPreferences) {
   const metrics = new Map<string, BoreholeMetric>();
@@ -25,15 +16,6 @@ export function buildBoreholeMetrics(data: BoreholeWorkbench, preferences: UserP
   const rqdValues = data.lithology_intervals
     .map((item) => item.rqd)
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-  const curveDepths = data.curves.flatMap((curve) =>
-    curve.samples.map((sample) => sample.depth).filter((value) => Number.isFinite(value)),
-  );
-  const curveFromDepth = curveDepths.length ? Math.min(...curveDepths) : null;
-  const curveToDepth = curveDepths.length ? Math.max(...curveDepths) : null;
-  const curveCoveragePercent =
-    curveFromDepth !== null && curveToDepth !== null && data.total_depth > 0
-      ? Math.min(100, Math.max(0, ((curveToDepth - curveFromDepth) / data.total_depth) * 100))
-      : null;
 
   addMetric(metrics, {
     key: "total_depth",
@@ -52,41 +34,7 @@ export function buildBoreholeMetrics(data: BoreholeWorkbench, preferences: UserP
     category: "interval",
     source: "derived",
   });
-  addMetric(metrics, {
-    key: "curve_count",
-    label: "Curves",
-    value: formatNumber(data.curves.length, preferences, 0),
-    rawValue: data.curves.length,
-    category: "curve",
-    source: "las",
-  });
-  addMetric(metrics, {
-    key: "curve_depth_from",
-    label: "Curve coverage from",
-    value: curveFromDepth === null ? "-" : formatDepth(curveFromDepth, preferences),
-    rawValue: curveFromDepth,
-    unit: preferences.depthUnit,
-    category: "curve",
-    source: "las",
-  });
-  addMetric(metrics, {
-    key: "curve_depth_to",
-    label: "Curve coverage to",
-    value: curveToDepth === null ? "-" : formatDepth(curveToDepth, preferences),
-    rawValue: curveToDepth,
-    unit: preferences.depthUnit,
-    category: "curve",
-    source: "las",
-  });
-  addMetric(metrics, {
-    key: "curve_coverage_percent",
-    label: "Curve coverage",
-    value: curveCoveragePercent === null ? "-" : `${formatNumber(curveCoveragePercent, preferences, 1)} %`,
-    rawValue: curveCoveragePercent,
-    unit: "%",
-    category: "curve",
-    source: "derived",
-  });
+  for (const metric of buildCurveMetrics(data, preferences)) addMetric(metrics, metric);
   addMetric(metrics, {
     key: "corebox_count",
     label: "Core images",
@@ -153,29 +101,6 @@ export function buildBoreholeMetrics(data: BoreholeWorkbench, preferences: UserP
   addOptionalCoordinate(metrics, "coalgrid_northing", "Coalgrid northing", collar.coalgrid_northing, preferences);
   addOptionalCoordinate(metrics, "utm_easting", "UTM easting", collar.utm_easting, preferences);
   addOptionalCoordinate(metrics, "utm_northing", "UTM northing", collar.utm_northing, preferences);
-
-  for (const curve of data.curves) {
-    const values = curve.samples.map((sample) => sample.value).filter((value) => Number.isFinite(value));
-    if (!values.length) continue;
-    addMetric(metrics, {
-      key: `curve_${curve.key}_min`,
-      label: `${curve.label} min`,
-      value: `${formatNumber(Math.min(...values), preferences, 2)} ${curve.unit}`,
-      rawValue: Math.min(...values),
-      unit: curve.unit,
-      category: "curve",
-      source: "las",
-    });
-    addMetric(metrics, {
-      key: `curve_${curve.key}_max`,
-      label: `${curve.label} max`,
-      value: `${formatNumber(Math.max(...values), preferences, 2)} ${curve.unit}`,
-      rawValue: Math.max(...values),
-      unit: curve.unit,
-      category: "curve",
-      source: "las",
-    });
-  }
 
   return metrics;
 }
