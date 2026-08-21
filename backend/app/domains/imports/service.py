@@ -117,17 +117,22 @@ def ensure_default_profiles(db: Session) -> None:
         if existing is None:
             db.add(profile)
             changed = True
-        elif profile.profile_type == "excel" and existing.mapping.get("template_key") != profile.mapping.get("template_key"):
+        elif refreshed_mapping := refreshed_default_import_mapping(existing, profile):
             existing.description = profile.description
-            existing.mapping = profile.mapping
-            db.add(existing)
-            changed = True
-        elif profile.profile_type == "las" and "curve_dictionary" not in existing.mapping:
-            existing.mapping = {**existing.mapping, "curve_dictionary": curve_dictionary_mapping()}
+            existing.mapping = refreshed_mapping
             db.add(existing)
             changed = True
     if changed:
         db.commit()
+
+
+def refreshed_default_import_mapping(existing: ImportProfile, default: ImportProfile) -> dict | None:
+    mapping = existing.mapping or {}
+    if default.profile_type == "excel" and mapping.get("template_key") != default.mapping.get("template_key"):
+        return default.mapping
+    if default.profile_type == "las" and "curve_dictionary" not in mapping:
+        return {**mapping, "curve_dictionary": curve_dictionary_mapping()}
+    return None
 
 
 def list_import_profiles(db: Session) -> list[ImportProfile]:
