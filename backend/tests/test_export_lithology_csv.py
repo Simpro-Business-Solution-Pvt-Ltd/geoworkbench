@@ -49,6 +49,9 @@ def test_corrected_lithology_csv_export_writes_profiled_interval_data(tmp_path: 
         assert job.status == "generated"
         assert job.summary["interval_count"] == 1
         assert job.summary["export_profile"] == "UAT CSV"
+        assert job.summary["requested_depth_range"] == {"from_depth": 9.0, "to_depth": 12.5}
+        assert job.summary["source_evidence"]["source_workbook"] == "uat.xlsx"
+        assert job.summary["data_stage_counts"]["lithology_intervals"] == {"geologist_corrected": 1}
         assert rows == [
             {
                 "borehole_code": "BH-UAT-01",
@@ -101,7 +104,7 @@ def _seed_borehole(db: Session) -> Borehole:
             lithology_label="Coal",
             seam_name="A",
             rqd=0.74,
-            attributes={"weathering": "fresh"},
+            attributes={"weathering": "fresh", "data_stage": "geologist_corrected"},
         ),
     ]
     db.add(project)

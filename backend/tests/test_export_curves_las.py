@@ -37,6 +37,9 @@ def test_curves_las_export_writes_selected_curves_and_null_values(tmp_path: Path
         assert job.status == "generated"
         assert job.summary["curve_count"] == 2
         assert job.summary["sample_depth_count"] == 2
+        assert job.summary["requested_depth_range"] == {"from_depth": 1.0, "to_depth": 2.0}
+        assert job.summary["data_stage_counts"]["curves"] == {"raw_imported": 2}
+        assert job.summary["source_evidence"]["source_workbook"] == "uat.xlsx"
         assert "VERS.                  2.0 : CWLS LAS version" in content
         assert "WELL. BH-LAS-01 : Borehole code" in content
         assert "NGAMMA.API : Natural Gamma" in content
@@ -72,6 +75,7 @@ def _seed_borehole_with_curves(db: Session) -> Borehole:
             unit="API",
             source_type="las",
             color="#aa6633",
+            curve_metadata={"data_stage": "raw_imported"},
             samples=[
                 CurveSample(depth=0.0, value=38.0),
                 CurveSample(depth=1.0, value=42.0),
@@ -84,6 +88,7 @@ def _seed_borehole_with_curves(db: Session) -> Borehole:
             unit="ohm-m",
             source_type="las",
             color="#3366aa",
+            curve_metadata={"data_stage": "raw_imported"},
             samples=[
                 CurveSample(depth=2.0, value=18.0),
                 CurveSample(depth=3.0, value=21.0),

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
-from app.db.models import AiSuggestion, Borehole, Curve, ExportJob, ExportProfile, SourceFile
+from app.db.models import AiSuggestion, Borehole, Curve, ExportJob, ExportProfile
 from app.services.curve_dictionary import curve_dictionary_mapping
 
 
@@ -92,6 +92,7 @@ def _load_borehole(db: Session, borehole_id: int) -> Borehole:
             selectinload(Borehole.validation_issues),
             selectinload(Borehole.ai_suggestions),
             selectinload(Borehole.source_files),
+            selectinload(Borehole.source_imports),
             selectinload(Borehole.curves).selectinload(Curve.samples),
         )
     )
@@ -311,6 +312,60 @@ def _curve_keys_from_profile(profile: ExportProfile | None) -> set[str] | None:
     return keys or None
 
 
+def _increment_count(counts: dict[str, int], key: str | None) -> None:
+    normalized = key or "unknown"
+    counts[normalized] = counts.get(normalized, 0) + 1
+
+
+def _data_stage_counts(items, metadata_attr: str = "attributes") -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        metadata = getattr(item, metadata_attr, None) or {}
+        _increment_count(counts, metadata.get("data_stage"))
+    return counts
+
+
+def _export_audit_summary(
+    db: Session,
+    borehole: Borehole,
+    *,
+    export_type: str,
+    profile: ExportProfile | None,
+    export_settings: dict,
+    intervals=None,
+    curves=None,
+    extra: dict | None = None,
+) -> dict:
+    intervals = list(intervals or [])
+    curves = list(curves or [])
+    summary = {
+        "export_type": export_type,
+        "export_profile": profile.name if profile else None,
+        "export_profile_id": profile.id if profile else None,
+        "export_settings": export_settings,
+        "requested_stage": export_settings.get("stage"),
+        "requested_depth_range": {
+            "from_depth": export_settings.get("from_depth"),
+            "to_depth": export_settings.get("to_depth"),
+        },
+        "requested_sections": export_settings.get("sections"),
+        "source_evidence": {
+            "source_workbook": borehole.source_workbook,
+            "source_imports": len(borehole.source_imports),
+            "source_files": len(borehole.source_files),
+            "source_file_types": sorted({item.file_type for item in borehole.source_files}),
+        },
+        "data_stage_counts": {
+            "lithology_intervals": _data_stage_counts(intervals),
+            "curves": _data_stage_counts(curves, "curve_metadata"),
+        },
+        "readiness": export_readiness(db, borehole.id),
+    }
+    if extra:
+        summary.update(extra)
+    return summary
+
+
 def export_corrected_lithology_csv(
     db: Session,
     borehole_id: int,
@@ -361,12 +416,15 @@ def export_corrected_lithology_csv(
         status="generated",
         file_path=_relative_to_repo(path),
         file_name=file_name,
-        summary={
-            "interval_count": len(intervals),
-            "readiness": export_readiness(db, borehole_id),
-            "export_profile": profile.name if profile else None,
-            "export_settings": export_settings,
-        },
+        summary=_export_audit_summary(
+            db,
+            borehole,
+            export_type="corrected_lithology_csv",
+            profile=profile,
+            export_settings=export_settings,
+            intervals=intervals,
+            extra={"interval_count": len(intervals)},
+        ),
     )
     db.add(job)
     db.commit()
@@ -427,12 +485,15 @@ def export_corrected_lithology_xlsx(
         status="generated",
         file_path=_relative_to_repo(path),
         file_name=file_name,
-        summary={
-            "interval_count": len(intervals),
-            "readiness": export_readiness(db, borehole_id),
-            "export_profile": profile.name if profile else None,
-            "export_settings": export_settings,
-        },
+        summary=_export_audit_summary(
+            db,
+            borehole,
+            export_type="corrected_lithology_xlsx",
+            profile=profile,
+            export_settings=export_settings,
+            intervals=intervals,
+            extra={"interval_count": len(intervals)},
+        ),
     )
     db.add(job)
     db.commit()
@@ -489,12 +550,15 @@ def export_curves_csv(
         status="generated",
         file_path=_relative_to_repo(path),
         file_name=file_name,
-        summary={
-            "curve_count": len(curves),
-            "sample_depth_count": len(depths),
-            "export_profile": profile.name if profile else None,
-            "export_settings": export_settings,
-        },
+        summary=_export_audit_summary(
+            db,
+            borehole,
+            export_type="curves_csv",
+            profile=profile,
+            export_settings=export_settings,
+            curves=curves,
+            extra={"curve_count": len(curves), "sample_depth_count": len(depths)},
+        ),
     )
     db.add(job)
     db.commit()
@@ -559,13 +623,15 @@ def export_curves_las(
         status="generated",
         file_path=_relative_to_repo(path),
         file_name=file_name,
-        summary={
-            "curve_count": len(curves),
-            "sample_depth_count": len(depths),
-            "las_version": "2.0",
-            "export_profile": profile.name if profile else None,
-            "export_settings": export_settings,
-        },
+        summary=_export_audit_summary(
+            db,
+            borehole,
+            export_type="curves_las",
+            profile=profile,
+            export_settings=export_settings,
+            curves=curves,
+            extra={"curve_count": len(curves), "sample_depth_count": len(depths), "las_version": "2.0"},
+        ),
     )
     db.add(job)
     db.commit()

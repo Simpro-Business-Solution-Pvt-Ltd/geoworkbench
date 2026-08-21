@@ -103,7 +103,7 @@ Images are stored as source files first. They become depth-linked core images af
 
 Export is permission-driven in this UAT build. A user with export access can generate exports directly. Readiness checks highlight quality issues, warnings, source availability, curve availability, and open AI/rule suggestions so the user can decide whether the package is fit for handover.
 
-The generated export job should be treated as the audit point: it records what was exported, using which format/template and scope. A future production workflow can add maker-checker approval, stakeholder notifications, and export lock rules if the customer requires stronger governance.
+The generated export job should be treated as the audit point: it records what was exported, using which format/template and scope. The job summary includes requested correction stage, depth range, selected sections, export profile, source evidence counts, data-stage counts for exported intervals/curves, readiness checks, and output row/curve counts. A future production workflow can add maker-checker approval, stakeholder notifications, and export lock rules if the customer requires stronger governance.
 
 ## Export Template Editing
 
