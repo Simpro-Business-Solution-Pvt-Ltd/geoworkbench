@@ -55,6 +55,7 @@ Use these before the demo:
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8081/health
 Invoke-RestMethod http://127.0.0.1:8081/api/diagnostics/health
+.\scripts\uat-smoke.ps1 -BaseUrl http://127.0.0.1:8081
 ```
 
 The frontend profile menu uses the diagnostics endpoint and refreshes it while open.

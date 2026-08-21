@@ -97,6 +97,22 @@ npm run build
 10. Start internal MinIO if using object storage; see `docs/wiki/deployment/local-minio.md`.
 11. Configure backup jobs for PostgreSQL and MinIO object data.
 
+## Smoke Test
+
+After the Windows service and IIS reverse proxy are running, execute the UAT smoke script from the repository root:
+
+```powershell
+.\scripts\uat-smoke.ps1 -BaseUrl http://127.0.0.1:8081
+```
+
+For the production HTTPS binding:
+
+```powershell
+.\scripts\uat-smoke.ps1 -BaseUrl https://geowb.simproapps.in
+```
+
+The script checks health, diagnostics, local login, current user session, borehole list, and the first borehole workbench payload.
+
 ## Notes
 
 - Do not expose Uvicorn directly to users; keep it behind IIS.
