@@ -12,7 +12,9 @@ export function handleTrackPointerEvent(event: TrackPointerEvent, actions: Workb
   }
 
   if (event.type === "click") {
-    actions.setSelectedDepth(event.depth);
+    if (shouldPromoteDepthSelection(event)) {
+      actions.setSelectedDepth(event.depth);
+    }
 
     if (event.object.kind === "depth") {
       return;
@@ -41,7 +43,9 @@ export function handleTrackPointerEvent(event: TrackPointerEvent, actions: Workb
   }
 
   if (event.type === "contextmenu") {
-    actions.setSelectedDepth(event.depth);
+    if (shouldPromoteDepthSelection(event)) {
+      actions.setSelectedDepth(event.depth);
+    }
     actions.setContextMenu({
       trackId: event.trackId,
       trackType: event.trackType,
@@ -51,4 +55,8 @@ export function handleTrackPointerEvent(event: TrackPointerEvent, actions: Workb
       y: event.nativeEvent.clientY,
     });
   }
+}
+
+function shouldPromoteDepthSelection(event: TrackPointerEvent) {
+  return event.object.kind === "depth" || event.object.kind === "lithology-interval";
 }
