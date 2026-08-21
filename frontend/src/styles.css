@@ -2689,14 +2689,16 @@ button.active {
   white-space: nowrap;
 }
 
-.export-audit-facts {
+.export-audit-facts,
+.import-audit-facts {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 3px;
 }
 
-.export-audit-facts small {
+.export-audit-facts small,
+.import-audit-facts small {
   border: 1px solid var(--gw-border);
   border-radius: 999px;
   background: var(--gw-surface);
@@ -2707,7 +2709,8 @@ button.active {
   white-space: normal;
 }
 
-.export-audit-facts b {
+.export-audit-facts b,
+.import-audit-facts b {
   color: var(--gw-text);
 }
 

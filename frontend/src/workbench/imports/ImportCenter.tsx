@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import type { BoreholeWorkbench, ImportProfile, SourceFile } from "../../api/types";
+import { sourceFileAuditFacts, sourceImportAuditFacts } from "./importAuditFacts";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -204,6 +205,7 @@ export function ImportCenter({
                   <span>
                     {item.file_type} · {item.status}
                   </span>
+                  <ImportAuditFacts facts={sourceFileAuditFacts(item)} />
                 </div>
                 <small>{sourceFileStatusText(item)}</small>
                 <div className="workflow-row-actions">
@@ -245,6 +247,7 @@ export function ImportCenter({
                 <strong>{item.import_type.replaceAll("_", " ")}</strong>
                 <span>{item.status}</span>
                 <small>{item.source_name}</small>
+                <ImportAuditFacts facts={sourceImportAuditFacts(item)} />
               </article>
             ))}
             {!data.source_imports.length && <div className="empty">No parsed import batches yet.</div>}
@@ -524,6 +527,19 @@ function TemplateMappingPreview({ profile }: { profile: ImportProfile }) {
       ) : (
         <pre>{JSON.stringify(mapping, null, 2)}</pre>
       )}
+    </div>
+  );
+}
+
+function ImportAuditFacts({ facts }: { facts: Array<{ label: string; value: string }> }) {
+  if (!facts.length) return null;
+  return (
+    <div className="import-audit-facts">
+      {facts.map((fact) => (
+        <small key={fact.label}>
+          <b>{fact.label}</b> {fact.value}
+        </small>
+      ))}
     </div>
   );
 }
