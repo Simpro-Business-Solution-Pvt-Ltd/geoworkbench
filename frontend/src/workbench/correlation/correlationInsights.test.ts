@@ -50,6 +50,7 @@ describe("correlation insights", () => {
     expect(insights.map((item) => item.id)).toContain("curve-gaps");
     expect(insights.map((item) => item.id)).toContain("missing-coordinates");
     expect(insights.map((item) => item.id)).toContain("rl-defaulted");
+    expect(insights.every((item) => item.action.length > 20)).toBe(true);
   });
 
   it("derives collar context and display stats", () => {

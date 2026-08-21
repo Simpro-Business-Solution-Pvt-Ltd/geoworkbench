@@ -304,6 +304,7 @@ function CorrelationInsightsDialog({
                   <strong>{insight.title}</strong>
                   <p>{insight.detail}</p>
                   <small>{insight.evidence}</small>
+                  <small className="correlation-action">Action: {insight.action}</small>
                   <div className="correlation-insight-actions">
                     <button
                       type="button"
@@ -316,7 +317,7 @@ function CorrelationInsightsDialog({
                       type="button"
                       onClick={() =>
                         setNote(
-                          `${insight.title}: ${insight.detail} Evidence: ${insight.evidence}`,
+                          `${insight.title}: ${insight.detail} Evidence: ${insight.evidence} Action: ${insight.action}`,
                         )
                       }
                     >

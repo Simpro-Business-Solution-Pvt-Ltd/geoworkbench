@@ -9,6 +9,7 @@ export type CorrelationInsight = {
   title: string;
   detail: string;
   evidence: string;
+  action: string;
 };
 
 export type SeamCorrelationRow = {
@@ -102,6 +103,7 @@ export function buildCorrelationInsights(
         title: "Select boreholes for correlation",
         detail: "Choose nearby boreholes to compare seam continuity, lithology packages, and curve response.",
         evidence: "No boreholes selected.",
+        action: "Select two or more nearby boreholes with collar coordinates, lithology intervals, and curve evidence.",
       },
     ];
   }
@@ -132,6 +134,10 @@ export function buildCorrelationInsights(
         ? `${commonSeams.length} seam group(s) appear continuous enough for geologist review.`
         : "No dominant common seam group is visible across the selected boreholes.",
     evidence: selectedCodes,
+    action:
+      commonSeams.length > 0
+        ? "Open the strongest seam groups and record whether continuity is accepted, uncertain, or rejected."
+        : "Review seam naming and lithology intervals before treating this set as a correlation section.",
   });
 
   if (defaultRl.length) {
@@ -142,6 +148,7 @@ export function buildCorrelationInsights(
       detail:
         "One or more selected boreholes do not expose collar reduced level in the imported metadata. RL alignment is using a placeholder datum for those boreholes.",
       evidence: defaultRl.map((item) => item.code).join(" · "),
+      action: "Confirm collar RL from survey/collar sheet before using RL alignment for geological interpretation.",
     });
   }
 
@@ -153,6 +160,7 @@ export function buildCorrelationInsights(
       detail:
         "Some selected boreholes do not expose collar coordinates. Spatial distance and nearby-borehole correlation confidence should be reviewed.",
       evidence: missingCoordinates.map((item) => item.code).join(" · "),
+      action: "Import or enter collar coordinates so the section can distinguish nearby continuity from distant comparison.",
     });
   }
 
@@ -164,6 +172,7 @@ export function buildCorrelationInsights(
       title: `Missing marker review: ${seam.seamName}`,
       detail: `${seam.seamName} is present in ${seam.presentCount} borehole(s) but missing in ${seam.missingCount}. Check whether the seam pinches out, is unlogged, or needs relabelling.`,
       evidence: seam.items.map((item) => `${item.borehole} ${item.top.toFixed(1)}-${item.bottom.toFixed(1)}m`).join(" · "),
+      action: "Compare the missing borehole at the expected depth against lithology and gamma response, then add or reject the marker.",
     });
   }
 
@@ -175,6 +184,7 @@ export function buildCorrelationInsights(
       title: `Thickness variation: ${seam.seamName}`,
       detail: `Thickness changes from ${seam.minThickness.toFixed(2)}m to ${seam.maxThickness.toFixed(2)}m. Confirm whether this is expected seam geometry or a logging/correlation issue.`,
       evidence: seam.items.map((item) => `${item.borehole}: ${item.thickness.toFixed(2)}m`).join(" · "),
+      action: "Check whether the thicker interval includes partings or merged bands before accepting the correlated seam thickness.",
     });
   }
 
@@ -185,6 +195,7 @@ export function buildCorrelationInsights(
       title: "Curve evidence is uneven",
       detail: "Some selected boreholes have limited gamma/geophysical curve support, so seam correlation confidence should be treated as lower there.",
       evidence: curveGaps.map((item) => `${item.code}: ${item.curves} curve(s)`).join(" · "),
+      action: "Import LAS/PDF-derived curves or mark the correlation decision as lithology-only evidence.",
     });
   }
 
@@ -203,6 +214,7 @@ export function buildCorrelationInsights(
       title: "Coal package frequency changes",
       detail: "The number of coal/carbonaceous intervals varies noticeably across the selected boreholes.",
       evidence: coalRich.map((item) => `${item.code}: ${item.coalIntervals}`).join(" · "),
+      action: "Review whether interval coding differs between boreholes before deriving seam continuity or resource-zone trends.",
     });
   }
 

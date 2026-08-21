@@ -5446,6 +5446,12 @@ h2 {
   white-space: nowrap;
 }
 
+.correlation-insight .correlation-action {
+  color: var(--gw-accent);
+  font-weight: 700;
+  white-space: normal;
+}
+
 .correlation-insight-actions {
   display: flex;
   gap: 6px;
