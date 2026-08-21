@@ -16,11 +16,8 @@ import { addBottomDepthPadding, depthSpanSize, inferLogWidgetDepthSpan } from ".
 import type { LogTrackContext } from "../core/logTrackContext";
 import {
   clampToBounds,
-  defaultPixelsPerDepth,
-  resolveLogViewport,
-  zoomViewportAtDepth,
-  zoomViewportToDepthSpan,
 } from "../core/logViewport";
+import { useLogViewportController } from "../core/useLogViewportController";
 import { handleTrackPointerEvent } from "../core/interactions";
 import { legendForIntervals } from "../core/lithologyPatterns";
 import type { TrackPointerEvent } from "../core/trackObject";
@@ -54,7 +51,6 @@ const ZOOM_EPSILON = 0.01;
 
 export function LogWidget({ data }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const pendingScrollTop = useRef<number | null>(null);
   const dragSelectionRef = useRef<DragSelection | null>(null);
   const store = useWorkbenchStore();
   const {
@@ -66,9 +62,7 @@ export function LogWidget({ data }: Props) {
     tooltipsEnabled,
     setTooltipsEnabled,
   } = store;
-  const [scrollTop, setScrollTop] = useState(0);
-  const [pixelsPerDepth, setPixelsPerDepth] = useState(1);
-  const [zoomPinned, setZoomPinned] = useState(false);
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
   const [dragSelection, setDragSelection] = useState<DragSelection | null>(null);
   const [ruler, setRuler] = useState<RulerState | null>(null);
   const containerHeight = useElementHeight(scrollRef, DEFAULT_CONTAINER_HEIGHT);
@@ -90,24 +84,15 @@ export function LogWidget({ data }: Props) {
     maxVisibleCurves > 0 ? DEFAULT_HEADER_SCALE_BASE + maxVisibleCurves * 13 : DEFAULT_HEADER_HEIGHT,
     ...visibleTracks.map((track) => track.header?.height ?? 0),
   );
-  const defaultScale = useMemo(
-    () => defaultPixelsPerDepth(depthDomain, containerHeight, headerHeight),
-    [containerHeight, depthDomain, headerHeight],
-  );
-  const viewport = useMemo(
-    () =>
-      resolveLogViewport({
-        depthDomain,
-        containerHeight,
-        headerHeight,
-        pixelsPerDepth,
-        scrollTop,
-        minPixelsPerDepth: defaultScale,
-      }),
-    [containerHeight, defaultScale, depthDomain, headerHeight, pixelsPerDepth, scrollTop],
-  );
-  const viewportRef = useRef(viewport);
-  const isZoomed = viewport.pixelsPerDepth > defaultScale + ZOOM_EPSILON;
+  const { viewport, isZoomed, applyZoomAtDepth, zoomToDepthWindow, resetToFullDepth, setScrollTop } =
+    useLogViewportController({
+      depthDomain,
+      containerHeight,
+      headerHeight,
+      scrollElement,
+      resetKey: data.id,
+      zoomEpsilon: ZOOM_EPSILON,
+    });
   const lithologyLegend = legendForIntervals(data.lithology_intervals);
   const widthForTrack = useMemo(() => {
     if (!visibleTracks.length) return () => "100%";
@@ -115,48 +100,15 @@ export function LogWidget({ data }: Props) {
     return (track: DisplayTrack) => `${(Math.max(1, track.width) / totalConfiguredWidth) * 100}%`;
   }, [visibleTracks]);
 
-  useEffect(() => {
-    viewportRef.current = viewport;
-  }, [viewport]);
-
   function setDragSelectionState(selection: DragSelection | null) {
     dragSelectionRef.current = selection;
     setDragSelection(selection);
   }
 
-  const syncScrollElement = useCallback((nextScrollTop: number, maxScrollTop = viewportRef.current.maxScrollTop) => {
-    const clamped = clampToBounds(nextScrollTop, 0, maxScrollTop);
-    pendingScrollTop.current = clamped;
-    setScrollTop(clamped);
-  }, []);
-
-  useLayoutEffect(() => {
-    const target = pendingScrollTop.current;
-    if (target === null || !scrollRef.current) return;
-    const clamped = clampToBounds(target, 0, viewport.maxScrollTop);
-    scrollRef.current.scrollTop = clamped;
-    setScrollTop(clamped);
-    pendingScrollTop.current = null;
-  }, [viewport.contentHeight, viewport.maxScrollTop]);
-
   useEffect(() => {
-    setPixelsPerDepth(defaultScale);
-    setZoomPinned(false);
-    syncScrollElement(0);
     setDragSelectionState(null);
     setRuler(null);
-  }, [data.id, syncScrollElement]);
-
-  useEffect(() => {
-    if (!zoomPinned) {
-      setPixelsPerDepth(defaultScale);
-    }
-  }, [defaultScale, zoomPinned]);
-
-  useEffect(() => {
-    if (scrollTop <= viewport.maxScrollTop) return;
-    syncScrollElement(viewport.maxScrollTop);
-  }, [scrollTop, syncScrollElement, viewport.maxScrollTop]);
+  }, [data.id]);
 
   const resolvePointerDepth = useCallback(
     (clientY: number) => {
@@ -174,56 +126,6 @@ export function LogWidget({ data }: Props) {
     },
     [headerHeight, viewport],
   );
-
-  const applyZoomAtDepth = useCallback(
-    (depth: number, factor: number, viewportBodyY = viewport.visibleBodyHeight / 2) => {
-      const transition = zoomViewportAtDepth(
-        {
-          depthDomain,
-          containerHeight,
-          headerHeight,
-          pixelsPerDepth: viewport.pixelsPerDepth,
-          scrollTop: viewport.scrollTop,
-          minPixelsPerDepth: defaultScale,
-        },
-        depth,
-        factor,
-        viewportBodyY,
-      );
-      setPixelsPerDepth(transition.pixelsPerDepth);
-      setZoomPinned(transition.pixelsPerDepth > defaultScale + ZOOM_EPSILON);
-      syncScrollElement(transition.scrollTop, transition.viewport.maxScrollTop);
-    },
-    [containerHeight, defaultScale, depthDomain, headerHeight, syncScrollElement, viewport],
-  );
-
-  const zoomToDepthWindow = useCallback(
-    (fromDepth: number, toDepth: number) => {
-      const transition = zoomViewportToDepthSpan(
-        {
-          depthDomain,
-          containerHeight,
-          headerHeight,
-          pixelsPerDepth: viewport.pixelsPerDepth,
-          scrollTop: viewport.scrollTop,
-          minPixelsPerDepth: defaultScale,
-        },
-        fromDepth,
-        toDepth,
-        RECTANGULAR_ZOOM_MIN_DEPTH,
-      );
-      setPixelsPerDepth(transition.pixelsPerDepth);
-      setZoomPinned(transition.pixelsPerDepth > defaultScale + ZOOM_EPSILON);
-      syncScrollElement(transition.scrollTop, transition.viewport.maxScrollTop);
-    },
-    [containerHeight, defaultScale, depthDomain, headerHeight, syncScrollElement, viewport],
-  );
-
-  const resetToFullDepth = useCallback(() => {
-    setPixelsPerDepth(defaultScale);
-    setZoomPinned(false);
-    syncScrollElement(0);
-  }, [defaultScale, syncScrollElement]);
 
   const dispatchTrackEvent = useCallback(
     (event: TrackPointerEvent) => {
@@ -280,7 +182,7 @@ export function LogWidget({ data }: Props) {
           const toDepth = Math.max(finishedSelection.startDepth, finishedSelection.currentDepth);
           setDragSelectionState(null);
           if (pixelDelta >= RECTANGULAR_ZOOM_MIN_PIXELS && toDepth - fromDepth >= RECTANGULAR_ZOOM_MIN_DEPTH) {
-            zoomToDepthWindow(fromDepth, toDepth);
+            zoomToDepthWindow(fromDepth, toDepth, RECTANGULAR_ZOOM_MIN_DEPTH);
             return;
           }
         }
@@ -313,6 +215,11 @@ export function LogWidget({ data }: Props) {
     setScrollTop(event.currentTarget.scrollTop);
   };
 
+  const setScrollRef = useCallback((element: HTMLDivElement | null) => {
+    scrollRef.current = element;
+    setScrollElement(element);
+  }, []);
+
   const selectedDepthY = selectedDepth === null ? null : viewport.scale.depthToY(selectedDepth);
   const domainSpan = depthSpanSize(depthDomain);
   const rulerLabel = ruler ? `${ruler.depth.toFixed(2)} m` : "";
@@ -334,7 +241,7 @@ export function LogWidget({ data }: Props) {
       </div>
       <div
         className="track-scroll"
-        ref={scrollRef}
+        ref={setScrollRef}
         onScroll={handleScroll}
         onWheel={handleWheel}
       >
