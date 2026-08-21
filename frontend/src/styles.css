@@ -5430,6 +5430,8 @@ h2 {
 }
 
 .saved-correlation-notes article {
+  display: grid;
+  gap: 4px;
   border: 1px solid var(--gw-border);
   border-radius: 5px;
   background: var(--gw-surface-alt);
@@ -5437,6 +5439,16 @@ h2 {
   padding: 8px;
   font-size: 12px;
   line-height: 1.35;
+}
+
+.saved-correlation-notes article strong {
+  color: var(--gw-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.saved-correlation-notes article span {
+  color: var(--gw-text);
 }
 
 .correlation-panel {

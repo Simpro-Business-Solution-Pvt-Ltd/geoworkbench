@@ -29,6 +29,12 @@ type CorrelationInsight = {
   evidence: string;
 };
 
+type CorrelationNote = {
+  id: string;
+  text: string;
+  createdAt: string;
+};
+
 type SeamCorrelationRow = {
   seamName: string;
   presentCount: number;
@@ -39,6 +45,8 @@ type SeamCorrelationRow = {
   maxThickness: number;
   items: Array<{ borehole: string; top: number; bottom: number; thickness: number }>;
 };
+
+const CORRELATION_NOTES_KEY = "geoworkbench.correlationNotes.v1";
 
 export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }: Props) {
   const syntheticIds = useMemo(
@@ -56,7 +64,9 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   const [alignMode, setAlignMode] = useState<AlignMode>("depth");
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [reviewedInsightIds, setReviewedInsightIds] = useState<Set<string>>(() => new Set());
-  const [savedNotes, setSavedNotes] = useState<Array<{ id: string; text: string }>>([]);
+  const [savedNotesByKey, setSavedNotesByKey] = useState<Record<string, CorrelationNote[]>>(() =>
+    readCorrelationNotes(),
+  );
   const queries = useQueries({
     queries: selectedIds.map((id) => ({
       queryKey: ["workbench", id],
@@ -70,6 +80,8 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   const domain = useMemo(() => correlationDomain(loaded, alignMode), [loaded, alignMode]);
   const seamRows = useMemo(() => seamCorrelationRows(loaded), [loaded]);
   const insights = useMemo(() => buildCorrelationInsights(loaded, seamRows), [loaded, seamRows]);
+  const correlationKey = useMemo(() => selectedIds.slice().sort((a, b) => a - b).join(":"), [selectedIds]);
+  const savedNotes = savedNotesByKey[correlationKey] ?? [];
 
   useEffect(() => {
     if (selectedIds.length || !boreholes.length) return;
@@ -77,6 +89,10 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
     else if (datasetMode === "received" && receivedIds.length) setSelectedIds(receivedIds);
     else if (initialIds.length) setSelectedIds(initialIds);
   }, [boreholes.length, datasetMode, initialIds, receivedIds, selectedIds.length, syntheticIds]);
+
+  useEffect(() => {
+    window.localStorage.setItem(CORRELATION_NOTES_KEY, JSON.stringify(savedNotesByKey));
+  }, [savedNotesByKey]);
 
   const toggleBorehole = (id: number) => {
     setDatasetMode("custom");
@@ -224,7 +240,16 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
             })
           }
           onSaveNote={(text) =>
-            setSavedNotes((current) => [...current, { id: `${Date.now()}:${current.length}`, text }])
+            setSavedNotesByKey((current) => {
+              const notes = current[correlationKey] ?? [];
+              return {
+                ...current,
+                [correlationKey]: [
+                  ...notes,
+                  { id: `${Date.now()}:${notes.length}`, text, createdAt: new Date().toISOString() },
+                ],
+              };
+            })
           }
         />
       )}
@@ -246,7 +271,7 @@ function CorrelationInsightsDialog({
   seamRows: SeamCorrelationRow[];
   boreholeCount: number;
   reviewedInsightIds: Set<string>;
-  savedNotes: Array<{ id: string; text: string }>;
+  savedNotes: CorrelationNote[];
   onClose: () => void;
   onMarkReviewed: (insightId: string) => void;
   onSaveNote: (text: string) => void;
@@ -348,15 +373,31 @@ function CorrelationInsightsDialog({
             </form>
             <div className="saved-correlation-notes">
               {savedNotes.map((item) => (
-                <article key={item.id}>{item.text}</article>
+                <article key={item.id}>
+                  <strong>{new Date(item.createdAt).toLocaleString()}</strong>
+                  <span>{item.text}</span>
+                </article>
               ))}
-              {!savedNotes.length && <small>No saved correlation notes in this session.</small>}
+              {!savedNotes.length && <small>No saved correlation notes for this borehole set.</small>}
             </div>
           </section>
         </div>
       </div>
     </div>
   );
+}
+
+function readCorrelationNotes(): Record<string, CorrelationNote[]> {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(CORRELATION_NOTES_KEY) ?? "{}") as Record<
+      string,
+      CorrelationNote[]
+    >;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed;
+  } catch {
+    return {};
+  }
 }
 
 function CorrelationColumn({
