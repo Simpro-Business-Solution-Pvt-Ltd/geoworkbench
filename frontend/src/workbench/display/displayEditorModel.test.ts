@@ -35,9 +35,10 @@ describe("normalizeDisplayLayout", () => {
 
     expect(normalized.settings.widgets?.["data-arrival"]).toBeUndefined();
     expect(normalized.settings.widgets?.["export-panel"]).toBeUndefined();
-    expect(normalized.settings.grid?.items.map((item) => item.widgetId)).toEqual(["log-widget"]);
+    expect(normalized.settings.grid?.items.map((item) => item.widgetId)).toEqual(["log-widget", "correction-progress"]);
     expect(normalized.settings.regions).toEqual({ left: [], center: ["log-widget"], right: [] });
     expect(normalized.settings.widgets?.["log-widget"].tracks?.some((track) => track.id === "core-images")).toBe(true);
+    expect(normalized.settings.widgets?.["correction-progress"].metric).toBe("corrected_interval_percent");
   });
 });
 

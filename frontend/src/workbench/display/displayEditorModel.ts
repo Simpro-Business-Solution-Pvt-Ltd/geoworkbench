@@ -25,6 +25,13 @@ export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: C
       delete draft.settings.widgets[widgetId];
     }
   }
+  if (!draft.settings.widgets["correction-progress"]) {
+    draft.settings.widgets["correction-progress"] = {
+      type: "singleValue",
+      title: "Correction Progress",
+      metric: "corrected_interval_percent",
+    };
+  }
   draft.settings.widgets["log-widget"].tracks = syncTrackCurves(
     draft.settings.widgets["log-widget"].tracks,
     availableCurves,
