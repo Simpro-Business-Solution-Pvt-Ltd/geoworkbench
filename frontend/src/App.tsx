@@ -115,6 +115,7 @@ const WIKI_MARKDOWN = {
 } as Record<string, string>;
 
 const WIKI_PAGES = [
+  { key: "../../docs/wiki/user-manual/reliance-uat-story-and-demo-script.md", title: "Reliance UAT Story", group: "User Guidance", audience: "user" },
   { key: "../../docs/wiki/uat-demo-readiness.md", title: "UAT Demo Readiness", group: "User Guidance", audience: "user" },
   { key: "../../docs/import-export-template-user-manual.md", title: "Import, Merge, And Export", group: "User Guidance", audience: "user" },
   { key: "../../docs/wiki/user-manual/borehole-workbench.md", title: "Workbench User Manual", group: "User Guidance", audience: "user" },

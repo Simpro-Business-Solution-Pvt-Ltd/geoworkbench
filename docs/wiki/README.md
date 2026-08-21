@@ -1,6 +1,8 @@
 # GeoWorkbench Wiki
 
-This wiki is the long-form documentation home for the production borehole correction system.
+This wiki is the long-form documentation home for the GeoWorkbench coal borehole correction system.
+
+For UAT and stakeholder walkthroughs, start with **Reliance UAT Story And Demo Script**. It is the current canonical narrative for what to show, what to test, what value to discuss, and which future use cases are planned.
 
 ## Sections
 
@@ -17,9 +19,21 @@ Every milestone should update this wiki as part of delivery. The system should b
 
 ## User Manuals
 
+- [Reliance UAT Story And Demo Script](user-manual/reliance-uat-story-and-demo-script.md)
 - [Workbench User Manual](user-manual/borehole-workbench.md)
 - [Import, Merge, And Export Templates](../import-export-template-user-manual.md)
 - [UAT Demo Readiness](uat-demo-readiness.md)
+
+## Documentation Status
+
+The repository also contains earlier planning documents under `docs/`. Treat those as background material unless they are linked from this wiki. The current UAT-facing docs are:
+
+- `docs/wiki/user-manual/reliance-uat-story-and-demo-script.md`
+- `docs/wiki/user-manual/borehole-workbench.md`
+- `docs/import-export-template-user-manual.md`
+- `docs/wiki/uat-demo-readiness.md`
+
+Developer and deployment documents remain under `docs/wiki/architecture/` and `docs/wiki/deployment/`.
 
 ## Current Architecture Guides
 
