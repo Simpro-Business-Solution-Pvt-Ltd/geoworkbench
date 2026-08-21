@@ -15,3 +15,13 @@ def test_default_curve_track_is_ready_for_real_las_curves() -> None:
     curve_track = next(track for track in tracks if track["type"] == "curve")
 
     assert curve_track["curves"] == []
+
+
+def test_default_borehole_layout_references_only_registered_widgets() -> None:
+    layout = default_borehole_layout()
+    widget_ids = set(layout["widgets"])
+    grid_widget_ids = {item["widgetId"] for item in layout["grid"]["items"]}
+    region_widget_ids = {widget_id for widget_ids_in_region in layout["regions"].values() for widget_id in widget_ids_in_region}
+
+    assert grid_widget_ids <= widget_ids
+    assert region_widget_ids <= widget_ids
