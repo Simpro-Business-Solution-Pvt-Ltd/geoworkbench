@@ -11,57 +11,58 @@ from app.db.models import AiSuggestion, Borehole, Curve, ExportJob, ExportProfil
 from app.services.curve_dictionary import curve_dictionary_mapping
 
 
-DEFAULT_EXPORT_PROFILES = [
-    ExportProfile(
-        name="Corrected Lithology Excel",
-        export_type="corrected_lithology_xlsx",
-        description="Corrected lithology interval workbook.",
-        mapping={
-            "sheet": "Corrected Lithology",
-            "columns": [
-                {"source": "borehole.code", "target": "Borehole"},
-                {"source": "lithology.source_row", "target": "Source Row"},
-                {"source": "lithology.from_depth", "target": "From Depth"},
-                {"source": "lithology.to_depth", "target": "To Depth"},
-                {"source": "lithology.thickness", "target": "Thickness"},
-                {"source": "lithology.lithology_code", "target": "Lithology Code"},
-                {"source": "lithology.lithology_label", "target": "Lithology Label"},
-                {"source": "lithology.seam_name", "target": "Seam"},
-                {"source": "lithology.recovery_percent", "target": "Recovery %"},
-                {"source": "lithology.rqd_percent", "target": "RQD %"},
-                {"source": "lithology.structural_features", "target": "Structural Features"},
-                {"source": "lithology.remark", "target": "Remarks"},
-            ],
-        },
-    ),
-    ExportProfile(
-        name="Corrected Lithology CSV",
-        export_type="corrected_lithology_csv",
-        description="Delimited interval table for analytics or package import.",
-        mapping={"columns": ["borehole_code", "from_depth", "to_depth", "lithology_code", "seam_name", "rqd_percent"]},
-    ),
-    ExportProfile(
-        name="Curve LAS",
-        export_type="curves_las",
-        description="LAS 2.0 curve export.",
-        mapping={
-            "depth": "DEPT.M",
-            "curve_section": "~Curve Information",
-            "sample_section": "~ASCII",
-            "curve_dictionary": curve_dictionary_mapping(),
-        },
-    ),
-    ExportProfile(
-        name="Curve CSV",
-        export_type="curves_csv",
-        description="Wide depth-indexed curve table.",
-        mapping={
-            "depth_column": "depth",
-            "curve_columns": "curve.key",
-            "curve_dictionary": curve_dictionary_mapping(),
-        },
-    ),
-]
+def default_export_profiles() -> list[ExportProfile]:
+    return [
+        ExportProfile(
+            name="Corrected Lithology Excel",
+            export_type="corrected_lithology_xlsx",
+            description="Corrected lithology interval workbook.",
+            mapping={
+                "sheet": "Corrected Lithology",
+                "columns": [
+                    {"source": "borehole.code", "target": "Borehole"},
+                    {"source": "lithology.source_row", "target": "Source Row"},
+                    {"source": "lithology.from_depth", "target": "From Depth"},
+                    {"source": "lithology.to_depth", "target": "To Depth"},
+                    {"source": "lithology.thickness", "target": "Thickness"},
+                    {"source": "lithology.lithology_code", "target": "Lithology Code"},
+                    {"source": "lithology.lithology_label", "target": "Lithology Label"},
+                    {"source": "lithology.seam_name", "target": "Seam"},
+                    {"source": "lithology.recovery_percent", "target": "Recovery %"},
+                    {"source": "lithology.rqd_percent", "target": "RQD %"},
+                    {"source": "lithology.structural_features", "target": "Structural Features"},
+                    {"source": "lithology.remark", "target": "Remarks"},
+                ],
+            },
+        ),
+        ExportProfile(
+            name="Corrected Lithology CSV",
+            export_type="corrected_lithology_csv",
+            description="Delimited interval table for analytics or package import.",
+            mapping={"columns": ["borehole_code", "from_depth", "to_depth", "lithology_code", "seam_name", "rqd_percent"]},
+        ),
+        ExportProfile(
+            name="Curve LAS",
+            export_type="curves_las",
+            description="LAS 2.0 curve export.",
+            mapping={
+                "depth": "DEPT.M",
+                "curve_section": "~Curve Information",
+                "sample_section": "~ASCII",
+                "curve_dictionary": curve_dictionary_mapping(),
+            },
+        ),
+        ExportProfile(
+            name="Curve CSV",
+            export_type="curves_csv",
+            description="Wide depth-indexed curve table.",
+            mapping={
+                "depth_column": "depth",
+                "curve_columns": "curve.key",
+                "curve_dictionary": curve_dictionary_mapping(),
+            },
+        ),
+    ]
 
 
 def _load_borehole(db: Session, borehole_id: int) -> Borehole:
@@ -84,7 +85,7 @@ def _load_borehole(db: Session, borehole_id: int) -> Borehole:
 
 def ensure_default_export_profiles(db: Session) -> None:
     changed = False
-    for profile in DEFAULT_EXPORT_PROFILES:
+    for profile in default_export_profiles():
         existing = db.scalar(select(ExportProfile).where(ExportProfile.name == profile.name))
         if existing is None:
             db.add(profile)
