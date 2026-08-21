@@ -36,7 +36,6 @@ export function handleTrackPointerEvent(event: TrackPointerEvent, actions: Workb
       return;
     }
     if (event.object.kind === "ai-suggestion-group") {
-      actions.setSelectedDepth(event.object.depth);
       actions.setSelectedAiSuggestion(event.object.suggestions[0] ?? null);
       return;
     }

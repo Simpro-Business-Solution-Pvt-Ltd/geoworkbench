@@ -79,6 +79,23 @@ describe("handleTrackPointerEvent", () => {
     expect(workbenchActions.setSelectedRemarkGroup).toHaveBeenCalledWith(object);
   });
 
+  it("opens ai suggestions without overriding the selected depth", () => {
+    const suggestion = { id: "suggestion-1", from_depth: 50, to_depth: 51 } as never;
+
+    handleTrackPointerEvent(
+      pointerEvent({
+        kind: "ai-suggestion-group",
+        id: "ai:50",
+        depth: 50,
+        suggestions: [suggestion],
+      }),
+      workbenchActions,
+    );
+
+    expect(workbenchActions.setSelectedDepth).not.toHaveBeenCalled();
+    expect(workbenchActions.setSelectedAiSuggestion).toHaveBeenCalledWith(suggestion);
+  });
+
   it("keeps context-menu depth local to the menu for curve samples", () => {
     const object = {
       kind: "curve-sample",
