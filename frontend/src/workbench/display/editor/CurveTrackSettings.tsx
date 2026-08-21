@@ -1,6 +1,6 @@
 import type { Curve, DisplayTrack } from "../../../api/types";
 import { curveFamilyLabel, curveMappingStatus, curveMnemonic } from "../../data/curveDictionary";
-import { defaultScaleForCurve } from "../displayEditorModel";
+import { defaultScaleForCurve } from "../trackCatalog";
 
 type Props = {
   track: DisplayTrack;

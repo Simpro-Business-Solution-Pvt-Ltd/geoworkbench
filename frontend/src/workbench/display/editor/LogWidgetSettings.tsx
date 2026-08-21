@@ -1,5 +1,5 @@
 import type { Curve, DisplayTrack, DisplayWidget } from "../../../api/types";
-import { createTrackId, TRACK_CATALOG } from "../displayEditorModel";
+import { createTrackId, TRACK_CATALOG } from "../trackCatalog";
 import { CurveTrackSettings } from "./CurveTrackSettings";
 import { moveItem } from "./displayGridUtils";
 

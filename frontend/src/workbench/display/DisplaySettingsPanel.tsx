@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { Curve, DisplayLayout, DisplayTrack } from "../../api/types";
+import { defaultScaleForCurve, TRACK_CATALOG } from "./trackCatalog";
 
 type Props = {
   layout: DisplayLayout | null;
@@ -10,114 +11,6 @@ type Props = {
   onSave: (layout: DisplayLayout) => void;
   onReset: () => void;
 };
-
-type TrackCatalogItem = {
-  id: string;
-  label: string;
-  create: (availableCurves: Curve[]) => DisplayTrack;
-};
-
-const TRACK_CATALOG: TrackCatalogItem[] = [
-  {
-    id: "depth",
-    label: "Depth",
-    create: () => ({ id: "depth", type: "depthAxis", title: "Depth", visible: true, width: 70 }),
-  },
-  {
-    id: "lithology",
-    label: "Lithology",
-    create: () => ({
-      id: "lithology",
-      type: "lithology",
-      title: "Lithology",
-      visible: true,
-      width: 180,
-    }),
-  },
-  {
-    id: "seam",
-    label: "Seam",
-    create: () => ({ id: "seam", type: "seam", title: "Seam", visible: true, width: 90 }),
-  },
-  {
-    id: "recovery",
-    label: "Recovery",
-    create: () => ({
-      id: "recovery",
-      type: "quantitativeBar",
-      title: "Recovery",
-      visible: true,
-      width: 110,
-      valueField: "recovery_percent",
-      unit: "%",
-      min: 0,
-      max: 100,
-      color: "#55b7aa",
-    }),
-  },
-  {
-    id: "rqd",
-    label: "RQD",
-    create: () => ({
-      id: "rqd",
-      type: "quantitativeBar",
-      title: "RQD",
-      visible: true,
-      width: 100,
-      valueField: "rqd",
-      unit: "%",
-      min: 0,
-      max: 100,
-      valueMultiplier: 100,
-      color: "#55b7aa",
-    }),
-  },
-  {
-    id: "curves",
-    label: "Curves",
-    create: (availableCurves) => ({
-      id: "curves",
-      type: "curve",
-      title: "Curves",
-      visible: true,
-      width: 260,
-      curves: availableCurves.slice(0, 3).map((curve) => ({
-        curveKey: curve.key,
-        label: curve.label,
-        unit: curve.unit,
-        color: curve.color,
-        visible: true,
-        scale: defaultScaleForCurve(curve),
-      })),
-    }),
-  },
-  {
-    id: "remarks",
-    label: "Remarks",
-    create: () => ({ id: "remarks", type: "remarks", title: "Remarks", visible: true, width: 220 }),
-  },
-  {
-    id: "ai-suggestions",
-    label: "AI Suggestions",
-    create: () => ({
-      id: "ai-suggestions",
-      type: "aiSuggestions",
-      title: "AI",
-      visible: true,
-      width: 120,
-    }),
-  },
-];
-
-function defaultScaleForCurve(curve: Curve) {
-  const values = curve.samples.map((sample) => sample.value);
-  if (!values.length) {
-    return { mode: "manual", min: 0, max: 100 };
-  }
-  const min = Math.floor(Math.min(...values));
-  const max = Math.ceil(Math.max(...values));
-  return { mode: "manual", min, max: max <= min ? min + 1 : max };
-}
 
 function cloneLayout(layout: DisplayLayout): DisplayLayout {
   return structuredClone(layout);
