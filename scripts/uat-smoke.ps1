@@ -93,6 +93,14 @@ Invoke-GeoCheck "import profiles" {
   $profiles
 } | Out-Null
 
+Invoke-GeoCheck "source file audit" {
+  $sourceFiles = Invoke-RestMethod -Method Get -Uri "$api/imports/source-files?borehole_id=$($selectedBorehole.id)" -Headers $headers
+  if ($null -eq $sourceFiles) {
+    throw "Source file list did not return a response"
+  }
+  $sourceFiles
+} | Out-Null
+
 Invoke-GeoCheck "export profiles" {
   $profiles = Invoke-RestMethod -Method Get -Uri "$api/exports/profiles" -Headers $headers
   if (@($profiles).Count -lt 1) {
@@ -118,6 +126,14 @@ Invoke-GeoCheck "AI summary" {
     throw "AI summary response did not include metrics"
   }
   $summary
+} | Out-Null
+
+Invoke-GeoCheck "correlation observations" {
+  $observations = Invoke-RestMethod -Method Get -Uri "$api/correlation/observations?borehole_ids=$($selectedBorehole.id)" -Headers $headers
+  if ($null -eq $observations) {
+    throw "Correlation observations did not return a response"
+  }
+  $observations
 } | Out-Null
 
 Write-Host ""
