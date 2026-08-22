@@ -124,6 +124,19 @@ export type Curve = {
   samples: CurveSample[];
 };
 
+export type CurveSampleWindow = {
+  borehole_id: number;
+  curve_id: number;
+  key: string;
+  from_depth: number;
+  to_depth: number;
+  full_sample_count: number;
+  window_sample_count: number;
+  returned_sample_count: number;
+  display_mode: string;
+  samples: CurveSample[];
+};
+
 export type CoreImage = {
   box_number: number;
   name: string;

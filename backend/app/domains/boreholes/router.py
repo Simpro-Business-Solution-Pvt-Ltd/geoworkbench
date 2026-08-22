@@ -8,8 +8,9 @@ from app.domains.boreholes import service
 from app.domains.boreholes.schemas import (
     BoreholeListItem,
     BoreholeStatusOut,
-    DisplayLayoutCloneRequest,
     BoreholeWorkbenchOut,
+    CurveSampleWindowOut,
+    DisplayLayoutCloneRequest,
     DisplayLayoutOut,
     DisplayLayoutPatch,
     LithologyIntervalOut,
@@ -32,6 +33,28 @@ def get_workbench(
 ) -> BoreholeWorkbenchOut:
     try:
         return service.get_workbench(db, borehole_id, display_layout_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/{borehole_id}/curves/{curve_key}/samples", response_model=CurveSampleWindowOut)
+def get_curve_sample_window(
+    borehole_id: int,
+    curve_key: str,
+    from_depth: float,
+    to_depth: float,
+    max_samples: int | None = None,
+    db: Session = Depends(get_db),
+) -> CurveSampleWindowOut:
+    try:
+        return service.curve_sample_window(
+            db,
+            borehole_id,
+            curve_key,
+            from_depth,
+            to_depth,
+            max_samples,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

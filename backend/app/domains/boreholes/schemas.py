@@ -88,6 +88,19 @@ class CurveOut(BaseModel):
     samples: list[CurveSampleOut]
 
 
+class CurveSampleWindowOut(BaseModel):
+    borehole_id: int
+    curve_id: int
+    key: str
+    from_depth: float
+    to_depth: float
+    full_sample_count: int
+    window_sample_count: int
+    returned_sample_count: int
+    display_mode: str
+    samples: list[CurveSampleOut]
+
+
 class CoreImageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

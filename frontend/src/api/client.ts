@@ -3,6 +3,7 @@ import type {
   BoreholeAiSummary,
   BoreholeWorkbench,
   BoreholeStatus,
+  CurveSampleWindow,
   DisplayLayout,
   ExportJob,
   ExportProfile,
@@ -171,6 +172,25 @@ export function listBoreholes(): Promise<BoreholeListItem[]> {
 export function getWorkbench(boreholeId: number, displayLayoutId?: number | null): Promise<BoreholeWorkbench> {
   const query = displayLayoutId ? `?display_layout_id=${displayLayoutId}` : "";
   return request<BoreholeWorkbench>(`/boreholes/${boreholeId}/workbench${query}`);
+}
+
+export function getCurveSampleWindow(
+  boreholeId: number,
+  curveKey: string,
+  fromDepth: number,
+  toDepth: number,
+  maxSamples?: number | null,
+): Promise<CurveSampleWindow> {
+  const params = new URLSearchParams({
+    from_depth: String(fromDepth),
+    to_depth: String(toDepth),
+  });
+  if (maxSamples !== undefined && maxSamples !== null) {
+    params.set("max_samples", String(maxSamples));
+  }
+  return request<CurveSampleWindow>(
+    `/boreholes/${boreholeId}/curves/${encodeURIComponent(curveKey)}/samples?${params.toString()}`,
+  );
 }
 
 export function updateInterval(

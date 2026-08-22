@@ -1,10 +1,20 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 from pathlib import Path
 import json
 from copy import deepcopy
 
-from app.db.models import Borehole, CoreImage, CorrectionAudit, Curve, DisplayLayout, LithologyInterval, Project, Site
+from app.db.models import (
+    Borehole,
+    CoreImage,
+    CorrectionAudit,
+    Curve,
+    CurveSample,
+    DisplayLayout,
+    LithologyInterval,
+    Project,
+    Site,
+)
 from app.domains.boreholes.schemas import (
     BoreholeListItem,
     BoreholeStatusOut,
@@ -12,6 +22,7 @@ from app.domains.boreholes.schemas import (
     CoreImageOut,
     CurveOut,
     DisplayLayoutPatch,
+    CurveSampleWindowOut,
     CurveSampleOut,
     CorrectionAuditOut,
     DisplayLayoutOut,
@@ -230,6 +241,103 @@ def get_workbench(db: Session, borehole_id: int, display_layout_id: int | None =
         source_files=sorted(borehole.source_files, key=lambda item: item.id),
         correction_audits=[CorrectionAuditOut.model_validate(item) for item in correction_audits],
     )
+
+
+def curve_sample_window(
+    db: Session,
+    borehole_id: int,
+    curve_key: str,
+    from_depth: float,
+    to_depth: float,
+    max_samples: int | None = None,
+) -> CurveSampleWindowOut:
+    window_from, window_to = sorted((float(from_depth), float(to_depth)))
+    curve = db.scalar(
+        select(Curve).where(Curve.borehole_id == borehole_id, Curve.key == curve_key)
+    )
+    if curve is None:
+        raise ValueError("Curve not found")
+
+    full_sample_count = int(
+        db.scalar(
+            select(func.count(CurveSample.id)).where(CurveSample.curve_id == curve.id)
+        )
+        or 0
+    )
+    visible_samples = list(
+        db.scalars(
+            select(CurveSample)
+            .where(
+                CurveSample.curve_id == curve.id,
+                CurveSample.depth >= window_from,
+                CurveSample.depth <= window_to,
+            )
+            .order_by(CurveSample.depth, CurveSample.id)
+        )
+    )
+    before_sample = db.scalar(
+        select(CurveSample)
+        .where(CurveSample.curve_id == curve.id, CurveSample.depth < window_from)
+        .order_by(CurveSample.depth.desc(), CurveSample.id.desc())
+        .limit(1)
+    )
+    after_sample = db.scalar(
+        select(CurveSample)
+        .where(CurveSample.curve_id == curve.id, CurveSample.depth > window_to)
+        .order_by(CurveSample.depth.asc(), CurveSample.id.asc())
+        .limit(1)
+    )
+
+    samples_by_depth = {
+        sample.depth: sample
+        for sample in [before_sample, *visible_samples, after_sample]
+        if sample is not None
+    }
+    boundary_samples = sorted(
+        samples_by_depth.values(),
+        key=lambda sample: (sample.depth, sample.id),
+    )
+    returned_samples = _decimate_curve_samples(boundary_samples, max_samples)
+    display_mode = "window_decimated" if len(returned_samples) < len(boundary_samples) else "window_full"
+
+    return CurveSampleWindowOut(
+        borehole_id=borehole_id,
+        curve_id=curve.id,
+        key=curve.key,
+        from_depth=window_from,
+        to_depth=window_to,
+        full_sample_count=full_sample_count,
+        window_sample_count=len(visible_samples),
+        returned_sample_count=len(returned_samples),
+        display_mode=display_mode,
+        samples=[
+            CurveSampleOut(depth=sample.depth, value=sample.value)
+            for sample in returned_samples
+        ],
+    )
+
+
+def _decimate_curve_samples(samples: list[CurveSample], max_samples: int | None) -> list[CurveSample]:
+    if max_samples is None or max_samples <= 0 or len(samples) <= max_samples:
+        return samples
+    if max_samples == 1:
+        return [samples[0]]
+    if max_samples == 2:
+        return [samples[0], samples[-1]]
+
+    interior_slots = max_samples - 2
+    interior = samples[1:-1]
+    if len(interior) <= interior_slots:
+        return samples
+
+    step = len(interior) / interior_slots
+    selected = [samples[0]]
+    selected.extend(
+        interior[min(int(index * step), len(interior) - 1)]
+        for index in range(interior_slots)
+    )
+    selected.append(samples[-1])
+    return selected
 
 
 def update_lithology_interval(
