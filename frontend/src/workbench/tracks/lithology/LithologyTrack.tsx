@@ -1,4 +1,5 @@
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
+import { depthIsInsideInterval, visibleDepthIntervals } from "../../core/depthVisibility";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { lithologyPattern } from "../../core/lithologyPatterns";
 import { TrackFrame } from "../../core/TrackFrame";
@@ -11,7 +12,8 @@ type Props = {
 };
 
 export function LithologyTrack({ data, track, context }: Props) {
-  const { scale } = context;
+  const { scale, visibleDepthSpan } = context;
+  const visibleIntervals = visibleDepthIntervals(data.lithology_intervals, visibleDepthSpan);
   return (
     <TrackFrame
       data={data}
@@ -19,9 +21,7 @@ export function LithologyTrack({ data, track, context }: Props) {
       context={context}
       className="lithology-track"
       hitTest={({ depth }) => {
-        const interval = data.lithology_intervals.find(
-          (item) => item.from_depth <= depth && item.to_depth >= depth,
-        );
+        const interval = data.lithology_intervals.find((item) => depthIsInsideInterval(depth, item));
         return interval
           ? {
               kind: "lithology-interval",
@@ -32,8 +32,7 @@ export function LithologyTrack({ data, track, context }: Props) {
           : null;
       }}
     >
-      {data.lithology_intervals
-        .filter((interval) => interval.to_depth >= scale.fromDepth && interval.from_depth <= scale.toDepth)
+      {visibleIntervals
         .map((interval) => {
           const pattern = lithologyPattern(interval.lithology_code);
           return (

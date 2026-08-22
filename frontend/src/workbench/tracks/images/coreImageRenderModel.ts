@@ -1,6 +1,7 @@
 import type { CoreImage } from "../../../api/types";
 import type { DepthSpan } from "../../core/depthDomain";
 import type { DepthScale } from "../../core/depthScale";
+import { depthIntervalsIntersect } from "../../core/depthVisibility";
 
 export type PreparedCoreImage = {
   image: CoreImage;
@@ -43,10 +44,11 @@ export function visiblePreparedImages(
   visibleDepthSpan: DepthSpan,
   overscanDepth = CORE_IMAGE_OVERSCAN_DEPTH,
 ) {
-  return images.filter(
-    (image) =>
-      image.toDepth >= visibleDepthSpan.fromDepth - overscanDepth &&
-      image.fromDepth <= visibleDepthSpan.toDepth + overscanDepth,
+  return images.filter((image) =>
+    depthIntervalsIntersect(
+      { fromDepth: image.fromDepth, toDepth: image.toDepth },
+      overscanDepthSpan(visibleDepthSpan, overscanDepth),
+    ),
   );
 }
 
@@ -87,10 +89,18 @@ export function resolveCoreImageRenderModel(
 
 export function canLoadCoreImage(model: CoreImageRenderModel, loadDepthSpan: DepthSpan) {
   if (model.mode === "overview") return false;
-  return (
-    model.visibleToDepth >= loadDepthSpan.fromDepth - CORE_IMAGE_LOAD_OVERSCAN_DEPTH &&
-    model.visibleFromDepth <= loadDepthSpan.toDepth + CORE_IMAGE_LOAD_OVERSCAN_DEPTH
+  return depthIntervalsIntersect(
+    { fromDepth: model.visibleFromDepth, toDepth: model.visibleToDepth },
+    overscanDepthSpan(loadDepthSpan, CORE_IMAGE_LOAD_OVERSCAN_DEPTH),
   );
+}
+
+function overscanDepthSpan(span: DepthSpan, overscanDepth: number): DepthSpan {
+  const safeOverscan = Math.max(0, overscanDepth);
+  return {
+    fromDepth: span.fromDepth - safeOverscan,
+    toDepth: span.toDepth + safeOverscan,
+  };
 }
 
 export function imageAtDepth(images: PreparedCoreImage[], depth: number) {

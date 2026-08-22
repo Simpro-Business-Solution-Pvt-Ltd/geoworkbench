@@ -1,5 +1,7 @@
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
 import type { DepthScale } from "../../core/depthScale";
+import type { DepthSpan } from "../../core/depthDomain";
+import { intervalIntersectsDepthSpan } from "../../core/depthVisibility";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { TrackFrame } from "../../core/TrackFrame";
 
@@ -17,9 +19,10 @@ type RemarkGroup = {
   remarks: Array<{ depth: number; text: string; sourceRow: number | null }>;
 };
 
-function groupedRemarks(data: BoreholeWorkbench, scale: DepthScale): RemarkGroup[] {
+function groupedRemarks(data: BoreholeWorkbench, scale: DepthScale, visibleDepthSpan: DepthSpan): RemarkGroup[] {
   const remarkIntervals = data.lithology_intervals
-    .filter((item) => item.remark && item.from_depth <= scale.toDepth && item.to_depth >= scale.fromDepth)
+    .filter((item) => item.remark)
+    .filter((item) => intervalIntersectsDepthSpan(item, visibleDepthSpan))
     .map((item) => ({
       depth: item.from_depth,
       text: item.remark ?? "",
@@ -48,8 +51,8 @@ function groupedRemarks(data: BoreholeWorkbench, scale: DepthScale): RemarkGroup
 }
 
 export function RemarksTrack({ data, track, context }: Props) {
-  const { scale } = context;
-  const groups = groupedRemarks(data, scale);
+  const { scale, visibleDepthSpan } = context;
+  const groups = groupedRemarks(data, scale, visibleDepthSpan);
 
   return (
     <TrackFrame

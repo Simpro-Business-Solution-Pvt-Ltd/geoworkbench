@@ -1,4 +1,5 @@
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
+import { depthIsInsideInterval, visibleDepthIntervals } from "../../core/depthVisibility";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { TrackFrame } from "../../core/TrackFrame";
 
@@ -16,8 +17,9 @@ function numericRendererSetting(track: DisplayTrack, key: string, fallback: numb
 }
 
 export function SeamTrack({ data, track, context }: Props) {
-  const { scale } = context;
+  const { scale, visibleDepthSpan } = context;
   const labelMinHeightPx = numericRendererSetting(track, "labelMinHeightPx", DEFAULT_LABEL_MIN_HEIGHT_PX);
+  const visibleSeams = visibleDepthIntervals(data.seam_intervals, visibleDepthSpan);
 
   return (
     <TrackFrame
@@ -26,14 +28,11 @@ export function SeamTrack({ data, track, context }: Props) {
       context={context}
       className="seam-track"
       hitTest={({ depth }) => {
-        const seam = data.seam_intervals.find(
-          (item) => item.from_depth <= depth && item.to_depth >= depth,
-        );
+        const seam = data.seam_intervals.find((item) => depthIsInsideInterval(depth, item));
         return seam ? { kind: "seam-interval", id: seam.id, depth, seam } : null;
       }}
     >
-      {data.seam_intervals
-        .filter((seam) => seam.to_depth >= scale.fromDepth && seam.from_depth <= scale.toDepth)
+      {visibleSeams
         .map((seam) => {
           const style = scale.intervalToStyle(seam.from_depth, seam.to_depth);
           const pixelHeight = Math.abs(scale.depthToY(seam.to_depth) - scale.depthToY(seam.from_depth));
