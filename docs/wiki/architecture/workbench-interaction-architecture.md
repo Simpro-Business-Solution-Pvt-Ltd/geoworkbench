@@ -38,8 +38,11 @@ The Log Widget owns:
 - visible track list
 - total depth
 - shared depth scale
+- viewport controller state
 - selected depth crosshair
 - centralized interaction handler
+
+`useLogViewportController()` owns DOM scroll synchronization, but the scroll/zoom/reset calculations live in `logViewportController.ts`. This keeps the control plane testable without a browser and prevents parallel calculations from drifting apart.
 
 ### Depth Scale
 
@@ -64,6 +67,8 @@ The Log Widget must keep these spaces separate:
 
 Track renderers draw objects in content coordinates. Pointer events are converted to content coordinates first, then converted to depth through the shared scale. Ruler, crosshair, rubber-band zoom, tooltip, and context-menu logic must all use the same conversion path.
 
+`trackPointerMapping.ts` is the shared conversion point for browser client coordinates into track-local X, content Y, and depth. Track components should not manually subtract DOM offsets or header heights.
+
 ### Virtual Range And Visible Range
 
 The log has two depth concepts:
@@ -72,6 +77,14 @@ The log has two depth concepts:
 - visible range: the current viewport after zoom, such as `150m - 220m`
 
 Tracks render against the visible range, but data lookup and hit testing still operate against the full virtual range.
+
+Zoom, scroll, rubber-band zoom, and full-depth reset must never replace the virtual range. They only change controller state:
+
+- `pixelsPerDepth`
+- `scrollTop`
+- `zoomPinned`
+
+The visible range is derived from that state and the unchanged virtual range.
 
 Curve rendering should include boundary samples just outside the visible range when available. This prevents visual gaps at the top and bottom of a zoomed curve while preserving raw nearest-sample inspection behavior.
 

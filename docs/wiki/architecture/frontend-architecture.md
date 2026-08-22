@@ -101,6 +101,10 @@ Shared read-model helpers:
 | File | Responsibility |
 | --- | --- |
 | `depthScale.ts` | Maps depth to Y, Y to depth, and intervals to CSS positions. |
+| `logViewport.ts` | Pure virtual-depth, visible-depth, scroll, zoom, and pointer-depth math. |
+| `logViewportController.ts` | Pure controller state transitions for scroll, zoom, rubber-band zoom, and full-depth reset. |
+| `useLogViewportController.ts` | React hook that synchronizes controller state with the scroll DOM element. |
+| `trackPointerMapping.ts` | Converts browser client coordinates into track-local X, content Y, and depth. |
 | `ticks.ts` | Generates nice depth ticks for zoom levels. |
 | `curveMath.ts` | Curve point normalization, visible/boundary sample selection, nearest sample search. |
 | `tracks/curve/curveRenderModel.ts` | Converts configured curves and depth/value scales into renderer-ready polyline models. |
