@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 
-import type { BoreholeWorkbench, Curve, DisplayTrack } from "../../../api/types";
+import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
 import { nearestSample } from "../../core/curveMath";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { createValueScale } from "../../core/valueScale";
 import { TrackFrame } from "../../core/TrackFrame";
 import { useWorkbenchStore } from "../../display/workbenchStore";
 import { buildCurveRenderModels, strokeDasharray } from "./curveRenderModel";
+import { useCurveWindowData } from "./useCurveWindowData";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -17,19 +18,11 @@ type Props = {
 export function CurveTrack({ data, track, context }: Props) {
   const { scale } = context;
   const { hoveredObject, tooltipsEnabled } = useWorkbenchStore();
-  const configuredCurves = track.curves?.filter((curve) => curve.visible) ?? [];
-  const curves = useMemo(
-    () =>
-      configuredCurves
-        .map((config) => ({
-          config,
-          curve: data.curves.find((curve) => curve.key === config.curveKey),
-        }))
-        .filter((item): item is { config: (typeof configuredCurves)[number]; curve: Curve } =>
-          Boolean(item.curve),
-        ),
-    [configuredCurves, data.curves],
-  );
+  const { configuredCurves, curves } = useCurveWindowData({
+    data,
+    track,
+    visibleDepthSpan: context.visibleDepthSpan,
+  });
   const valueScales = useMemo(() => {
     const map = new Map<string, ReturnType<typeof createValueScale>>();
     for (const { config, curve } of curves) {
