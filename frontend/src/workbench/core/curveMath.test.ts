@@ -18,11 +18,22 @@ describe("curveMath", () => {
     expect(normalizedX(10, 10, 10)).toBe(50);
   });
 
-  it("keeps one sample outside each side of the visible range for curve continuity", () => {
+  it("keeps outside and interpolated edge samples for curve continuity", () => {
     expect(samplesForVisibleCurve(curve().samples, 12, 28)).toEqual([
       { depth: 10, value: 45 },
+      { depth: 12, value: 48 },
       { depth: 20, value: 60 },
+      { depth: 28, value: 68 },
       { depth: 30, value: 70 },
+    ]);
+  });
+
+  it("interpolates visible edges even when no sample exists inside the visible window", () => {
+    expect(samplesForVisibleCurve(curve().samples, 12, 18)).toEqual([
+      { depth: 10, value: 45 },
+      { depth: 12, value: 48 },
+      { depth: 18, value: 57 },
+      { depth: 20, value: 60 },
     ]);
   });
 });

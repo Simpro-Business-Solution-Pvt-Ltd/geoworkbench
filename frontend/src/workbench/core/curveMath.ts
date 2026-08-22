@@ -31,8 +31,34 @@ export function samplesForVisibleCurve(
   toDepth: number,
 ): CurveSample[] {
   const sorted = [...samples].sort((a, b) => a.depth - b.depth);
-  const visible = sorted.filter((sample) => sample.depth >= fromDepth && sample.depth <= toDepth);
-  const before = [...sorted].reverse().find((sample) => sample.depth < fromDepth);
-  const after = sorted.find((sample) => sample.depth > toDepth);
-  return [before, ...visible, after].filter((sample): sample is CurveSample => Boolean(sample));
+  const from = Math.min(fromDepth, toDepth);
+  const to = Math.max(fromDepth, toDepth);
+  const visible = sorted.filter((sample) => sample.depth >= from && sample.depth <= to);
+  const before = [...sorted].reverse().find((sample) => sample.depth < from);
+  const after = sorted.find((sample) => sample.depth > to);
+  const fromEdge = edgeSampleAtDepth(sorted, from);
+  const toEdge = edgeSampleAtDepth(sorted, to);
+  return dedupeSamplesByDepth([before, fromEdge, ...visible, toEdge, after]);
+}
+
+function edgeSampleAtDepth(sorted: CurveSample[], depth: number): CurveSample | null {
+  const exact = sorted.find((sample) => sample.depth === depth);
+  if (exact) return exact;
+  const before = [...sorted].reverse().find((sample) => sample.depth < depth);
+  const after = sorted.find((sample) => sample.depth > depth);
+  if (!before || !after) return null;
+  const fraction = (depth - before.depth) / Math.max(0.001, after.depth - before.depth);
+  return {
+    depth,
+    value: before.value + (after.value - before.value) * fraction,
+  };
+}
+
+function dedupeSamplesByDepth(samples: Array<CurveSample | null | undefined>): CurveSample[] {
+  const byDepth = new Map<number, CurveSample>();
+  for (const sample of samples) {
+    if (!sample) continue;
+    byDepth.set(sample.depth, sample);
+  }
+  return [...byDepth.values()].sort((a, b) => a.depth - b.depth);
 }

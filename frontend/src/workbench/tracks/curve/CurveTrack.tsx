@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 
 import type { BoreholeWorkbench, Curve, DisplayTrack } from "../../../api/types";
-import { nearestSample, samplesForVisibleCurve } from "../../core/curveMath";
+import { nearestSample } from "../../core/curveMath";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { createValueScale } from "../../core/valueScale";
 import { TrackFrame } from "../../core/TrackFrame";
 import { useWorkbenchStore } from "../../display/workbenchStore";
+import { buildCurveRenderModels, strokeDasharray } from "./curveRenderModel";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -42,6 +43,13 @@ export function CurveTrack({ data, track, context }: Props) {
     }
     return map;
   }, [curves]);
+  const renderModels = useMemo(
+    () =>
+      buildCurveRenderModels(curves, scale, {
+        minYPixelSpacing: numericRendererSetting(track, "minYPixelSpacing", 1.5),
+      }),
+    [curves, scale, track],
+  );
   const hit =
     hoveredObject?.kind === "curve-sample" && curves.some(({ curve }) => curve.key === hoveredObject.curve.key)
       ? hoveredObject
@@ -105,22 +113,15 @@ export function CurveTrack({ data, track, context }: Props) {
       }}
     >
       <svg className="curve-svg" preserveAspectRatio="none" viewBox="0 0 100 100">
-        {curves.map(({ config, curve }) => {
-          const valueScale = valueScales.get(curve.key);
+        {renderModels.map((model) => {
           return (
-          <polyline
-              key={curve.key}
-              points={samplesForVisibleCurve(curve.samples, scale.fromDepth, scale.toDepth)
-                .filter(
-                  (sample, index) =>
-                    index % 4 === 0 || sample.depth < scale.fromDepth || sample.depth > scale.toDepth,
-                )
-                .map((sample) => `${valueScale?.toPercent(sample.value) ?? 50},${scale.depthToContentPercent(sample.depth)}`)
-                .join(" ")}
+            <polyline
+              key={model.curveKey}
+              points={model.polylinePoints}
               fill="none"
-              stroke={config.color}
+              stroke={model.color}
               strokeWidth="0.8"
-              strokeDasharray={strokeDasharray(config.lineStyle)}
+              strokeDasharray={strokeDasharray(model.lineStyle)}
               vectorEffect="non-scaling-stroke"
             />
           );
@@ -155,8 +156,7 @@ function formatScaleValue(value: number) {
   return value.toFixed(2).replace(/\.?0+$/, "");
 }
 
-function strokeDasharray(lineStyle: string | undefined) {
-  if (lineStyle === "dashed") return "4 3";
-  if (lineStyle === "dotted") return "1 3";
-  return undefined;
+function numericRendererSetting(track: DisplayTrack, key: string, fallback: number): number {
+  const value = track.renderer?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
