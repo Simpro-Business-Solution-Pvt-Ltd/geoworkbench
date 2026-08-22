@@ -15,6 +15,7 @@ import type { BoreholeWorkbench, DisplayTrack } from "../../api/types";
 import { addBottomDepthPadding, depthSpanSize, inferLogWidgetDepthSpan } from "../core/depthDomain";
 import type { LogTrackContext } from "../core/logTrackContext";
 import { resolveLogPointerPosition } from "../core/logViewport";
+import { buildLogViewportDiagnostics } from "../core/logViewportDiagnostics";
 import { useLogViewportController } from "../core/useLogViewportController";
 import { handleTrackPointerEvent } from "../core/interactions";
 import { legendForIntervals } from "../core/lithologyPatterns";
@@ -63,6 +64,7 @@ export function LogWidget({ data }: Props) {
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
   const [dragSelection, setDragSelection] = useState<DragSelection | null>(null);
   const [ruler, setRuler] = useState<RulerState | null>(null);
+  const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
   const containerHeight = useElementHeight(scrollRef, DEFAULT_CONTAINER_HEIGHT);
 
   const tracks = data.layout?.settings.widgets?.["log-widget"]?.tracks ?? [];
@@ -215,6 +217,7 @@ export function LogWidget({ data }: Props) {
   const selectedDepthY = selectedDepth === null ? null : viewport.scale.depthToY(selectedDepth);
   const domainSpan = depthSpanSize(depthDomain);
   const rulerLabel = ruler ? `${ruler.depth.toFixed(2)} m` : "";
+  const diagnostics = useMemo(() => buildLogViewportDiagnostics(viewport), [viewport]);
 
   return (
     <div className="log-widget">
@@ -299,6 +302,11 @@ export function LogWidget({ data }: Props) {
                 setTooltipsEnabled(!tooltipsEnabled);
                 setContextMenu(null);
               }}
+              diagnosticsVisible={diagnosticsVisible}
+              onToggleDiagnostics={() => {
+                setDiagnosticsVisible((visible) => !visible);
+                setContextMenu(null);
+              }}
               onClose={() => setContextMenu(null)}
             />
           )}
@@ -313,10 +321,13 @@ export function LogWidget({ data }: Props) {
         domainSpan={domainSpan}
         isZoomed={isZoomed}
         tooltipsEnabled={tooltipsEnabled}
+        diagnosticsVisible={diagnosticsVisible}
+        diagnostics={diagnostics}
         onZoomIn={() => applyZoomAtDepth(selectedDepth ?? midpoint(viewport.visibleDepthSpan), ZOOM_IN_FACTOR)}
         onZoomOut={() => applyZoomAtDepth(selectedDepth ?? midpoint(viewport.visibleDepthSpan), ZOOM_OUT_FACTOR)}
         onFullDepth={resetToFullDepth}
         onToggleTooltips={() => setTooltipsEnabled(!tooltipsEnabled)}
+        onToggleDiagnostics={() => setDiagnosticsVisible((visible) => !visible)}
       />
     </div>
   );
@@ -355,10 +366,13 @@ function LogWidgetFooter({
   domainSpan,
   isZoomed,
   tooltipsEnabled,
+  diagnosticsVisible,
+  diagnostics,
   onZoomIn,
   onZoomOut,
   onFullDepth,
   onToggleTooltips,
+  onToggleDiagnostics,
 }: {
   visibleFromDepth: number;
   visibleToDepth: number;
@@ -368,28 +382,46 @@ function LogWidgetFooter({
   domainSpan: number;
   isZoomed: boolean;
   tooltipsEnabled: boolean;
+  diagnosticsVisible: boolean;
+  diagnostics: Array<{ key: string; label: string; value: string }>;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFullDepth: () => void;
   onToggleTooltips: () => void;
+  onToggleDiagnostics: () => void;
 }) {
   return (
     <div className="log-footer">
-      <span>
-        Visible {visibleFromDepth.toFixed(2)}-{visibleToDepth.toFixed(2)} m
-      </span>
-      <span>
-        Domain {domainFromDepth.toFixed(2)}-{domainToDepth.toFixed(2)} m ({domainSpan.toFixed(2)} m)
-      </span>
-      <span>{scaleLabel} px/m</span>
-      <button type="button" onClick={onZoomIn}>Zoom in</button>
-      <button type="button" onClick={onZoomOut}>Zoom out</button>
-      <button type="button" onClick={onFullDepth} disabled={!isZoomed}>
-        Full depth
-      </button>
-      <button type="button" onClick={onToggleTooltips}>
-        {tooltipsEnabled ? "Tooltips on" : "Tooltips off"}
-      </button>
+      <div className="log-footer-main">
+        <span>
+          Visible {visibleFromDepth.toFixed(2)}-{visibleToDepth.toFixed(2)} m
+        </span>
+        <span>
+          Domain {domainFromDepth.toFixed(2)}-{domainToDepth.toFixed(2)} m ({domainSpan.toFixed(2)} m)
+        </span>
+        <span>{scaleLabel} px/m</span>
+        <button type="button" onClick={onZoomIn}>Zoom in</button>
+        <button type="button" onClick={onZoomOut}>Zoom out</button>
+        <button type="button" onClick={onFullDepth} disabled={!isZoomed}>
+          Full depth
+        </button>
+        <button type="button" onClick={onToggleTooltips}>
+          {tooltipsEnabled ? "Tooltips on" : "Tooltips off"}
+        </button>
+        <button type="button" onClick={onToggleDiagnostics}>
+          {diagnosticsVisible ? "Diagnostics off" : "Diagnostics"}
+        </button>
+      </div>
+      {diagnosticsVisible && (
+        <div className="log-diagnostics">
+          {diagnostics.map((item) => (
+            <span key={item.key}>
+              <b>{item.label}</b>
+              {item.value}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -401,10 +433,12 @@ function LogContextMenu({
   x,
   y,
   tooltipsEnabled,
+  diagnosticsVisible,
   onZoomIn,
   onZoomOut,
   onFullDepth,
   onToggleTooltips,
+  onToggleDiagnostics,
   onClose,
 }: {
   depth: number;
@@ -413,10 +447,12 @@ function LogContextMenu({
   x: number;
   y: number;
   tooltipsEnabled: boolean;
+  diagnosticsVisible: boolean;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFullDepth: () => void;
   onToggleTooltips: () => void;
+  onToggleDiagnostics: () => void;
   onClose: () => void;
 }) {
   return (
@@ -429,6 +465,9 @@ function LogContextMenu({
       <button type="button" onClick={onFullDepth}>Full depth</button>
       <button type="button" onClick={onToggleTooltips}>
         {tooltipsEnabled ? "Disable tooltips" : "Enable tooltips"}
+      </button>
+      <button type="button" onClick={onToggleDiagnostics}>
+        {diagnosticsVisible ? "Hide diagnostics" : "Show diagnostics"}
       </button>
       <button type="button" onClick={onClose}>Close</button>
     </div>
