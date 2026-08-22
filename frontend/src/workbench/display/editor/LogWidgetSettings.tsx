@@ -26,6 +26,7 @@ export function LogWidgetSettings({ widget, availableCurves, onUpdateWidget }: P
             <button
               key={item.id}
               type="button"
+              title={`${item.category}: ${item.description}`}
               onClick={() =>
                 updateTracks((items) => {
                   const id = createTrackId(item.id, new Set(items.map((track) => track.id)));

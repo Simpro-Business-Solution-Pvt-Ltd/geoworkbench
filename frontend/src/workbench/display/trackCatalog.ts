@@ -4,6 +4,8 @@ import { compareCurvesByFamily } from "../data/curveDictionary";
 export type TrackCatalogItem = {
   id: string;
   label: string;
+  category: "axis" | "geology" | "quality" | "geophysics" | "evidence" | "assistant";
+  description: string;
   create: (availableCurves: Curve[], existingIds?: Set<string>) => DisplayTrack;
 };
 
@@ -11,11 +13,15 @@ export const TRACK_CATALOG: TrackCatalogItem[] = [
   {
     id: "depth",
     label: "Depth",
+    category: "axis",
+    description: "Depth ruler with adaptive ticks for the visible log interval.",
     create: () => ({ id: "depth", type: "depthAxis", title: "Depth", visible: true, width: 70 }),
   },
   {
     id: "lithology",
     label: "Lithology",
+    category: "geology",
+    description: "Depth intervals colored and patterned by interpreted lithology.",
     create: () => ({
       id: "lithology",
       type: "lithology",
@@ -27,11 +33,15 @@ export const TRACK_CATALOG: TrackCatalogItem[] = [
   {
     id: "seam",
     label: "Seam",
+    category: "geology",
+    description: "Coal seam markers and interval labels used for review and correlation.",
     create: () => ({ id: "seam", type: "seam", title: "Seam", visible: true, width: 90 }),
   },
   {
     id: "core-images",
     label: "Core Images",
+    category: "evidence",
+    description: "Depth-aligned core image state or prepared core image strips when available.",
     create: () => ({
       id: "core-images",
       type: "images",
@@ -43,6 +53,8 @@ export const TRACK_CATALOG: TrackCatalogItem[] = [
   {
     id: "recovery",
     label: "Recovery",
+    category: "quality",
+    description: "Interval recovery percentage as a depth-aligned quantitative bar.",
     create: () => ({
       id: "recovery",
       type: "quantitativeBar",
@@ -59,6 +71,8 @@ export const TRACK_CATALOG: TrackCatalogItem[] = [
   {
     id: "rqd",
     label: "RQD",
+    category: "quality",
+    description: "Rock quality designation as a depth-aligned quantitative bar.",
     create: () => ({
       id: "rqd",
       type: "quantitativeBar",
@@ -76,6 +90,8 @@ export const TRACK_CATALOG: TrackCatalogItem[] = [
   {
     id: "curves",
     label: "Curve Track",
+    category: "geophysics",
+    description: "One or more geophysical curves normalized into the same track real estate.",
     create: (availableCurves) => ({
       id: "curves",
       type: "curve",
@@ -88,11 +104,15 @@ export const TRACK_CATALOG: TrackCatalogItem[] = [
   {
     id: "remarks",
     label: "Remarks",
+    category: "evidence",
+    description: "Grouped field/geologist remarks arranged on the depth axis.",
     create: () => ({ id: "remarks", type: "remarks", title: "Remarks", visible: true, width: 220 }),
   },
   {
     id: "ai-suggestions",
     label: "AI Suggestions",
+    category: "assistant",
+    description: "Rule and AI review markers linked to intervals or depth ranges.",
     create: () => ({
       id: "ai-suggestions",
       type: "aiSuggestions",

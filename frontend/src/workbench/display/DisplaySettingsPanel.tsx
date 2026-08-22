@@ -92,6 +92,7 @@ export function DisplaySettingsPanel({
               <button
                 key={item.id}
                 type="button"
+                title={`${item.category}: ${item.description}`}
                 onClick={() => updateDraftTracks((items) => [...items, item.create(availableCurves)])}
               >
                 {item.label}

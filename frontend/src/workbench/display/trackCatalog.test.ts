@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 import type { Curve, DisplayTrack } from "../../api/types";
-import { createTrackId, defaultScaleForCurve, defaultTracks, syncTrackCurves } from "./trackCatalog";
+import { createTrackId, defaultScaleForCurve, defaultTracks, syncTrackCurves, TRACK_CATALOG } from "./trackCatalog";
 
 describe("trackCatalog", () => {
   it("creates default tracks with geophysical curves and the core image track", () => {
     const tracks = defaultTracks([curve("res", "Resistivity", [10, 20]), curve("ngamma", "Natural Gamma", [50])]);
     const curveTrack = tracks.find((track) => track.type === "curve");
+    const curveCatalogItem = TRACK_CATALOG.find((item) => item.id === "curves");
 
     expect(tracks.some((track) => track.id === "core-images")).toBe(true);
     expect(curveTrack?.curves?.map((item) => item.curveKey)).toEqual(["ngamma", "res"]);
     expect(curveTrack?.curves?.[0].tooltipEnabled).toBe(true);
+    expect(curveCatalogItem).toMatchObject({
+      category: "geophysics",
+      description: expect.stringContaining("geophysical curves"),
+    });
   });
 
   it("fills missing curve display settings without changing configured curve order", () => {
