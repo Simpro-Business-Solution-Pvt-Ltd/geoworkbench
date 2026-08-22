@@ -25,6 +25,9 @@ export function queryKeysForWorkbenchEvent(event: WorkbenchRealtimeEvent): Realt
     keys.push(["aiSummary", boreholeId]);
     keys.push(["exportReadiness", boreholeId]);
     keys.push(["exportJobs", boreholeId]);
+    if (eventTouchesCurveSamples(event)) {
+      keys.push(["curveSamples", boreholeId]);
+    }
   }
 
   if (event.entity === "borehole" || event.type.includes("borehole") || event.type.includes("mobile")) {
@@ -36,6 +39,17 @@ export function queryKeysForWorkbenchEvent(event: WorkbenchRealtimeEvent): Realt
   }
 
   return dedupeQueryKeys(keys);
+}
+
+function eventTouchesCurveSamples(event: WorkbenchRealtimeEvent): boolean {
+  return (
+    event.entity === "curve" ||
+    event.entity === "curve_sample" ||
+    event.entity === "source_file" ||
+    event.type.includes("curve") ||
+    event.type.includes("source_file") ||
+    event.type.includes("import")
+  );
 }
 
 function dedupeQueryKeys(keys: RealtimeQueryKey[]): RealtimeQueryKey[] {

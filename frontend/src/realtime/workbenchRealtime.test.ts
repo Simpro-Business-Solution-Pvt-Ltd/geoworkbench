@@ -43,6 +43,17 @@ describe("workbench realtime", () => {
       "boreholes",
     ]);
   });
+
+  it("invalidates curve sample windows for curve and import events", () => {
+    expect(queryKeysForWorkbenchEvent(event({ type: "workbench.curve.updated", entity: "curve" }))).toContainEqual([
+      "curveSamples",
+      12,
+    ]);
+    expect(queryKeysForWorkbenchEvent(event({ type: "workbench.source_file.merged", entity: "source_file" }))).toContainEqual([
+      "curveSamples",
+      12,
+    ]);
+  });
 });
 
 function event(overrides: Partial<WorkbenchRealtimeEvent>): WorkbenchRealtimeEvent {
