@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.core.realtime import publish_workbench_event
 from app.db.session import get_db
 from app.domains.imports import service
 from app.domains.imports.schemas import (
@@ -50,7 +51,15 @@ def list_source_files(
 def create_source_file(
     payload: SourceFileCreate, db: Session = Depends(get_db)
 ) -> SourceFileOut:
-    return service.create_source_file(db, payload)
+    source_file = service.create_source_file(db, payload)
+    publish_workbench_event(
+        "workbench.source_file.created",
+        borehole_id=source_file.borehole_id,
+        entity="source_file",
+        operation="created",
+        payload={"source_file_id": source_file.id, "file_type": source_file.file_type},
+    )
+    return source_file
 
 
 @router.post("/upload", response_model=SourceFileOut)
@@ -60,7 +69,15 @@ def upload_source_file(
     borehole_id: int | None = Form(default=None),
     db: Session = Depends(get_db),
 ) -> SourceFileOut:
-    return service.upload_source_file(db, file=file, file_type=file_type, borehole_id=borehole_id)
+    source_file = service.upload_source_file(db, file=file, file_type=file_type, borehole_id=borehole_id)
+    publish_workbench_event(
+        "workbench.source_file.uploaded",
+        borehole_id=source_file.borehole_id,
+        entity="source_file",
+        operation="uploaded",
+        payload={"source_file_id": source_file.id, "file_type": source_file.file_type},
+    )
+    return source_file
 
 
 @router.patch("/source-files/{source_file_id}", response_model=SourceFileOut)
@@ -68,7 +85,15 @@ def update_source_file_status(
     source_file_id: int, payload: SourceFileStatusPatch, db: Session = Depends(get_db)
 ) -> SourceFileOut:
     try:
-        return service.update_source_file_status(db, source_file_id, payload.status)
+        source_file = service.update_source_file_status(db, source_file_id, payload.status)
+        publish_workbench_event(
+            "workbench.source_file.updated",
+            borehole_id=source_file.borehole_id,
+            entity="source_file",
+            operation="status_updated",
+            payload={"source_file_id": source_file.id, "status": source_file.status},
+        )
+        return source_file
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -79,6 +104,13 @@ def process_source_file(source_file_id: int, db: Session = Depends(get_db)) -> S
         source_file, source_import, summary = service.process_source_file(db, source_file_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    publish_workbench_event(
+        "workbench.source_file.processed",
+        borehole_id=source_file.borehole_id,
+        entity="source_file",
+        operation="processed",
+        payload={"source_file_id": source_file.id, "source_import_id": source_import.id},
+    )
     return SourceFileProcessOut(
         source_file=source_file,
         source_import_id=source_import.id,
@@ -96,6 +128,13 @@ def import_source_file_as_borehole(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    publish_workbench_event(
+        "workbench.borehole.imported",
+        borehole_id=borehole_id,
+        entity="borehole",
+        operation="created_from_source",
+        payload={"source_file_id": source_file.id, "borehole_code": borehole_code},
+    )
     return SourceFileImportOut(
         source_file=source_file,
         borehole_id=borehole_id,
@@ -118,6 +157,13 @@ def merge_source_file_into_borehole(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    publish_workbench_event(
+        "workbench.source_file.merged",
+        borehole_id=borehole_id,
+        entity="source_file",
+        operation="merged",
+        payload={"source_file_id": source_file.id, "status": status},
+    )
     return SourceFileMergeOut(
         source_file=source_file,
         borehole_id=borehole_id,

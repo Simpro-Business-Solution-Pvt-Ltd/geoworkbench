@@ -89,6 +89,7 @@ import {
   type UserPreferences,
 } from "./preferences/userPreferences";
 import { PreferencesSettingsPanel } from "./settings/PreferencesSettingsPanel";
+import { useWorkbenchRealtime } from "./realtime/useWorkbenchRealtime";
 
 const WIKI_MARKDOWN = {
   ...import.meta.glob("../../docs/wiki/**/*.md", { query: "?raw", import: "default", eager: true }),
@@ -412,6 +413,7 @@ export function App() {
     queryFn: getQualitySettings,
     enabled: isAuthed && session?.user.role === "system_admin",
   });
+  useWorkbenchRealtime({ boreholeId: activeId, enabled: isAuthed, queryClient });
 
   useEffect(() => {
     if (sessionQuery.data) {

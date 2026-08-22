@@ -18,6 +18,7 @@ from app.domains.exports.router import router as exports_router
 from app.domains.imports.router import router as imports_router
 from app.domains.mobile.router import router as mobile_router
 from app.domains.quality.router import router as quality_router
+from app.domains.realtime.router import router as realtime_router
 from app.domains.validation.router import router as validation_router
 
 
@@ -43,6 +44,7 @@ app.include_router(exports_router, prefix=f"{settings.api_prefix}/exports", tags
 app.include_router(imports_router, prefix=f"{settings.api_prefix}/imports", tags=["imports"])
 app.include_router(mobile_router, prefix=f"{settings.api_prefix}/mobile", tags=["mobile"])
 app.include_router(quality_router, prefix=f"{settings.api_prefix}/quality-settings", tags=["quality-settings"])
+app.include_router(realtime_router, prefix=f"{settings.api_prefix}/realtime", tags=["realtime"])
 app.include_router(validation_router, prefix=f"{settings.api_prefix}/validation", tags=["validation"])
 
 

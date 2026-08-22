@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.core.realtime import publish_workbench_event
 from app.db.session import get_db
 from app.domains.exports import service
 from app.domains.exports.schemas import (
@@ -54,7 +55,7 @@ def create_export_job(
     borehole_id: int, payload: ExportRequest, db: Session = Depends(get_db)
 ) -> ExportJobOut:
     try:
-        return service.create_export(
+        export_job = service.create_export(
             db,
             borehole_id,
             payload.export_type,
@@ -66,6 +67,14 @@ def create_export_job(
                 "sections": payload.sections,
             },
         )
+        publish_workbench_event(
+            "workbench.export.created",
+            borehole_id=borehole_id,
+            entity="export_job",
+            operation="created",
+            payload={"export_job_id": export_job.id, "export_type": export_job.export_type},
+        )
+        return export_job
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.realtime import publish_workbench_event
 from app.db.models import Borehole, Curve
 from app.db.session import get_db
 from app.domains.boreholes.schemas import ValidationIssueOut
@@ -31,6 +32,13 @@ def run_borehole_validation(
     replace_validation_issues(borehole, validate_borehole(borehole, get_quality_settings_payload(db)))
     db.commit()
     db.refresh(borehole)
+    publish_workbench_event(
+        "workbench.validation.updated",
+        borehole_id=borehole_id,
+        entity="validation_issue",
+        operation="replaced",
+        payload={"issue_count": len(borehole.validation_issues)},
+    )
     return sorted(
         borehole.validation_issues,
         key=lambda item: (

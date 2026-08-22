@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.realtime import publish_workbench_event
 from app.db.session import get_db
 from app.domains.auth.router import current_user
 from app.domains.boreholes import service
@@ -44,7 +45,15 @@ def patch_interval(
 ) -> LithologyIntervalOut:
     try:
         actor = user.display_name or user.username
-        return service.update_lithology_interval(db, interval_id, patch, actor=actor)
+        interval = service.update_lithology_interval(db, interval_id, patch, actor=actor)
+        publish_workbench_event(
+            "workbench.interval.updated",
+            borehole_id=interval.borehole_id,
+            entity="lithology_interval",
+            operation="updated",
+            payload={"interval_id": interval.id, "actor": actor},
+        )
+        return interval
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -54,7 +63,15 @@ def patch_display_layout(
     layout_id: int, patch: DisplayLayoutPatch, db: Session = Depends(get_db)
 ) -> DisplayLayoutOut:
     try:
-        return service.update_display_layout(db, layout_id, patch)
+        layout = service.update_display_layout(db, layout_id, patch)
+        publish_workbench_event(
+            "workbench.layout.updated",
+            borehole_id=layout.borehole_id,
+            entity="display_layout",
+            operation="updated",
+            payload={"layout_id": layout.id},
+        )
+        return layout
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -66,7 +83,15 @@ def clone_display_layout(
     db: Session = Depends(get_db),
 ) -> DisplayLayoutOut:
     try:
-        return service.clone_display_layout(db, layout_id, payload.name if payload else None)
+        layout = service.clone_display_layout(db, layout_id, payload.name if payload else None)
+        publish_workbench_event(
+            "workbench.layout.created",
+            borehole_id=layout.borehole_id,
+            entity="display_layout",
+            operation="created",
+            payload={"layout_id": layout.id},
+        )
+        return layout
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -74,7 +99,15 @@ def clone_display_layout(
 @router.delete("/display-layouts/{layout_id}", response_model=DisplayLayoutOut)
 def delete_display_layout(layout_id: int, db: Session = Depends(get_db)) -> DisplayLayoutOut:
     try:
-        return service.delete_display_layout(db, layout_id)
+        layout = service.delete_display_layout(db, layout_id)
+        publish_workbench_event(
+            "workbench.layout.deleted",
+            borehole_id=layout.borehole_id,
+            entity="display_layout",
+            operation="deleted",
+            payload={"layout_id": layout.id},
+        )
+        return layout
     except ValueError as exc:
         status_code = 400 if "must remain" in str(exc) else 404
         raise HTTPException(status_code=status_code, detail=str(exc)) from exc
@@ -85,7 +118,15 @@ def reset_display_layout(
     borehole_id: int, db: Session = Depends(get_db)
 ) -> DisplayLayoutOut:
     try:
-        return service.reset_borehole_display_layout(db, borehole_id)
+        layout = service.reset_borehole_display_layout(db, borehole_id)
+        publish_workbench_event(
+            "workbench.layout.reset",
+            borehole_id=borehole_id,
+            entity="display_layout",
+            operation="reset",
+            payload={"layout_id": layout.id},
+        )
+        return layout
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -95,6 +136,14 @@ def approve_borehole_for_export(
     borehole_id: int, db: Session = Depends(get_db)
 ) -> BoreholeStatusOut:
     try:
-        return service.approve_borehole_for_export(db, borehole_id)
+        status = service.approve_borehole_for_export(db, borehole_id)
+        publish_workbench_event(
+            "workbench.status.updated",
+            borehole_id=borehole_id,
+            entity="borehole",
+            operation="updated",
+            payload={"workflow_status": status.workflow_status},
+        )
+        return status
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
