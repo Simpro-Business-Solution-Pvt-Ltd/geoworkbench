@@ -158,6 +158,7 @@ The editor supports:
 - Reorder curves in a curve track.
 - Set curve visibility, color, tooltip behavior, line style, and min/max normalization range.
 - Reset a curve scale back to the range detected from the imported source samples.
+- Choose whether a curve track reads samples from the workbench payload or from the visible depth window API. The visible-window option is intended for larger LAS/geophysical logs and keeps boundary samples around the viewport so zoomed curves do not look artificially broken at the top or bottom.
 
 ## Corebox Image Track
 

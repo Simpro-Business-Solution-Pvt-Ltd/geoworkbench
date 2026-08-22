@@ -103,6 +103,9 @@ Shared read-model helpers:
 | `depthScale.ts` | Maps depth to Y, Y to depth, and intervals to CSS positions. |
 | `ticks.ts` | Generates nice depth ticks for zoom levels. |
 | `curveMath.ts` | Curve point normalization, visible/boundary sample selection, nearest sample search. |
+| `tracks/curve/curveRenderModel.ts` | Converts configured curves and depth/value scales into renderer-ready polyline models. |
+| `tracks/curve/curveWindowData.ts` | Pure helpers for visible-window curve sample identity, cache keys, and sample replacement. |
+| `tracks/curve/useCurveWindowData.ts` | Optional TanStack Query bridge for fetching curve samples by visible depth window. |
 | `TrackFrame.tsx` | Shared wrapper for track title, body, hover/click/context-menu, hit-test dispatch. |
 | `trackObject.ts` | Typed objects returned by hit testing: interval, seam, curve sample, remark group, core image, empty. |
 | `interactions.ts` | Central application behavior for clicks, hover, context menu. |
@@ -116,7 +119,11 @@ Realtime refresh is handled above individual widgets. The app shell subscribes t
 | `realtime/useWorkbenchRealtime.ts` | Opens the active-borehole SSE connection, reconnects after interruption, parses events, and invalidates query caches. |
 | `realtime/workbenchRealtime.ts` | Maps domain events to query keys such as workbench, AI summary, export readiness, export jobs, and borehole list. |
 
-The current UAT behavior is refresh-by-event: edits, imports, mobile submissions, validation, AI suggestions, layout changes, and export jobs publish events, then the frontend refetches canonical API data. Widgets do not own websocket/SSE logic. Future phases can add partial updates, visible-depth window subscriptions, or a SignalR/.NET gateway without changing track renderers.
+The current UAT behavior is refresh-by-event: edits, imports, mobile submissions, validation, AI suggestions, layout changes, and export jobs publish events, then the frontend refetches canonical API data. Widgets do not own websocket/SSE logic.
+
+Curve tracks can optionally use visible-depth window sample fetching through the track renderer setting `sampleSource: "visible-window"`. In that mode, the curve track asks the backend for samples within the current visible depth range plus boundary samples just outside the window. Realtime import/curve/source-file events invalidate the `curveSamples` cache prefix for the active borehole, so viewport windows refresh through the same query layer as the rest of the workbench.
+
+Future phases can add partial updates, visible-depth window subscriptions, image tile invalidation, or a SignalR/.NET gateway without changing track renderers.
 
 ## Track Model
 
