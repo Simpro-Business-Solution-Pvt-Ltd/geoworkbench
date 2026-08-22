@@ -2,12 +2,17 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import type { DepthSpan } from "./depthDomain";
 import {
-  clampToBounds,
-  defaultPixelsPerDepth,
-  resolveLogViewport,
-  zoomViewportAtDepth,
-  zoomViewportToDepthSpan,
-} from "./logViewport";
+  defaultLogViewportControllerState,
+  resetLogViewportController,
+  resolveLogViewportController,
+  scrollLogViewportController,
+  zoomLogViewportControllerAtDepth,
+  zoomLogViewportControllerToDepthWindow,
+  type LogViewportControllerConfig,
+  type LogViewportControllerSnapshot,
+  type LogViewportControllerState,
+} from "./logViewportController";
+import { clampToBounds } from "./logViewport";
 
 type UseLogViewportControllerConfig = {
   depthDomain: DepthSpan;
@@ -27,118 +32,101 @@ export function useLogViewportController({
   zoomEpsilon,
 }: UseLogViewportControllerConfig) {
   const pendingScrollTop = useRef<number | null>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [pixelsPerDepth, setPixelsPerDepth] = useState(1);
-  const [zoomPinned, setZoomPinned] = useState(false);
-  const defaultScale = useMemo(
-    () => defaultPixelsPerDepth(depthDomain, containerHeight, headerHeight),
-    [containerHeight, depthDomain, headerHeight],
+  const config = useMemo<LogViewportControllerConfig>(
+    () => ({ depthDomain, containerHeight, headerHeight, zoomEpsilon }),
+    [containerHeight, depthDomain, headerHeight, zoomEpsilon],
   );
-  const viewport = useMemo(
-    () =>
-      resolveLogViewport({
-        depthDomain,
-        containerHeight,
-        headerHeight,
-        pixelsPerDepth,
-        scrollTop,
-        minPixelsPerDepth: defaultScale,
-      }),
-    [containerHeight, defaultScale, depthDomain, headerHeight, pixelsPerDepth, scrollTop],
+  const [state, setState] = useState<LogViewportControllerState>(() =>
+    defaultLogViewportControllerState(config),
   );
-  const viewportRef = useRef(viewport);
-  const defaultScaleRef = useRef(defaultScale);
-  const isZoomed = viewport.pixelsPerDepth > defaultScale + zoomEpsilon;
+  const snapshot = useMemo(
+    () => resolveLogViewportController(config, state),
+    [config, state],
+  );
+  const snapshotRef = useRef<LogViewportControllerSnapshot>(snapshot);
+  const { viewport, defaultScale, isZoomed } = snapshot;
 
   useEffect(() => {
-    viewportRef.current = viewport;
-  }, [viewport]);
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
-  useEffect(() => {
-    defaultScaleRef.current = defaultScale;
-  }, [defaultScale]);
-
-  const syncScrollElement = useCallback((nextScrollTop: number, maxScrollTop = viewportRef.current.maxScrollTop) => {
-    const clamped = clampToBounds(nextScrollTop, 0, maxScrollTop);
-    pendingScrollTop.current = clamped;
-    setScrollTop(clamped);
-  }, []);
+  const syncScrollElement = useCallback(
+    (nextScrollTop: number, maxScrollTop = snapshotRef.current.viewport.maxScrollTop) => {
+      const clamped = clampToBounds(nextScrollTop, 0, maxScrollTop);
+      pendingScrollTop.current = clamped;
+      setState((current) => scrollLogViewportController(config, current, clamped).state);
+    },
+    [config],
+  );
 
   useLayoutEffect(() => {
     const target = pendingScrollTop.current;
     if (target === null || !scrollElement) return;
     const clamped = clampToBounds(target, 0, viewport.maxScrollTop);
     scrollElement.scrollTop = clamped;
-    setScrollTop(clamped);
+    setState((current) => scrollLogViewportController(config, current, clamped).state);
     pendingScrollTop.current = null;
-  }, [scrollElement, viewport.contentHeight, viewport.maxScrollTop]);
+  }, [config, scrollElement, viewport.contentHeight, viewport.maxScrollTop]);
 
   useEffect(() => {
-    setPixelsPerDepth(defaultScaleRef.current);
-    setZoomPinned(false);
-    syncScrollElement(0);
-  }, [resetKey, syncScrollElement]);
+    const next = resetLogViewportController(config);
+    pendingScrollTop.current = 0;
+    setState(next.state);
+  }, [config, resetKey]);
 
   useEffect(() => {
-    if (!zoomPinned) {
-      setPixelsPerDepth(defaultScale);
+    if (!state.zoomPinned) {
+      setState(defaultLogViewportControllerState(config));
     }
-  }, [defaultScale, zoomPinned]);
+  }, [config, defaultScale, state.zoomPinned]);
 
   useEffect(() => {
-    if (scrollTop <= viewport.maxScrollTop) return;
+    if (state.scrollTop <= viewport.maxScrollTop) return;
     syncScrollElement(viewport.maxScrollTop);
-  }, [scrollTop, syncScrollElement, viewport.maxScrollTop]);
+  }, [state.scrollTop, syncScrollElement, viewport.maxScrollTop]);
 
   const applyZoomAtDepth = useCallback(
-    (depth: number, factor: number, viewportBodyY = viewport.visibleBodyHeight / 2) => {
-      const transition = zoomViewportAtDepth(
-        {
-          depthDomain,
-          containerHeight,
-          headerHeight,
-          pixelsPerDepth: viewport.pixelsPerDepth,
-          scrollTop: viewport.scrollTop,
-          minPixelsPerDepth: defaultScale,
-        },
+    (depth: number, factor: number, viewportBodyY = snapshotRef.current.viewport.visibleBodyHeight / 2) => {
+      const next = zoomLogViewportControllerAtDepth(
+        config,
+        snapshotRef.current.state,
         depth,
         factor,
         viewportBodyY,
       );
-      setPixelsPerDepth(transition.pixelsPerDepth);
-      setZoomPinned(transition.pixelsPerDepth > defaultScale + zoomEpsilon);
-      syncScrollElement(transition.scrollTop, transition.viewport.maxScrollTop);
+      setState(next.state);
+      syncScrollElement(next.viewport.scrollTop, next.viewport.maxScrollTop);
     },
-    [containerHeight, defaultScale, depthDomain, headerHeight, syncScrollElement, viewport, zoomEpsilon],
+    [config, syncScrollElement],
   );
 
   const zoomToDepthWindow = useCallback(
     (fromDepth: number, toDepth: number, minDepthSpan: number) => {
-      const transition = zoomViewportToDepthSpan(
-        {
-          depthDomain,
-          containerHeight,
-          headerHeight,
-          pixelsPerDepth: viewport.pixelsPerDepth,
-          scrollTop: viewport.scrollTop,
-          minPixelsPerDepth: defaultScale,
-        },
+      const next = zoomLogViewportControllerToDepthWindow(
+        config,
+        snapshotRef.current.state,
         fromDepth,
         toDepth,
         minDepthSpan,
       );
-      setPixelsPerDepth(transition.pixelsPerDepth);
-      setZoomPinned(transition.pixelsPerDepth > defaultScale + zoomEpsilon);
-      syncScrollElement(transition.scrollTop, transition.viewport.maxScrollTop);
+      setState(next.state);
+      syncScrollElement(next.viewport.scrollTop, next.viewport.maxScrollTop);
     },
-    [containerHeight, defaultScale, depthDomain, headerHeight, syncScrollElement, viewport, zoomEpsilon],
+    [config, syncScrollElement],
   );
 
   const resetToFullDepth = useCallback(() => {
-    setPixelsPerDepth(defaultScale);
-    setZoomPinned(false);
-    syncScrollElement(0);
-  }, [defaultScale, syncScrollElement]);
+    const next = resetLogViewportController(config);
+    setState(next.state);
+    syncScrollElement(0, next.viewport.maxScrollTop);
+  }, [config, syncScrollElement]);
+
+  const setScrollTop = useCallback(
+    (nextScrollTop: number) => {
+      setState((current) => scrollLogViewportController(config, current, nextScrollTop).state);
+    },
+    [config],
+  );
 
   return {
     viewport,
