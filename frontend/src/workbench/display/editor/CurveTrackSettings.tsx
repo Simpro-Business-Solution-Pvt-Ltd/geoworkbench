@@ -11,10 +11,50 @@ type Props = {
 
 export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props) {
   const missingCurves = availableCurves.filter((curve) => !track.curves?.some((item) => item.curveKey === curve.key));
+  const sampleSource = track.renderer?.sampleSource === "visible-window" ? "visible-window" : "workbench";
+  const maxWindowSamples = typeof track.renderer?.maxWindowSamples === "number" ? track.renderer.maxWindowSamples : "";
 
   return (
     <div className="curve-settings-list">
       <strong>Curves From Geophysical Logs</strong>
+      <div className="curve-scale-grid">
+        <label>
+          Data source
+          <select
+            value={sampleSource}
+            onChange={(event) =>
+              patchTrack({
+                renderer: {
+                  ...(track.renderer ?? {}),
+                  sampleSource: event.target.value === "visible-window" ? "visible-window" : "workbench",
+                },
+              })
+            }
+          >
+            <option value="workbench">Workbench payload</option>
+            <option value="visible-window">Visible depth window</option>
+          </select>
+        </label>
+        <label>
+          Max window samples
+          <input
+            type="number"
+            min="50"
+            step="50"
+            value={maxWindowSamples}
+            placeholder="All"
+            disabled={sampleSource !== "visible-window"}
+            onChange={(event) =>
+              patchTrack({
+                renderer: {
+                  ...(track.renderer ?? {}),
+                  maxWindowSamples: event.target.value ? Number(event.target.value) : undefined,
+                },
+              })
+            }
+          />
+        </label>
+      </div>
       <div className="catalog-actions">
         {missingCurves.map((curve) => (
           <button
