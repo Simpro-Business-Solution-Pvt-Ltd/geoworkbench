@@ -107,6 +107,17 @@ Shared read-model helpers:
 | `trackObject.ts` | Typed objects returned by hit testing: interval, seam, curve sample, remark group, core image, empty. |
 | `interactions.ts` | Central application behavior for clicks, hover, context menu. |
 
+## Realtime Refresh Layer
+
+Realtime refresh is handled above individual widgets. The app shell subscribes to the active borehole event stream and invalidates React Query caches when backend domain events arrive.
+
+| File | Responsibility |
+| --- | --- |
+| `realtime/useWorkbenchRealtime.ts` | Opens the active-borehole SSE connection, reconnects after interruption, parses events, and invalidates query caches. |
+| `realtime/workbenchRealtime.ts` | Maps domain events to query keys such as workbench, AI summary, export readiness, export jobs, and borehole list. |
+
+The current UAT behavior is refresh-by-event: edits, imports, mobile submissions, validation, AI suggestions, layout changes, and export jobs publish events, then the frontend refetches canonical API data. Widgets do not own websocket/SSE logic. Future phases can add partial updates, visible-depth window subscriptions, or a SignalR/.NET gateway without changing track renderers.
+
 ## Track Model
 
 Every track follows this shape:

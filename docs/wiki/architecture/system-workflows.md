@@ -194,6 +194,23 @@ Generated files are stored under:
 runtime-data/exports/{borehole_code}/
 ```
 
+## 9. Realtime Refresh
+
+The current UAT build uses server-sent events for server-to-browser refresh notifications.
+
+```text
+Write operation
+  -> database commit
+  -> publish workbench domain event
+  -> GET /api/realtime/boreholes/{id}/events stream receives event
+  -> frontend invalidates React Query caches
+  -> affected widgets refetch canonical API data
+```
+
+Events are published for interval correction, display layout changes, validation refresh, AI suggestion changes, import/source-file processing, mobile submissions/uploads, borehole status updates, and export job creation.
+
+This is intentionally an application-level refresh abstraction, not widget-level polling. It keeps curves, lithology, seams, core image state, AI tracks, metadata, import/export panels, and correlation inputs consistent after growing or edited data arrives. A later production renderer can extend this with visible-depth window events, partial curve sample updates, tile invalidation for core images, or a SignalR gateway if a .NET realtime service is introduced.
+
 Final customer-specific Minex export should be added after they provide the exact expected template/import format.
 
 ## 9. Local PostgreSQL Flow

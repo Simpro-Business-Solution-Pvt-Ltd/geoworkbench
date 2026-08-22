@@ -335,6 +335,33 @@ Acceptance:
 - Timestamps use the selected timezone.
 - Depth/measurement formatting is centralized.
 - Single-value widgets can show values from Excel, LAS, mobile, or derived analytics through the same metric contract.
+- Active borehole data can refresh from backend domain events instead of requiring manual page refresh or per-widget polling.
+
+## Milestone C2 - Realtime Data Refresh
+
+Goal:
+
+Make growing and edited borehole data visible across the application without each widget inventing its own refresh mechanism.
+
+Scope:
+
+- Use SSE for server-to-browser update notifications in the UAT build.
+- Publish domain events after successful commits for:
+  - interval corrections.
+  - display layout changes.
+  - validation and AI suggestion changes.
+  - import/source-file processing and merge.
+  - mobile field submissions and uploads.
+  - export job creation.
+- Keep refresh centralized through React Query invalidation.
+- Keep widgets focused on rendering canonical API data.
+
+Acceptance:
+
+- A second browser session viewing the same borehole refreshes after an interval edit or validation run.
+- Mobile submission/upload events cause the central workspace to refetch the selected borehole context.
+- Import/merge events refresh workbench, borehole list, export readiness, and export jobs where applicable.
+- The abstraction can later support visible-depth curve windows, partial updates, or SignalR without rewriting widgets.
 
 ## Milestone D - LogWidget Control Plane
 
