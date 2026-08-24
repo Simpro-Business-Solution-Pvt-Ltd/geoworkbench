@@ -43,7 +43,16 @@ const RUNTIME_WIDGET_DEFINITIONS: RuntimeWidgetDefinition[] = [
   {
     type: "logWidget",
     label: "Log Widget",
-    render: ({ widgetId, widget, props }) => <LogWidget data={props.data} widgetKey={widgetId} widget={widget} />,
+    render: ({ widgetId, widget, props }) => (
+      <LogWidget
+        data={props.data}
+        widgetKey={widgetId}
+        widget={widget}
+        temporary={props.runtimePreviewWidgetIds?.has(widgetId) ?? false}
+        onTemporaryWidgetChange={(nextWidget, message) => props.onPreviewRuntimeWidget?.(widgetId, nextWidget, message)}
+        onDiscardTemporaryWidgetChange={props.onDiscardRuntimePreview}
+      />
+    ),
   },
   {
     type: "validationPanel",

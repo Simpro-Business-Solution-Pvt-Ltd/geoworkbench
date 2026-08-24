@@ -68,4 +68,26 @@ describe("logWidgetControlPlane", () => {
     expect(zoomed.visibleDepth.toDepth - zoomed.visibleDepth.fromDepth).toBeLessThan(45);
     expect(bottom.visibleDepth.toDepth).toBeCloseTo(CONFIG.depthDomain.toDepth, 4);
   });
+
+  it("clamps unzoomed scroll without changing the full-depth visible range", () => {
+    const full = createLogWidgetControlPlane(CONFIG, defaultLogWidgetControlPlaneState(CONFIG));
+    const overScrolled = createLogWidgetControlPlane(CONFIG, full.scrollTo(99999).state);
+
+    expect(overScrolled.snapshot.viewport.maxScrollTop).toBe(0);
+    expect(overScrolled.snapshot.viewport.scrollTop).toBe(0);
+    expect(overScrolled.visibleDepth.fromDepth).toBeCloseTo(CONFIG.depthDomain.fromDepth, 4);
+    expect(overScrolled.visibleDepth.toDepth).toBeCloseTo(CONFIG.depthDomain.toDepth, 4);
+  });
+
+  it("keeps pointer depth stable when the same visible depth is scrolled into view", () => {
+    const full = createLogWidgetControlPlane(CONFIG, defaultLogWidgetControlPlaneState(CONFIG));
+    const zoomed = createLogWidgetControlPlane(CONFIG, full.zoomToDepthWindow(200, 260, 0.05).state);
+    const pointer = zoomed.resolvePointer(100, 140, { left: 50, top: 100 - zoomed.snapshot.viewport.scrollTop });
+    const viewportY = zoomed.depthToViewportY(pointer.depth);
+
+    expect(pointer.viewportY).toBeCloseTo(40, 4);
+    expect(viewportY).toBeCloseTo(pointer.viewportY, 4);
+    expect(pointer.depth).toBeGreaterThanOrEqual(zoomed.visibleDepth.fromDepth);
+    expect(pointer.depth).toBeLessThanOrEqual(zoomed.visibleDepth.toDepth);
+  });
 });

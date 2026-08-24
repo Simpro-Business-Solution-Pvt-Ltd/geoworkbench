@@ -529,6 +529,20 @@ export function App() {
       queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
     },
   });
+  const cloneRuntimeLayout = useMutation({
+    mutationFn: async (layout: DisplayLayout) => {
+      const clone = await cloneDisplayLayout(layout.id, `${layout.name} Runtime Copy`);
+      return updateDisplayLayout(clone.id, {
+        name: clone.name,
+        mode: layout.mode,
+        settings: layout.settings,
+      });
+    },
+    onSuccess: (layout) => {
+      if (activeId) setPersistedDisplayLayoutId(activeId, layout.id);
+      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
+    },
+  });
   const deleteCurrentLayout = useMutation({
     mutationFn: (layout: DisplayLayout) => deleteDisplayLayout(layout.id),
     onSuccess: (layout) => {
@@ -1051,6 +1065,8 @@ export function App() {
           sourceImporting={importBoreholeFile.isPending}
           sourceMerging={mergeSourceFile.isPending}
           intervalSaving={saveInterval.isPending}
+          runtimeLayoutSaving={saveDisplayLayout.isPending}
+          runtimeLayoutCloning={cloneRuntimeLayout.isPending}
           preferences={userPreferences}
           onRunValidation={() => validateCurrent.mutate()}
           onGenerateAi={() => generateSuggestions.mutate()}
@@ -1072,6 +1088,8 @@ export function App() {
           onMergeSourceFile={(sourceFileId) => mergeSourceFile.mutate({ sourceFileId })}
           onSaveInterval={(intervalId, patch) => saveInterval.mutate({ intervalId, patch })}
           onSelectImage={(image) => setSelectedImage(image)}
+          onSaveRuntimeLayout={(layout) => saveDisplayLayout.mutate(layout)}
+          onCloneRuntimeLayout={(layout) => cloneRuntimeLayout.mutate(layout)}
         />
       )}
 

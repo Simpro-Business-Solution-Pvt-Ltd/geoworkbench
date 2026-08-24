@@ -6,6 +6,8 @@ import type {
   ExportReadiness,
   ImportProfile,
   LithologyInterval,
+  DisplayLayout,
+  DisplayWidget,
 } from "../../../api/types";
 import type { UserPreferences } from "../../../preferences/userPreferences";
 
@@ -48,4 +50,11 @@ export type DisplayRuntimeProps = {
   onMergeSourceFile: (sourceFileId: number) => void;
   onSaveInterval: (intervalId: string, patch: Partial<LithologyInterval>) => void;
   onSelectImage: (image: CoreImage) => void;
+  runtimeLayoutSaving?: boolean;
+  runtimeLayoutCloning?: boolean;
+  onSaveRuntimeLayout?: (layout: DisplayLayout) => void;
+  onCloneRuntimeLayout?: (layout: DisplayLayout) => void;
+  onPreviewRuntimeWidget?: (widgetId: string, widget: DisplayWidget, message: string) => void;
+  onDiscardRuntimePreview?: () => void;
+  runtimePreviewWidgetIds?: Set<string>;
 };

@@ -30,6 +30,9 @@ type Props = {
   data: BoreholeWorkbench;
   widgetKey?: string;
   widget?: DisplayWidget;
+  temporary?: boolean;
+  onTemporaryWidgetChange?: (widget: DisplayWidget, message: string) => void;
+  onDiscardTemporaryWidgetChange?: () => void;
 };
 
 type DragSelection = {
@@ -53,7 +56,14 @@ const ZOOM_IN_FACTOR = 1.35;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
 const ZOOM_EPSILON = 0.01;
 
-export function LogWidget({ data, widgetKey = "log-widget", widget }: Props) {
+export function LogWidget({
+  data,
+  widgetKey = "log-widget",
+  widget,
+  temporary = false,
+  onTemporaryWidgetChange,
+  onDiscardTemporaryWidgetChange,
+}: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const dragSelectionRef = useRef<DragSelection | null>(null);
   const store = useWorkbenchStore();
@@ -70,7 +80,6 @@ export function LogWidget({ data, widgetKey = "log-widget", widget }: Props) {
   const [dragSelection, setDragSelection] = useState<DragSelection | null>(null);
   const [ruler, setRuler] = useState<RulerState | null>(null);
   const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
-  const [runtimeTracks, setRuntimeTracks] = useState<DisplayTrack[] | null>(null);
   const [dropMessage, setDropMessage] = useState<string | null>(null);
   const containerHeight = useElementHeight(scrollRef, DEFAULT_CONTAINER_HEIGHT);
 
@@ -78,7 +87,7 @@ export function LogWidget({ data, widgetKey = "log-widget", widget }: Props) {
     () => widget ?? data.layout?.settings.widgets?.["log-widget"] ?? { type: "logWidget", title: "Borehole Log", tracks: [] },
     [data.layout, widget],
   );
-  const tracks = runtimeTracks ?? sourceWidget.tracks ?? [];
+  const tracks = sourceWidget.tracks ?? [];
   const visibleTracks = useMemo(() => tracks.filter((track) => track.visible), [tracks]);
   const depthDomain = useMemo(
     () => addBottomDepthPadding(inferLogWidgetDepthSpan(data, visibleTracks)),
@@ -120,7 +129,6 @@ export function LogWidget({ data, widgetKey = "log-widget", widget }: Props) {
   useEffect(() => {
     setDragSelectionState(null);
     setRuler(null);
-    setRuntimeTracks(null);
     setDropMessage(null);
   }, [data.id, sourceWidget]);
 
@@ -244,7 +252,7 @@ export function LogWidget({ data, widgetKey = "log-widget", widget }: Props) {
       const result = resolveLogWidgetDrop({ ...sourceWidget, tracks }, payload, data);
       setDropMessage(result.message);
       if (result.status === "changed") {
-        setRuntimeTracks(result.widget.tracks ?? []);
+        onTemporaryWidgetChange?.(result.widget, result.message);
       }
     } catch {
       setDropMessage("Dropped explorer item could not be applied.");
@@ -374,7 +382,12 @@ export function LogWidget({ data, widgetKey = "log-widget", widget }: Props) {
       {dropMessage && (
         <div className="log-widget-drop-message">
           <span>{dropMessage}</span>
-          {runtimeTracks && <b>Temporary</b>}
+          {temporary && <b>Temporary</b>}
+          {temporary && onDiscardTemporaryWidgetChange && (
+            <button type="button" onClick={onDiscardTemporaryWidgetChange}>
+              Discard
+            </button>
+          )}
           <button type="button" onClick={() => setDropMessage(null)}>
             Dismiss
           </button>
