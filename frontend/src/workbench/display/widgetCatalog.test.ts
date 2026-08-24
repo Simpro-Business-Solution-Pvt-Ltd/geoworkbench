@@ -14,9 +14,20 @@ describe("widgetCatalog", () => {
 
   it("creates stable unique widget ids and labels single-value widgets with their metric", () => {
     expect(createWidgetId("logWidget", new Set(["log-widget", "log-widget-2"]))).toBe("log-widget-3");
+    expect(createWidgetId("interpretationQueue", new Set(["interpretation-queue"]))).toBe("interpretation-queue-2");
     expect(widgetLabel({ type: "singleValue", title: "Curve Coverage", metric: "curve_coverage_percent" })).toBe(
       "Curve Coverage (curve_coverage_percent)",
     );
+  });
+
+  it("creates the interpretation queue as a geologist action widget", () => {
+    const widget = createCatalogWidget("interpretationQueue", []);
+
+    expect(widget).toMatchObject({
+      type: "interpretationQueue",
+      title: "Interpretation Queue",
+      settings: { maxItems: 10 },
+    });
   });
 });
 

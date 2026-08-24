@@ -1,6 +1,6 @@
 def default_borehole_layout() -> dict:
     return {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "mode": "runtime",
         "regions": {
             "left": ["validation-panel", "ai-workflow"],
@@ -19,6 +19,7 @@ def default_borehole_layout() -> dict:
                 {"widgetId": "correction-progress", "x": 10, "y": 0, "w": 2, "h": 1},
                 {"widgetId": "validation-panel", "x": 0, "y": 1, "w": 2, "h": 4},
                 {"widgetId": "ai-workflow", "x": 0, "y": 5, "w": 2, "h": 4},
+                {"widgetId": "interpretation-queue", "x": 0, "y": 9, "w": 9, "h": 3},
                 {"widgetId": "log-widget", "x": 2, "y": 1, "w": 7, "h": 8},
                 {"widgetId": "interval-details", "x": 9, "y": 1, "w": 3, "h": 6},
                 {"widgetId": "curve-catalog", "x": 9, "y": 7, "w": 3, "h": 3},
@@ -45,6 +46,11 @@ def default_borehole_layout() -> dict:
             },
             "corebox-count": {"type": "singleValue", "title": "Coreboxes", "metric": "corebox_count"},
             "validation-panel": {"type": "validationPanel", "title": "Validation", "settings": {"maxIssues": 8}},
+            "interpretation-queue": {
+                "type": "interpretationQueue",
+                "title": "Interpretation Queue",
+                "settings": {"maxItems": 10},
+            },
             "ai-workflow": {"type": "aiWorkflow", "title": "AI Workflow", "settings": {"showSummary": True}},
             "interval-details": {
                 "type": "intervalDetails",

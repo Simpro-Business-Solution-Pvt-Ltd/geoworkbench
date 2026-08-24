@@ -62,6 +62,13 @@ export const WIDGET_CATALOG: WidgetCatalogItem[] = [
     description: "Validation counts and issue list.",
     create: () => ({ type: "validationPanel", title: "Validation", settings: { maxIssues: 8 } }),
   },
+  {
+    type: "interpretationQueue",
+    label: "Interpretation Queue",
+    icon: "IQ",
+    description: "Prioritized geologist action queue from validation, AI, curves, seams, metadata, and core evidence.",
+    create: () => ({ type: "interpretationQueue", title: "Interpretation Queue", settings: { maxItems: 10 } }),
+  },
 ];
 
 export function createCatalogWidget(type: string, availableCurves: Curve[]) {

@@ -2,8 +2,9 @@ import type { Curve, DisplayGridItem, DisplayLayout, DisplayWidget } from "../..
 import { defaultTracks, syncTrackCurves } from "./trackCatalog";
 import { createCatalogWidget } from "./widgetCatalog";
 
-const CURRENT_DISPLAY_SCHEMA_VERSION = 3;
+const CURRENT_DISPLAY_SCHEMA_VERSION = 4;
 const V3_DEFAULT_TRACK_IDS = new Set(["core-images", "recovery", "rqd", "ai-suggestions"]);
+const V4_DEFAULT_WIDGET_IDS = new Set(["interpretation-queue"]);
 
 export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: Curve[]): DisplayLayout {
   const draft = structuredClone(layout);
@@ -42,6 +43,9 @@ export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: C
       metric: "corrected_interval_percent",
     };
   }
+  if (sourceSchemaVersion < CURRENT_DISPLAY_SCHEMA_VERSION) {
+    migrateDefaultWidgets(draft.settings.widgets, availableCurves);
+  }
   draft.settings.widgets["log-widget"].tracks = syncTrackCurves(
     draft.settings.widgets["log-widget"].tracks,
     availableCurves,
@@ -67,6 +71,13 @@ export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: C
     (item) => Boolean(draft.settings.widgets?.[item.widgetId]),
   );
   return draft;
+}
+
+function migrateDefaultWidgets(widgets: Record<string, DisplayWidget>, availableCurves: Curve[]) {
+  for (const widgetId of V4_DEFAULT_WIDGET_IDS) {
+    if (widgets[widgetId]) continue;
+    widgets[widgetId] = createCatalogWidget("interpretationQueue", availableCurves);
+  }
 }
 
 function migrateLogWidgetTracks(tracks: DisplayWidget["tracks"], availableCurves: Curve[]): NonNullable<DisplayWidget["tracks"]> {
@@ -114,6 +125,7 @@ export function defaultRuntimeWidgets(availableCurves: Curve[]): Record<string, 
       metric: "corebox_count",
     },
     "validation-panel": createCatalogWidget("validationPanel", availableCurves),
+    "interpretation-queue": createCatalogWidget("interpretationQueue", availableCurves),
     "ai-workflow": createCatalogWidget("aiWorkflow", availableCurves),
     "log-widget": createCatalogWidget("logWidget", availableCurves),
     "interval-details": createCatalogWidget("intervalDetails", availableCurves),
@@ -131,6 +143,7 @@ export function defaultRuntimeGridItems(): DisplayGridItem[] {
     { widgetId: "correction-progress", x: 10, y: 0, w: 2, h: 1 },
     { widgetId: "validation-panel", x: 0, y: 1, w: 2, h: 4 },
     { widgetId: "ai-workflow", x: 0, y: 5, w: 2, h: 4 },
+    { widgetId: "interpretation-queue", x: 0, y: 9, w: 9, h: 3 },
     { widgetId: "log-widget", x: 2, y: 1, w: 7, h: 8 },
     { widgetId: "interval-details", x: 9, y: 1, w: 3, h: 6 },
     { widgetId: "curve-catalog", x: 9, y: 7, w: 3, h: 3 },
@@ -140,6 +153,9 @@ export function defaultRuntimeGridItems(): DisplayGridItem[] {
 export function defaultGridItem(widgetId: string, index: number): DisplayGridItem {
   if (widgetId === "log-widget") {
     return { widgetId, x: 3, y: 0, w: 6, h: 8 };
+  }
+  if (widgetId === "interpretation-queue") {
+    return { widgetId, x: 0, y: 9, w: 9, h: 3 };
   }
   return { widgetId, x: (index % 3) * 4, y: Math.floor(index / 3) * 3, w: 3, h: 2 };
 }

@@ -4,9 +4,11 @@ from app.domains.display_layouts.defaults import default_borehole_layout
 def test_default_borehole_layout_uses_current_runtime_regions() -> None:
     layout = default_borehole_layout()
 
-    assert layout["schemaVersion"] == 3
+    assert layout["schemaVersion"] == 4
     assert layout["regions"]["right"] == ["interval-details", "curve-catalog"]
     assert "export-panel" not in layout["widgets"]
+    assert layout["widgets"]["interpretation-queue"]["type"] == "interpretationQueue"
+    assert "interpretation-queue" in {item["widgetId"] for item in layout["grid"]["items"]}
 
 
 def test_default_curve_track_is_ready_for_real_las_curves() -> None:

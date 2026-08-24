@@ -5,6 +5,7 @@ import { AiWorkflowPanel } from "../../ai/AiWorkflowPanel";
 import { ExportPanel } from "../../exports/ExportPanel";
 import { LogWidget } from "../../widgets/LogWidget";
 import { CurveCatalogWidget } from "./CurveCatalogWidget";
+import { InterpretationQueueWidget } from "./InterpretationQueueWidget";
 import { IntervalDetailsWidget } from "./IntervalDetailsWidget";
 import { RuntimeWidgetFrame } from "./RuntimeWidgetFrame";
 import { SingleValueWidget } from "./SingleValueWidget";
@@ -48,6 +49,11 @@ const RUNTIME_WIDGET_DEFINITIONS: RuntimeWidgetDefinition[] = [
     type: "validationPanel",
     label: "Validation",
     render: ({ props }) => <ValidationWidget {...props} />,
+  },
+  {
+    type: "interpretationQueue",
+    label: "Interpretation Queue",
+    render: ({ widget, props }) => <InterpretationQueueWidget title={widget.title} {...props} />,
   },
   {
     type: "aiWorkflow",
