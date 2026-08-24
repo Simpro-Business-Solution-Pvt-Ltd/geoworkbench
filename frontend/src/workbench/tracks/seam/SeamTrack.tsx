@@ -1,6 +1,7 @@
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
 import { depthIsInsideInterval, visibleDepthIntervals } from "../../core/depthVisibility";
 import type { LogTrackContext } from "../../core/logTrackContext";
+import { numericRendererSetting } from "../../core/rendererSettings";
 import { TrackFrame } from "../../core/TrackFrame";
 
 type Props = {
@@ -10,11 +11,6 @@ type Props = {
 };
 
 const DEFAULT_LABEL_MIN_HEIGHT_PX = 18;
-
-function numericRendererSetting(track: DisplayTrack, key: string, fallback: number): number {
-  const value = track.renderer?.[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
 
 export function SeamTrack({ data, track, context }: Props) {
   const { scale, visibleDepthSpan } = context;

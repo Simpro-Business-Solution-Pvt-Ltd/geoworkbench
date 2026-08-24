@@ -1,5 +1,6 @@
 import type { Curve, CurveSampleWindow, DisplayTrack } from "../../../api/types";
 import type { DepthSpan } from "../../core/depthDomain";
+import { stringRendererSetting } from "../../core/rendererSettings";
 
 export type CurveWithWindowSamples = {
   config: NonNullable<DisplayTrack["curves"]>[number];
@@ -17,7 +18,10 @@ export type CurveWindowQueryIdentity = {
 const DEFAULT_WINDOW_PRECISION = 3;
 
 export function shouldUseWindowedCurveSamples(track: DisplayTrack): boolean {
-  return track.renderer?.sampleSource === "visible-window";
+  return (
+    stringRendererSetting(track, "sampleSource", ["workbench", "visible-window"], "workbench") ===
+    "visible-window"
+  );
 }
 
 export function curveWindowQueryIdentity(

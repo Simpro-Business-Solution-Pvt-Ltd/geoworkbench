@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
 import { nearestSample } from "../../core/curveMath";
 import type { LogTrackContext } from "../../core/logTrackContext";
+import { numericRendererSetting } from "../../core/rendererSettings";
 import { createValueScale } from "../../core/valueScale";
 import { TrackFrame } from "../../core/TrackFrame";
 import { useWorkbenchStore } from "../../display/workbenchStore";
@@ -147,9 +148,4 @@ function formatScaleValue(value: number) {
   if (Math.abs(value) >= 100) return value.toFixed(0);
   if (Math.abs(value) >= 10) return value.toFixed(1).replace(/\.0$/, "");
   return value.toFixed(2).replace(/\.?0+$/, "");
-}
-
-function numericRendererSetting(track: DisplayTrack, key: string, fallback: number): number {
-  const value = track.renderer?.[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }

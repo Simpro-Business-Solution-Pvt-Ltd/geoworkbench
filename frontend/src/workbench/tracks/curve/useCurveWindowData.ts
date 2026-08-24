@@ -4,6 +4,7 @@ import { useQueries } from "@tanstack/react-query";
 import { getCurveSampleWindow } from "../../../api/client";
 import type { BoreholeWorkbench, CurveSampleWindow, DisplayTrack } from "../../../api/types";
 import type { DepthSpan } from "../../core/depthDomain";
+import { numericRendererSetting } from "../../core/rendererSettings";
 import {
   curveWindowQueryIdentity,
   curveWindowQueryKey,
@@ -64,9 +65,4 @@ export function useCurveWindowData({ data, track, visibleDepthSpan }: UseCurveWi
     isFetching: queries.some((query) => query.isFetching),
     useWindowedSamples,
   };
-}
-
-function numericRendererSetting(track: DisplayTrack, key: string, fallback: number | null): number | null {
-  const value = track.renderer?.[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
