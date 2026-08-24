@@ -4273,7 +4273,7 @@ h2 {
   position: sticky;
   top: 0;
   z-index: 6;
-  height: var(--track-header-height, 88px);
+  height: 38px;
   overflow: hidden;
   padding: 5px 6px 6px;
   border-bottom: 1px solid #d5cbbb;
@@ -4294,7 +4294,7 @@ h2 {
 
 .track-body {
   position: absolute;
-  inset: var(--track-header-height, 88px) 0 0;
+  inset: 38px 0 0;
 }
 
 .track-title small {
@@ -4524,7 +4524,7 @@ h2 {
 
 .quant-track-empty {
   position: sticky;
-  top: calc(var(--track-header-height, 88px) + 10px);
+  top: 10px;
   display: grid;
   justify-items: center;
   gap: 3px;

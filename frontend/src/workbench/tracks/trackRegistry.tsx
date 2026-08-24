@@ -79,8 +79,8 @@ export function renderRegisteredTrack(data: BoreholeWorkbench, track: DisplayTra
   }
   return (
     <div key={track.id} className="track track-unknown" style={{ width: context.widthForTrack(track) }}>
-      <div className="track-title">{track.title || track.type}</div>
-      <div className="track-body">
+      <div className="track-title" style={{ height: context.headerHeight }}>{track.title || track.type}</div>
+      <div className="track-body" style={{ top: context.headerHeight }}>
         <div className="empty">Unsupported track type: {track.type}</div>
       </div>
     </div>

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { DisplayLayout } from "../../../api/types";
 import { AiWorkflowPanel } from "../../ai/AiWorkflowPanel";
 import { ExportPanel } from "../../exports/ExportPanel";
-import { LogWidget } from "../../widgets/LogWidget";
+import { LogWidget } from "../../widgets/logWidget/LogWidget";
 import { CurveCatalogWidget } from "./CurveCatalogWidget";
 import { EvidenceCoverageWidget } from "./EvidenceCoverageWidget";
 import { InterpretationQueueWidget } from "./InterpretationQueueWidget";

@@ -1,4 +1,4 @@
-import { type MouseEvent, type ReactNode } from "react";
+import { type CSSProperties, type MouseEvent, type ReactNode } from "react";
 
 import type { BoreholeWorkbench, DisplayTrack } from "../../api/types";
 import type { LogTrackContext } from "./logTrackContext";
@@ -35,6 +35,9 @@ export function TrackFrame({
   const scale = context?.scale ?? explicitScale;
   const onTrackEvent = context?.dispatchTrackEvent ?? explicitOnTrackEvent;
   const resolvedWidth = context ? context.widthForTrack(track) : (widthStyle ?? track.width);
+  const headerHeight = context?.headerHeight;
+  const headerStyle: CSSProperties | undefined = headerHeight ? { height: headerHeight } : undefined;
+  const bodyStyle: CSSProperties | undefined = headerHeight ? { top: headerHeight } : undefined;
 
   function emit(type: TrackPointerEvent["type"], event: MouseEvent<HTMLDivElement>) {
     if (!scale || !onTrackEvent) return;
@@ -79,13 +82,13 @@ export function TrackFrame({
         emit("contextmenu", event);
       }}
     >
-      <div className="track-title">
+      <div className="track-title" style={headerStyle}>
         <span className="track-title-text" title={track.title}>
           {track.title}
         </span>
         {headerDetail}
       </div>
-      <div className="track-body">{children}</div>
+      <div className="track-body" style={bodyStyle}>{children}</div>
       <span className="sr-only">{data.code}</span>
     </div>
   );

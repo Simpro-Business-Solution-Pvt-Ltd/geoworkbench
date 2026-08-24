@@ -68,7 +68,7 @@ frontend/src/workbench/
   core/       -> shared visualization math and interaction primitives
   display/    -> display settings, runtime widget shell, and Zustand workbench store
   tracks/     -> one renderer per track type
-  widgets/    -> composed widgets, currently LogWidget
+  widgets/    -> composed widgets, including widgets/logWidget
   ai/         -> AI panel
   exports/    -> export panel
 ```
@@ -103,7 +103,9 @@ Shared read-model helpers:
 | `depthScale.ts` | Maps depth to Y, Y to depth, and intervals to CSS positions. |
 | `logViewport.ts` | Pure virtual-depth, visible-depth, scroll, zoom, and pointer-depth math. |
 | `logViewportController.ts` | Pure controller state transitions for scroll, zoom, rubber-band zoom, and full-depth reset. |
-| `useLogViewportController.ts` | React hook that synchronizes controller state with the scroll DOM element. |
+| `logWidgetControlPlane.ts` | Public LogWidget facade for virtual depth, visible depth, transforms, scroll/zoom transitions, pointer resolution, and diagnostics. |
+| `useLogWidgetControlPlane.ts` | React hook that synchronizes the control plane with the scroll DOM element. |
+| `useLogViewportController.ts` | Compatibility adapter over `useLogWidgetControlPlane.ts`. |
 | `trackPointerMapping.ts` | Converts browser client coordinates into track-local X, content Y, and depth. |
 | `ticks.ts` | Generates nice depth ticks for zoom levels. |
 | `curveMath.ts` | Curve point normalization, visible/boundary sample selection, nearest sample search. |
@@ -128,7 +130,7 @@ The current UAT behavior is refresh-by-event: edits, imports, mobile submissions
 
 Curve tracks can optionally use visible-depth window sample fetching through the track renderer setting `sampleSource: "visible-window"`. In that mode, the curve track asks the backend for samples within the current visible depth range plus boundary samples just outside the window. Realtime import/curve/source-file events invalidate the `curveSamples` cache prefix for the active borehole, so viewport windows refresh through the same query layer as the rest of the workbench.
 
-Future phases can add partial updates, visible-depth window subscriptions, image tile invalidation, or a SignalR/.NET gateway without changing track renderers.
+Partial updates, visible-depth window subscriptions, image tile invalidation, or a SignalR/.NET gateway must connect above the same query/control-plane contracts without changing track renderers.
 
 ## Track Model
 
@@ -136,7 +138,9 @@ Every track follows this shape:
 
 ```text
 TrackFrame
-  -> receives BoreholeWorkbench, DisplayTrack, DepthScale
+  -> receives BoreholeWorkbench, DisplayTrack, LogTrackContext
+  -> applies the common headerHeight from LogTrackContext
+  -> excludes the header from depth calculations
   -> track render model calculates visible objects, styles, labels, and SVG/canvas data
   -> React component renders track body from the model
   -> implements hitTest(depth, localX, localY)
@@ -152,7 +156,7 @@ Track-specific calculations should live in pure render-model files where practic
 | Renderer settings parsing | `core/rendererSettings.ts` |
 | Pixel height, CSS style, label visibility, title text | `<track>/<track>RenderModel.ts` |
 | SVG/canvas point preparation | `<track>/<track>RenderModel.ts` |
-| DOM event depth mapping | `core/trackPointerMapping.ts` and `TrackFrame.tsx` |
+| DOM event depth mapping | `core/logWidgetControlPlane.ts`, `core/TrackFrame.tsx`, and fallback helper `core/trackPointerMapping.ts` |
 
 This keeps React components thin and makes zoom/scroll/render behavior testable without opening the browser.
 
@@ -237,11 +241,11 @@ Log widget track config has:
 - optional quantitative field config
 - optional interaction config for tooltip, context menu, and selectable behavior
 
-`DisplayEditorDialog.tsx` owns the edit session. `DisplayRuntime.tsx` renders the saved display grid during runtime and delegates each widget to a file under `display/runtime/`. `displayEditorModel.ts` owns catalog/default/normalization helpers. `LogWidget.tsx` uses the saved log widget settings to decide which track components to render.
+`DisplayEditorDialog.tsx` owns the edit session. `DisplayRuntime.tsx` renders the saved display grid during runtime and delegates each widget to a file under `display/runtime/`. `displayEditorModel.ts` owns catalog/default/normalization helpers. `widgets/logWidget/LogWidget.tsx` uses the saved log widget settings to decide which track components to render.
 
-For the depth/scroll/zoom/click/ruler architecture, use [Log Widget Control Plane](log-widget-control-plane.md). That page is the contract for virtual depth, visible depth, coordinate transforms, pointer mapping, track renderer isolation, and future realtime refresh behavior.
+For the depth/scroll/zoom/click/ruler architecture, use [Log Widget Control Plane](log-widget-control-plane.md). That page is the contract for virtual depth, visible depth, coordinate transforms, pointer mapping, track renderer isolation, and realtime refresh behavior.
 
-Correlation-specific display helpers should stay under `workbench/correlation/`. For example, seam tie-line construction is kept in `correlationTieLines.ts` and tested separately from the React workspace so future section/correlation rendering can change layout without losing the geological continuity rules.
+Correlation-specific display helpers should stay under `workbench/correlation/`. For example, seam tie-line construction is kept in `correlationTieLines.ts` and tested separately from the React workspace so section/correlation rendering can change layout without losing the geological continuity rules.
 
 ## Adding A New Track
 
@@ -269,7 +273,7 @@ Correlation-specific display helpers should stay under `workbench/correlation/`.
 
 | Need | Start Here |
 | --- | --- |
-| Improve visual display | `LogWidget.tsx`, track components, `styles.css` |
+| Improve visual display | `widgets/logWidget/LogWidget.tsx`, track components, `styles.css` |
 | Change click/hover behavior | `core/interactions.ts`, `TrackFrame.tsx`, track `hitTest` |
 | Improve curve rendering | `core/curveMath.ts`, `tracks/curve/curveRenderModel.ts` |
 | Improve display settings | `display/DisplayEditorDialog.tsx`, `display/displayEditorModel.ts`, backend layout defaults |

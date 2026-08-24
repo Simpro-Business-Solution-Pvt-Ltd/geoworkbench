@@ -8,6 +8,7 @@ export type LogTrackContext = {
   data: BoreholeWorkbench;
   controlPlane: LogWidgetControlPlane;
   scale: DepthScale;
+  headerHeight: number;
   depthDomain: DepthSpan;
   visibleDepthSpan: DepthSpan;
   widthForTrack: (track: DisplayTrack) => string;

@@ -1,26 +1,27 @@
 import {
-  type CSSProperties,
-  type RefObject,
   type UIEvent,
   type WheelEvent,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-import type { BoreholeWorkbench, DisplayTrack } from "../../api/types";
-import { addBottomDepthPadding, depthSpanSize, inferLogWidgetDepthSpan } from "../core/depthDomain";
-import type { LogTrackContext } from "../core/logTrackContext";
-import { buildLogWidgetControlPlaneDiagnostics } from "../core/logViewportDiagnostics";
-import { useLogWidgetControlPlane } from "../core/useLogWidgetControlPlane";
-import { handleTrackPointerEvent } from "../core/interactions";
-import { legendForIntervals } from "../core/lithologyPatterns";
-import type { TrackPointerEvent } from "../core/trackObject";
-import { useWorkbenchStore } from "../display/workbenchStore";
-import { renderRegisteredTrack } from "../tracks/trackRegistry";
+import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
+import { addBottomDepthPadding, depthSpanSize, inferLogWidgetDepthSpan } from "../../core/depthDomain";
+import type { LogTrackContext } from "../../core/logTrackContext";
+import { buildLogWidgetControlPlaneDiagnostics } from "../../core/logViewportDiagnostics";
+import { useLogWidgetControlPlane } from "../../core/useLogWidgetControlPlane";
+import { handleTrackPointerEvent } from "../../core/interactions";
+import { legendForIntervals } from "../../core/lithologyPatterns";
+import type { TrackPointerEvent } from "../../core/trackObject";
+import { useWorkbenchStore } from "../../display/workbenchStore";
+import { renderRegisteredTrack } from "../../tracks/trackRegistry";
+import { LogContextMenu } from "./LogContextMenu";
+import { LogWidgetFooter } from "./LogWidgetFooter";
+import { LogWidgetHeader } from "./LogWidgetHeader";
+import { useElementHeight } from "./useElementHeight";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -195,12 +196,13 @@ export function LogWidget({ data }: Props) {
       data,
       controlPlane,
       scale: viewport.scale,
+      headerHeight,
       depthDomain: controlPlane.virtualDepth,
       visibleDepthSpan: viewport.visibleDepthSpan,
       widthForTrack,
       dispatchTrackEvent,
     }),
-    [controlPlane, data, dispatchTrackEvent, viewport.scale, viewport.visibleDepthSpan, widthForTrack],
+    [controlPlane, data, dispatchTrackEvent, headerHeight, viewport.scale, viewport.visibleDepthSpan, widthForTrack],
   );
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
@@ -250,12 +252,7 @@ export function LogWidget({ data }: Props) {
       >
         <div
           className="track-row"
-          style={
-            {
-              height: viewport.contentHeight,
-              "--track-header-height": `${headerHeight}px`,
-            } as CSSProperties
-          }
+          style={{ height: viewport.contentHeight }}
           onMouseLeave={() => {
             setRuler(null);
             setHoveredObject(null);
@@ -341,173 +338,6 @@ export function LogWidget({ data }: Props) {
   );
 }
 
-function LogWidgetHeader({
-  data,
-  visibleTracks,
-  visibleCurves,
-}: {
-  data: BoreholeWorkbench;
-  visibleTracks: number;
-  visibleCurves: number;
-}) {
-  return (
-    <div className="log-header">
-      <div>
-        <h1>{data.title}</h1>
-        <p>
-          {data.code} · {data.state ?? "Unknown state"} · {data.total_depth} m · {data.source_workbook}
-        </p>
-      </div>
-      <span className="status-pill">
-        {visibleTracks} tracks · {visibleCurves} curves
-      </span>
-    </div>
-  );
-}
-
-function LogWidgetFooter({
-  visibleFromDepth,
-  visibleToDepth,
-  domainFromDepth,
-  domainToDepth,
-  scaleLabel,
-  domainSpan,
-  isZoomed,
-  tooltipsEnabled,
-  diagnosticsVisible,
-  diagnostics,
-  onZoomIn,
-  onZoomOut,
-  onFullDepth,
-  onToggleTooltips,
-  onToggleDiagnostics,
-}: {
-  visibleFromDepth: number;
-  visibleToDepth: number;
-  domainFromDepth: number;
-  domainToDepth: number;
-  scaleLabel: string;
-  domainSpan: number;
-  isZoomed: boolean;
-  tooltipsEnabled: boolean;
-  diagnosticsVisible: boolean;
-  diagnostics: Array<{ key: string; label: string; value: string }>;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onFullDepth: () => void;
-  onToggleTooltips: () => void;
-  onToggleDiagnostics: () => void;
-}) {
-  return (
-    <div className="log-footer">
-      <div className="log-footer-main">
-        <span>
-          Visible {visibleFromDepth.toFixed(2)}-{visibleToDepth.toFixed(2)} m
-        </span>
-        <span>
-          Domain {domainFromDepth.toFixed(2)}-{domainToDepth.toFixed(2)} m ({domainSpan.toFixed(2)} m)
-        </span>
-        <span>{scaleLabel} px/m</span>
-        <button type="button" onClick={onZoomIn}>Zoom in</button>
-        <button type="button" onClick={onZoomOut}>Zoom out</button>
-        <button type="button" onClick={onFullDepth} disabled={!isZoomed}>
-          Full depth
-        </button>
-        <button type="button" onClick={onToggleTooltips}>
-          {tooltipsEnabled ? "Tooltips on" : "Tooltips off"}
-        </button>
-        <button type="button" onClick={onToggleDiagnostics}>
-          {diagnosticsVisible ? "Diagnostics off" : "Diagnostics"}
-        </button>
-      </div>
-      {diagnosticsVisible && (
-        <div className="log-diagnostics">
-          {diagnostics.map((item) => (
-            <span key={item.key}>
-              <b>{item.label}</b>
-              {item.value}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function LogContextMenu({
-  depth,
-  trackType,
-  objectKind,
-  x,
-  y,
-  tooltipsEnabled,
-  diagnosticsVisible,
-  onZoomIn,
-  onZoomOut,
-  onFullDepth,
-  onToggleTooltips,
-  onToggleDiagnostics,
-  onClose,
-}: {
-  depth: number;
-  trackType: string;
-  objectKind: string;
-  x: number;
-  y: number;
-  tooltipsEnabled: boolean;
-  diagnosticsVisible: boolean;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onFullDepth: () => void;
-  onToggleTooltips: () => void;
-  onToggleDiagnostics: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="track-context-menu" style={{ left: x, top: y }}>
-      <strong>{trackType}</strong>
-      <span>{depth.toFixed(2)} m</span>
-      <span>{objectKind}</span>
-      <button type="button" onClick={onZoomIn}>Zoom in here</button>
-      <button type="button" onClick={onZoomOut}>Zoom out here</button>
-      <button type="button" onClick={onFullDepth}>Full depth</button>
-      <button type="button" onClick={onToggleTooltips}>
-        {tooltipsEnabled ? "Disable tooltips" : "Enable tooltips"}
-      </button>
-      <button type="button" onClick={onToggleDiagnostics}>
-        {diagnosticsVisible ? "Hide diagnostics" : "Show diagnostics"}
-      </button>
-      <button type="button" onClick={onClose}>Close</button>
-    </div>
-  );
-}
-
 function midpoint(span: { fromDepth: number; toDepth: number }) {
   return (span.fromDepth + span.toDepth) / 2;
-}
-
-function useElementHeight(ref: RefObject<HTMLElement | null>, fallback: number) {
-  const [height, setHeight] = useState(fallback);
-
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return undefined;
-
-    const update = () => {
-      setHeight(Math.max(1, element.clientHeight || fallback));
-    };
-
-    update();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", update);
-      return () => window.removeEventListener("resize", update);
-    }
-
-    const observer = new ResizeObserver(update);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [fallback, ref]);
-
-  return height;
 }

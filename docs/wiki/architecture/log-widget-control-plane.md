@@ -2,7 +2,7 @@
 
 Updated: 2026-08-24
 
-This page defines the control-plane contract for GeoWorkbench depth-based visualization. The goal is to make the LogWidget accurate and consistent under zoom, scroll, click, drag, right-click, realtime refresh, and future track types.
+This page is the single architecture reference for GeoWorkbench depth-based visualization. The LogWidget must stay accurate and consistent under zoom, scroll, click, drag, right-click, realtime refresh, and every registered track type.
 
 The design is inspired by mature geology log controls such as INT/GeoToolkit style separation:
 
@@ -13,7 +13,18 @@ The design is inspired by mature geology log controls such as INT/GeoToolkit sty
 
 ## Core Rule
 
-CSS may lay out containers and style graphics, but CSS must not be the source of geological truth.
+CSS may paint containers and provide safe fallback sizes, but CSS must not be the source of geological truth.
+
+All geological geometry is calculated in TypeScript by the control plane:
+
+- virtual depth.
+- visible depth.
+- header height.
+- content/body height.
+- scroll limits.
+- depth-to-pixel and pixel-to-depth transforms.
+
+React then applies the resolved pixel values to DOM elements. For example, `TrackFrame.tsx` receives `headerHeight` from `LogTrackContext` and applies it directly to the track header height and track body top offset. There is no shared CSS variable controlling track header/body geometry.
 
 The control plane owns:
 
@@ -82,9 +93,9 @@ These invariants should be unit-tested and manually verified.
 | `trackInteractionPolicy.ts` | Central policy for tooltip, context menu, and selectable behavior. |
 | track render models | Track-specific visible filtering, styles, values, hit-testing helpers. |
 
-## Target Public Contract
+## Public Contract
 
-Introduce a small public facade named `LogWidgetControlPlane` so future code consumes one stable contract instead of combining lower-level utilities directly.
+The public facade is `LogWidgetControlPlane`. Runtime widget code consumes this one stable contract instead of combining lower-level utilities directly.
 
 ```text
 LogWidgetControlPlane
@@ -121,7 +132,31 @@ LogWidgetControlPlane
     roundTripDepth(depth)
 ```
 
-React components should receive this facade or a narrowed context derived from it. Track renderers should not know how scrollTop or contentHeight are computed.
+React components receive this facade or the narrowed `LogTrackContext` derived from it. Track renderers do not know how `scrollTop`, `contentHeight`, virtual depth, or visible depth are computed.
+
+## Runtime Component Structure
+
+```text
+frontend/src/workbench/widgets/logWidget/
+  LogWidget.tsx          -> widget shell, control-plane hook, track context, overlay state
+  LogWidgetHeader.tsx    -> borehole title and track/curve count
+  LogWidgetFooter.tsx    -> visible/domain depth, zoom controls, diagnostics toggle
+  LogContextMenu.tsx     -> right-click actions using normalized depth/object context
+  useElementHeight.ts    -> measured scroll container height
+```
+
+Shared track frame:
+
+```text
+frontend/src/workbench/core/TrackFrame.tsx
+  -> renders one `.track-title`
+  -> renders one `.track-body`
+  -> applies `context.headerHeight` to both header/body layout
+  -> ignores header-origin events
+  -> resolves body coordinates through `context.controlPlane.resolvePointer(...)`
+```
+
+Every visible track has the same header height for a given LogWidget instance. Curve headers, including curve name, color, unit, and min/max, are rendered inside the standard `TrackFrame` header through `headerDetail`. Non-curve tracks use the same header area and can add their own `headerDetail` when needed.
 
 ## Event Flow
 
@@ -198,27 +233,16 @@ backend event / query invalidation
   -> if selected depth/object no longer exists, clear or re-resolve selection
 ```
 
-## Implementation Phases
-
-### Phase 1: Formalize Control Facade
-
-- Add `logWidgetControlPlane.ts`.
-- Wrap existing viewport/controller/scale modules without changing renderer behavior.
-- Add invariant tests for virtual depth, visible depth, zoom, scroll, header exclusion, and round-trip transforms.
-
-### Phase 2: Route LogWidget Through The Facade
+## Implemented Guarantees
 
 - `LogWidget.tsx` receives viewport state from `useLogWidgetControlPlane.ts`.
 - `TrackFrame.tsx` resolves click, hover, drag, and context-menu depth through the shared control plane.
-- Track renderers continue to receive resolved scale/visible-depth context and do not own global viewport math.
+- `LogTrackContext` carries `controlPlane`, `scale`, `headerHeight`, `depthDomain`, `visibleDepthSpan`, track width resolver, and dispatch function.
+- Track renderers receive resolved scale/visible-depth context and do not own global viewport math.
+- Runtime diagnostics show virtual depth, visible depth, visible span, scrollTop, maxScrollTop, body height, header height, and pixels/m.
+- Unit tests cover virtual depth, visible depth, scroll, zoom, rubber-band zoom, header exclusion, round-trip transforms, diagnostics, pointer mapping, and interaction policy.
 
-### Phase 3: Browser Geometry Hardening
-
-- Add runtime diagnostics that show virtual depth, visible depth, scrollTop, maxScrollTop, content height, body height, header height, pixels/m, and pointer depth.
-- Verify CSS assumptions: `.track-scroll`, `.track-row`, `.track-title`, `.track-body`.
-- Add defensive checks when measured body bounds diverge from control-plane geometry.
-
-### Phase 4: Curve Scale Maturity
+## Curve Scale Contract
 
 - Add explicit curve scale mode:
   - manual.
@@ -227,7 +251,7 @@ backend event / query invalidation
 - Keep min/max visible in the track header.
 - Add tests for multi-curve normalization and boundary continuity.
 
-### Phase 5: Realtime And Edit Refresh
+## Realtime And Edit Refresh Contract
 
 - Preserve visible window during interval/curve/core-image refresh.
 - Re-resolve selected interval/image/remark/suggestion after data changes.
@@ -239,4 +263,4 @@ backend event / query invalidation
 - No interaction may compute depth from page coordinates without going through the control plane.
 - No CSS-only change should alter geological coordinate behavior.
 - No zoom mode should reduce the virtual scrollable depth.
-- Any future map-style core image tiling must consume the same visible-depth contract.
+- Any map-style core image tiling must consume the same visible-depth contract.
