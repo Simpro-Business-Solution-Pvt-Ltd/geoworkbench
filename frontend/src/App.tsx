@@ -1188,6 +1188,7 @@ export function App() {
       {view === "displayEditor" && (
         <DisplayEditorDialog
           open={displayEditorOpen}
+          data={workbench.data ?? null}
           layout={workbench.data?.layout ?? null}
           availableCurves={workbench.data?.curves ?? []}
           saving={saveDisplayLayout.isPending}

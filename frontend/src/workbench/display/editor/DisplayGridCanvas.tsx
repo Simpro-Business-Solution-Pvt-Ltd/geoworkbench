@@ -4,6 +4,8 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 import type { DisplayGridItem, DisplayLayout, DisplayWidget } from "../../../api/types";
+import { BOREHOLE_EXPLORER_DRAG_MIME_TYPE } from "../../explorer/BoreholeExplorer";
+import type { BoreholeExplorerDragPayload } from "../../explorer/boreholeExplorerModel";
 import { WIDGET_LIBRARY_DRAG_MIME_TYPE, type WidgetDropPlacement } from "../widgetLibraryDropResolver";
 import { widgetLabel } from "../widgetCatalog";
 import { commitGridLayout, toReactGridLayout } from "./displayGridUtils";
@@ -20,6 +22,7 @@ type Props = {
   onSelectWidget: (widgetId: string) => void;
   onOpenWidgetSettings: (widgetId: string) => void;
   onDropWidget: (widgetType: string, placement: WidgetDropPlacement) => void;
+  onDropBoreholeItem: (widgetId: string, payload: BoreholeExplorerDragPayload) => void;
 };
 
 export function DisplayGridCanvas({
@@ -33,6 +36,7 @@ export function DisplayGridCanvas({
   onSelectWidget,
   onOpenWidgetSettings,
   onDropWidget,
+  onDropBoreholeItem,
 }: Props) {
   const [layoutInteractionSnapshot, setLayoutInteractionSnapshot] = useState<DisplayLayout | null>(null);
   const canvasPanelRef = useRef<HTMLElement | null>(null);
@@ -111,6 +115,17 @@ export function DisplayGridCanvas({
                 event.preventDefault();
                 onSelectWidget(item.widgetId);
                 onOpenWidgetSettings(item.widgetId);
+              }}
+              onDragOver={(event) => {
+                if (!event.dataTransfer.types.includes(BOREHOLE_EXPLORER_DRAG_MIME_TYPE)) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "copy";
+              }}
+              onDrop={(event) => {
+                const rawPayload = event.dataTransfer.getData(BOREHOLE_EXPLORER_DRAG_MIME_TYPE);
+                if (!rawPayload) return;
+                event.preventDefault();
+                onDropBoreholeItem(item.widgetId, JSON.parse(rawPayload) as BoreholeExplorerDragPayload);
               }}
             >
               <span className="display-widget-drag-handle">{widget.type}</span>

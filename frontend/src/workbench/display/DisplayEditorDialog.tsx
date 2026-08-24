@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type { Curve, DisplayGridItem, DisplayLayout, DisplayWidget } from "../../api/types";
+import type { BoreholeWorkbench, Curve, DisplayGridItem, DisplayLayout, DisplayWidget } from "../../api/types";
 import { defaultGridItem, normalizeDisplayLayout } from "./displayEditorModel";
 import { buildDisplayEditorSummary, displayLayoutsEqual } from "./displayEditorState";
 import { DisplayGridCanvas } from "./editor/DisplayGridCanvas";
@@ -8,11 +8,15 @@ import { clampGridItem } from "./editor/displayGridUtils";
 import { WidgetInspector } from "./editor/WidgetInspector";
 import { WidgetLibrary } from "./editor/WidgetLibrary";
 import { WidgetSettingsDialog } from "./editor/WidgetSettingsDialog";
+import { resolveLogWidgetDrop } from "./logWidgetDropResolver";
+import { BoreholeExplorer } from "../explorer/BoreholeExplorer";
+import type { BoreholeExplorerDragPayload } from "../explorer/boreholeExplorerModel";
 import { createWidgetLibraryDragPayload, resolveWidgetLibraryDrop, type WidgetDropPlacement } from "./widgetLibraryDropResolver";
 import { createWidgetId } from "./widgetCatalog";
 
 type Props = {
   open: boolean;
+  data: BoreholeWorkbench | null;
   layout: DisplayLayout | null;
   availableCurves: Curve[];
   saving: boolean;
@@ -29,6 +33,7 @@ type Props = {
 
 export function DisplayEditorDialog({
   open,
+  data,
   layout,
   availableCurves,
   saving,
@@ -47,6 +52,7 @@ export function DisplayEditorDialog({
   const [selectedWidgetId, setSelectedWidgetId] = useState("log-widget");
   const [settingsWidgetId, setSettingsWidgetId] = useState<string | null>(null);
   const [widgetLibraryOpen, setWidgetLibraryOpen] = useState(true);
+  const [boreholeExplorerOpen, setBoreholeExplorerOpen] = useState(false);
 
   useEffect(() => {
     if (open && layout) {
@@ -56,6 +62,7 @@ export function DisplayEditorDialog({
       setSelectedWidgetId(normalized.settings.widgets?.["log-widget"] ? "log-widget" : "");
       setSettingsWidgetId(null);
       setWidgetLibraryOpen(true);
+      setBoreholeExplorerOpen(false);
     }
   }, [availableCurves, layout, open]);
 
@@ -163,6 +170,12 @@ export function DisplayEditorDialog({
     });
   };
 
+  const dropExplorerItemOnWidget = (widgetId: string, payload: BoreholeExplorerDragPayload) => {
+    if (!data) return;
+    updateWidget(widgetId, (widget) => resolveLogWidgetDrop(widget, payload, data).widget);
+    setSelectedWidgetId(widgetId);
+  };
+
   const undo = () => {
     setHistory((items) => {
       const previous = items.at(-1);
@@ -201,6 +214,9 @@ export function DisplayEditorDialog({
             <button type="button" onClick={() => setWidgetLibraryOpen((open) => !open)}>
               Widget library
             </button>
+            <button type="button" disabled={!data} onClick={() => setBoreholeExplorerOpen((open) => !open)}>
+              Borehole explorer
+            </button>
             <button type="button" disabled={cloning || saving} onClick={() => onClone(draft)}>
               {cloning ? "Cloning..." : "Clone display"}
             </button>
@@ -237,6 +253,7 @@ export function DisplayEditorDialog({
             onSelectWidget={setSelectedWidgetId}
             onOpenWidgetSettings={setSettingsWidgetId}
             onDropWidget={addWidget}
+            onDropBoreholeItem={dropExplorerItemOnWidget}
           />
 
           <aside className="widget-inspector">
@@ -291,6 +308,10 @@ export function DisplayEditorDialog({
           onClose={() => setWidgetLibraryOpen(false)}
           onAddWidget={addWidget}
         />
+
+        {data && boreholeExplorerOpen && (
+          <BoreholeExplorer data={data} onClose={() => setBoreholeExplorerOpen(false)} />
+        )}
 
         {settingsWidget && (
           <WidgetSettingsDialog
