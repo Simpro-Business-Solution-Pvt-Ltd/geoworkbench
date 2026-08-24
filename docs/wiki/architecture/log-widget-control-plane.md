@@ -73,9 +73,11 @@ These invariants should be unit-tested and manually verified.
 | `depthDomain.ts` | Infer virtual depth from borehole data and visible tracks; add bottom padding. |
 | `logViewport.ts` | Resolve viewport state from virtual depth, container height, header height, scale, and scroll. |
 | `logViewportController.ts` | Pure transition model for scroll, zoom-at-depth, rubber-band zoom, and reset. |
-| `useLogViewportController.ts` | React bridge between pure controller state and DOM scroll position. |
+| `logWidgetControlPlane.ts` | Public facade for virtual depth, visible depth, transforms, scroll/zoom transitions, pointer resolution, and diagnostics. |
+| `useLogWidgetControlPlane.ts` | React bridge between the control plane and DOM scroll position. |
+| `useLogViewportController.ts` | Compatibility adapter over `useLogWidgetControlPlane.ts` for older callers. |
 | `depthScale.ts` | Bidirectional depth/body-coordinate transform using D3 scale utilities. |
-| `TrackFrame.tsx` | Shared track frame, header exclusion, pointer normalization, event dispatch. |
+| `TrackFrame.tsx` | Shared track frame, header exclusion, control-plane pointer normalization, event dispatch. |
 | `trackPointerMapping.ts` | Convert client coordinates into track-local and depth coordinates. |
 | `trackInteractionPolicy.ts` | Central policy for tooltip, context menu, and selectable behavior. |
 | track render models | Track-specific visible filtering, styles, values, hit-testing helpers. |
@@ -206,9 +208,9 @@ backend event / query invalidation
 
 ### Phase 2: Route LogWidget Through The Facade
 
-- Replace direct scattered calls in `LogWidget.tsx` with the control facade.
-- Keep `TrackFrame` receiving a narrowed context.
-- Keep renderers unchanged unless tests expose mismatches.
+- `LogWidget.tsx` receives viewport state from `useLogWidgetControlPlane.ts`.
+- `TrackFrame.tsx` resolves click, hover, drag, and context-menu depth through the shared control plane.
+- Track renderers continue to receive resolved scale/visible-depth context and do not own global viewport math.
 
 ### Phase 3: Browser Geometry Hardening
 

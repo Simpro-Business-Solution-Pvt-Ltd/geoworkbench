@@ -14,9 +14,8 @@ import {
 import type { BoreholeWorkbench, DisplayTrack } from "../../api/types";
 import { addBottomDepthPadding, depthSpanSize, inferLogWidgetDepthSpan } from "../core/depthDomain";
 import type { LogTrackContext } from "../core/logTrackContext";
-import { resolveLogPointerPosition } from "../core/logViewport";
 import { buildLogViewportDiagnostics } from "../core/logViewportDiagnostics";
-import { useLogViewportController } from "../core/useLogViewportController";
+import { useLogWidgetControlPlane } from "../core/useLogWidgetControlPlane";
 import { handleTrackPointerEvent } from "../core/interactions";
 import { legendForIntervals } from "../core/lithologyPatterns";
 import type { TrackPointerEvent } from "../core/trackObject";
@@ -84,8 +83,8 @@ export function LogWidget({ data }: Props) {
     maxVisibleCurves > 0 ? DEFAULT_HEADER_SCALE_BASE + maxVisibleCurves * 13 : DEFAULT_HEADER_HEIGHT,
     ...visibleTracks.map((track) => track.header?.height ?? 0),
   );
-  const { viewport, isZoomed, applyZoomAtDepth, zoomToDepthWindow, resetToFullDepth, setScrollTop } =
-    useLogViewportController({
+  const { controlPlane, isZoomed, zoomAtDepth, zoomToDepthWindow, resetFullDepth, scrollTo } =
+    useLogWidgetControlPlane({
       depthDomain,
       containerHeight,
       headerHeight,
@@ -93,6 +92,7 @@ export function LogWidget({ data }: Props) {
       resetKey: data.id,
       zoomEpsilon: ZOOM_EPSILON,
     });
+  const viewport = controlPlane.snapshot.viewport;
   const lithologyLegend = legendForIntervals(data.lithology_intervals);
   const widthForTrack = useMemo(() => {
     if (!visibleTracks.length) return () => "100%";
@@ -115,10 +115,14 @@ export function LogWidget({ data }: Props) {
       const body = scrollRef.current?.querySelector<HTMLElement>(".track-body");
       const containerBounds = scrollRef.current?.getBoundingClientRect();
       const fallbackTop = (containerBounds?.top ?? 0) + headerHeight - viewport.scrollTop;
-      const bodyTop = body?.getBoundingClientRect().top ?? fallbackTop;
-      return resolveLogPointerPosition(viewport, clientY, bodyTop);
+      const bodyBounds = body?.getBoundingClientRect();
+      const pointer = controlPlane.resolvePointer(0, clientY, {
+        left: bodyBounds?.left ?? 0,
+        top: bodyBounds?.top ?? fallbackTop,
+      });
+      return { depth: pointer.depth, viewportBodyY: pointer.viewportY };
     },
-    [headerHeight, viewport],
+    [controlPlane, headerHeight, viewport.scrollTop],
   );
 
   const dispatchTrackEvent = useCallback(
@@ -189,24 +193,25 @@ export function LogWidget({ data }: Props) {
   const trackContext = useMemo<LogTrackContext>(
     () => ({
       data,
+      controlPlane,
       scale: viewport.scale,
-      depthDomain,
+      depthDomain: controlPlane.virtualDepth,
       visibleDepthSpan: viewport.visibleDepthSpan,
       widthForTrack,
       dispatchTrackEvent,
     }),
-    [data, depthDomain, dispatchTrackEvent, viewport.scale, viewport.visibleDepthSpan, widthForTrack],
+    [controlPlane, data, dispatchTrackEvent, viewport.scale, viewport.visibleDepthSpan, widthForTrack],
   );
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     if (!event.altKey && !event.ctrlKey) return;
     event.preventDefault();
     const pointer = resolvePointerDepth(event.clientY);
-    applyZoomAtDepth(pointer.depth, event.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR, pointer.viewportBodyY);
+    zoomAtDepth(pointer.depth, event.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR, pointer.viewportBodyY);
   };
 
   const handleScroll = (event: UIEvent<HTMLDivElement>) => {
-    setScrollTop(event.currentTarget.scrollTop);
+    scrollTo(event.currentTarget.scrollTop);
   };
 
   const setScrollRef = useCallback((element: HTMLDivElement | null) => {
@@ -287,15 +292,15 @@ export function LogWidget({ data }: Props) {
               y={contextMenu.y}
               tooltipsEnabled={tooltipsEnabled}
               onZoomIn={() => {
-                applyZoomAtDepth(contextMenu.depth, ZOOM_IN_FACTOR);
+                zoomAtDepth(contextMenu.depth, ZOOM_IN_FACTOR);
                 setContextMenu(null);
               }}
               onZoomOut={() => {
-                applyZoomAtDepth(contextMenu.depth, ZOOM_OUT_FACTOR);
+                zoomAtDepth(contextMenu.depth, ZOOM_OUT_FACTOR);
                 setContextMenu(null);
               }}
               onFullDepth={() => {
-                resetToFullDepth();
+                resetFullDepth();
                 setContextMenu(null);
               }}
               onToggleTooltips={() => {
@@ -323,9 +328,9 @@ export function LogWidget({ data }: Props) {
         tooltipsEnabled={tooltipsEnabled}
         diagnosticsVisible={diagnosticsVisible}
         diagnostics={diagnostics}
-        onZoomIn={() => applyZoomAtDepth(selectedDepth ?? midpoint(viewport.visibleDepthSpan), ZOOM_IN_FACTOR)}
-        onZoomOut={() => applyZoomAtDepth(selectedDepth ?? midpoint(viewport.visibleDepthSpan), ZOOM_OUT_FACTOR)}
-        onFullDepth={resetToFullDepth}
+        onZoomIn={() => zoomAtDepth(selectedDepth ?? midpoint(viewport.visibleDepthSpan), ZOOM_IN_FACTOR)}
+        onZoomOut={() => zoomAtDepth(selectedDepth ?? midpoint(viewport.visibleDepthSpan), ZOOM_OUT_FACTOR)}
+        onFullDepth={resetFullDepth}
         onToggleTooltips={() => setTooltipsEnabled(!tooltipsEnabled)}
         onToggleDiagnostics={() => setDiagnosticsVisible((visible) => !visible)}
       />

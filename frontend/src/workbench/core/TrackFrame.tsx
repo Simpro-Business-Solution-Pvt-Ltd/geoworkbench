@@ -42,12 +42,10 @@ export function TrackFrame({
     if (!shouldEmitTrackPointerEvent(track, type)) return;
     const body = event.currentTarget.querySelector<HTMLElement>(".track-body");
     const bounds = body?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
-    const { localX, localY, depth } = resolveTrackPointerFromClient(
-      scale,
-      event.clientX,
-      event.clientY,
-      bounds,
-    );
+    const pointer = context?.controlPlane.resolvePointer(event.clientX, event.clientY, bounds);
+    const { localX, localY, depth } = pointer
+      ? { localX: pointer.localX, localY: pointer.bodyY, depth: pointer.depth }
+      : resolveTrackPointerFromClient(scale, event.clientX, event.clientY, bounds);
     const fallbackObject = emptyTrackObject(depth);
     const hitObject = hitTest?.({ depth, localX, localY }) ?? fallbackObject;
     const object = objectForTrackPointerEvent(track, type, hitObject, fallbackObject);
