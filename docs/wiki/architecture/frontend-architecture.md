@@ -136,24 +136,37 @@ Every track follows this shape:
 ```text
 TrackFrame
   -> receives BoreholeWorkbench, DisplayTrack, DepthScale
-  -> renders track body
+  -> track render model calculates visible objects, styles, labels, and SVG/canvas data
+  -> React component renders track body from the model
   -> implements hitTest(depth, localX, localY)
   -> returns TrackObject
   -> central handler decides what the click/hover means
 ```
+
+Track-specific calculations should live in pure render-model files where practical:
+
+| Concern | Preferred Location |
+| --- | --- |
+| Visible interval filtering | `core/depthVisibility.ts` plus `<track>/<track>RenderModel.ts` |
+| Renderer settings parsing | `core/rendererSettings.ts` |
+| Pixel height, CSS style, label visibility, title text | `<track>/<track>RenderModel.ts` |
+| SVG/canvas point preparation | `<track>/<track>RenderModel.ts` |
+| DOM event depth mapping | `core/trackPointerMapping.ts` and `TrackFrame.tsx` |
+
+This keeps React components thin and makes zoom/scroll/render behavior testable without opening the browser.
 
 Current track renderers:
 
 | Track | File | Purpose |
 | --- | --- | --- |
 | Depth | `tracks/depth/DepthTrack.tsx` | Depth ticks and depth-axis hit testing. |
-| Lithology | `tracks/lithology/LithologyTrack.tsx` | Colored lithology intervals. |
-| Seam | `tracks/seam/SeamTrack.tsx` | Coal seam markers. |
-| Recovery/RQD | `tracks/quantitativeBar/QuantitativeBarTrack.tsx` | Quantitative interval bar tracks. |
-| Curves | `tracks/curve/CurveTrack.tsx` | Multi-curve normalized curve rendering and tooltips. |
-| Remarks | `tracks/remarks/RemarksTrack.tsx` | Grouped remarks to avoid clutter. |
+| Lithology | `tracks/lithology/LithologyTrack.tsx`, `lithologyRenderModel.ts` | Colored lithology intervals. |
+| Seam | `tracks/seam/SeamTrack.tsx`, `seamRenderModel.ts` | Coal seam markers. |
+| Recovery/RQD | `tracks/quantitativeBar/QuantitativeBarTrack.tsx`, `quantitativeBarRenderModel.ts` | Quantitative interval bar tracks. |
+| Curves | `tracks/curve/CurveTrack.tsx`, `curveRenderModel.ts` | Multi-curve normalized curve rendering and tooltips. |
+| Remarks | `tracks/remarks/RemarksTrack.tsx`, `remarksRenderModel.ts` | Grouped remarks to avoid clutter. |
 | AI Suggestions | `tracks/aiSuggestions/AiSuggestionsTrack.tsx` | Depth-aligned suggestion markers. |
-| Images | `tracks/images/ImageTrack.tsx` | Available for image interval rendering; current UX mainly uses right-panel corebox preview. |
+| Images | `tracks/images/ImageTrack.tsx`, `coreImageRenderModel.ts` | Depth-aligned core image state and prepared rock-lane rendering. |
 
 ## State
 
@@ -226,12 +239,14 @@ Log widget track config has:
 
 1. Add config defaults in `backend/app/domains/display_layouts/defaults.py`.
 2. Add the TypeScript rendering component under `frontend/src/workbench/tracks/<track>/`.
-3. Wrap it in `TrackFrame`.
-4. Use `DepthScale`; do not write separate depth math.
-5. Add a `hitTest`.
-6. Add the renderer switch in `LogWidget.tsx`.
-7. Add the track to `displayEditorModel.ts` catalog if users should be able to re-add it.
-8. Add behavior to `interactions.ts` only if click/hover/context-menu should do something new.
+3. Add `<track>RenderModel.ts` for visible filtering, style calculations, labels, and renderer-specific data.
+4. Add unit tests for the render model.
+5. Wrap the React component in `TrackFrame`.
+6. Use `DepthScale`; do not write separate depth math.
+7. Add a `hitTest`.
+8. Register the track in `tracks/trackRegistry.tsx`.
+9. Add the track to `trackCatalog.ts` if users should be able to re-add it.
+10. Add behavior to `interactions.ts` only if click/hover/context-menu should do something new.
 
 ## Adding A New Widget
 
@@ -248,7 +263,7 @@ Log widget track config has:
 | --- | --- |
 | Improve visual display | `LogWidget.tsx`, track components, `styles.css` |
 | Change click/hover behavior | `core/interactions.ts`, `TrackFrame.tsx`, track `hitTest` |
-| Improve curve rendering | `core/curveMath.ts`, `tracks/curve/CurveTrack.tsx` |
+| Improve curve rendering | `core/curveMath.ts`, `tracks/curve/curveRenderModel.ts` |
 | Improve display settings | `display/DisplayEditorDialog.tsx`, `display/displayEditorModel.ts`, backend layout defaults |
 | Improve runtime display rendering | `display/DisplayRuntime.tsx`, `display/displayEditorModel.ts` |
 | Add side-panel metadata | `App.tsx` right panel and backend workbench schema |

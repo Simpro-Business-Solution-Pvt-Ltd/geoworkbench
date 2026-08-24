@@ -148,6 +148,19 @@ Each track owns its own hit test logic:
 
 Hit testing should return a `TrackObject`, not directly mutate UI state.
 
+### Render Models
+
+Track components should stay thin. Track-specific rendering calculations belong in pure render-model modules such as:
+
+- `lithologyRenderModel.ts`
+- `seamRenderModel.ts`
+- `quantitativeBarRenderModel.ts`
+- `remarksRenderModel.ts`
+- `curveRenderModel.ts`
+- `coreImageRenderModel.ts`
+
+These modules calculate visible objects, CSS positions, label visibility, grouped objects, and SVG/image data. React components should mostly map render models to DOM/SVG. This makes zoom, scroll, density, and clutter behavior testable without a browser.
+
 ### Central Interaction Handler
 
 `handleTrackPointerEvent()` decides what happens:
@@ -165,11 +178,13 @@ When adding a new track:
 
 1. Create a track renderer under `frontend/src/workbench/tracks/<track-name>/`.
 2. Register it in the track registry.
-3. Wrap it in `TrackFrame`.
-4. Use the shared `DepthScale`.
-5. Implement `hitTest`.
-6. Return a typed `TrackObject`.
-7. Let the central interaction handler decide behavior.
+3. Create a pure render model if the track has visible filtering, style calculation, grouping, labels, SVG points, or image decisions.
+4. Add unit tests for that render model.
+5. Wrap the component in `TrackFrame`.
+6. Use the shared `DepthScale`.
+7. Implement `hitTest`.
+8. Return a typed `TrackObject`.
+9. Let the central interaction handler decide behavior.
 
 Avoid adding a new abstraction unless it helps with one of these:
 
