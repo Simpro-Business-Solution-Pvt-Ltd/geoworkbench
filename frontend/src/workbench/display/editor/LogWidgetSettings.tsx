@@ -2,6 +2,8 @@ import type { Curve, DisplayTrack, DisplayWidget } from "../../../api/types";
 import { createTrackId, TRACK_CATALOG } from "../trackCatalog";
 import { CurveTrackSettings } from "./CurveTrackSettings";
 import { moveItem } from "./displayGridUtils";
+import { QuantitativeTrackSettings } from "./QuantitativeTrackSettings";
+import { SeamTrackSettings } from "./SeamTrackSettings";
 
 type Props = {
   widget: DisplayWidget;
@@ -143,129 +145,5 @@ function TrackSettings({
       {track.type === "seam" && <SeamTrackSettings track={track} patchTrack={patchTrack} />}
       {track.type === "quantitativeBar" && <QuantitativeTrackSettings track={track} patchTrack={patchTrack} />}
     </section>
-  );
-}
-
-function SeamTrackSettings({
-  track,
-  patchTrack,
-}: {
-  track: DisplayTrack;
-  patchTrack: (patch: Partial<DisplayTrack>) => void;
-}) {
-  const labelMinHeightPx = rendererNumber(track, "labelMinHeightPx");
-  const labelMaxVisibleSpanM = rendererNumber(track, "labelMaxVisibleSpanM");
-  const patchRenderer = (key: string, value: number | undefined) => {
-    patchTrack({
-      renderer: {
-        ...(track.renderer ?? {}),
-        [key]: value,
-      },
-    });
-  };
-
-  return (
-    <div className="curve-settings-list">
-      <strong>Seam Labels</strong>
-      <div className="curve-scale-grid">
-        <label>
-          Min label height
-          <input
-            type="number"
-            min="4"
-            max="80"
-            value={labelMinHeightPx ?? ""}
-            placeholder="18"
-            onChange={(event) => patchRenderer("labelMinHeightPx", optionalNumber(event.target.value))}
-          />
-        </label>
-        <label>
-          Max visible span
-          <input
-            type="number"
-            min="10"
-            step="10"
-            value={labelMaxVisibleSpanM ?? ""}
-            placeholder="160"
-            onChange={(event) => patchRenderer("labelMaxVisibleSpanM", optionalNumber(event.target.value))}
-          />
-        </label>
-      </div>
-    </div>
-  );
-}
-
-function rendererNumber(track: DisplayTrack, key: string) {
-  const value = track.renderer?.[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function optionalNumber(value: string) {
-  return value ? Number(value) : undefined;
-}
-
-function QuantitativeTrackSettings({
-  track,
-  patchTrack,
-}: {
-  track: DisplayTrack;
-  patchTrack: (patch: Partial<DisplayTrack>) => void;
-}) {
-  return (
-    <div className="curve-settings-list">
-      <strong>Quantitative Bar</strong>
-      <div className="curve-scale-grid">
-        <label>
-          Data field
-          <select
-            value={track.valueField ?? "recovery_percent"}
-            onChange={(event) =>
-              patchTrack({
-                valueField: event.target.value === "rqd" ? "rqd" : "recovery_percent",
-              })
-            }
-          >
-            <option value="recovery_percent">Recovery %</option>
-            <option value="rqd">RQD</option>
-          </select>
-        </label>
-        <label>
-          Unit
-          <input value={track.unit ?? ""} placeholder="%" onChange={(event) => patchTrack({ unit: event.target.value })} />
-        </label>
-        <label>
-          Min
-          <input
-            type="number"
-            value={track.min ?? ""}
-            placeholder="0"
-            onChange={(event) => patchTrack({ min: optionalNumber(event.target.value) })}
-          />
-        </label>
-        <label>
-          Max
-          <input
-            type="number"
-            value={track.max ?? ""}
-            placeholder="100"
-            onChange={(event) => patchTrack({ max: optionalNumber(event.target.value) })}
-          />
-        </label>
-        <label>
-          Multiplier
-          <input
-            type="number"
-            step="0.1"
-            value={track.valueMultiplier ?? ""}
-            placeholder="1"
-            onChange={(event) => patchTrack({ valueMultiplier: optionalNumber(event.target.value) })}
-          />
-        </label>
-        <label>
-          Color
-          <input type="color" value={track.color ?? "#55b7aa"} onChange={(event) => patchTrack({ color: event.target.value })} />
-        </label>
-      </div>
-    </div>
   );
 }
