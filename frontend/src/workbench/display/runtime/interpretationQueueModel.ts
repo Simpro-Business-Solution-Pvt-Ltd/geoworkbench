@@ -50,6 +50,23 @@ export function buildInterpretationQueue(data: BoreholeWorkbench): Interpretatio
     });
   }
 
+  const correctionCoverage = intervalCorrectionCoverage(data);
+  if (correctionCoverage && correctionCoverage.correctedCount < correctionCoverage.totalCount) {
+    items.push({
+      id: "workflow:correction-progress",
+      priority: correctionCoverage.correctedCount === 0 ? "review" : "watch",
+      source: "workflow",
+      title: correctionCoverage.correctedCount === 0 ? "Central correction not started" : "Correction review is partial",
+      detail:
+        correctionCoverage.correctedCount === 0
+          ? "Imported intervals are still in raw/site-submitted stage and need central geologist interpretation."
+          : "Some intervals have central correction evidence, but part of the borehole remains raw or field-submitted.",
+      evidence: `${correctionCoverage.correctedCount}/${correctionCoverage.totalCount} intervals corrected`,
+      depth: correctionCoverage.firstOpenDepth,
+      action: correctionCoverage.firstOpenDepth !== null ? "select-depth" : "review-workflow",
+    });
+  }
+
   const curveDepths = data.curves.flatMap((curve) => curve.samples.map((sample) => sample.depth));
   if (!data.curves.length) {
     items.push({
@@ -160,6 +177,22 @@ function priorityForValidation(issue: ValidationIssue): InterpretationQueuePrior
 function priorityForSuggestion(suggestion: AiSuggestion): InterpretationQueuePriority {
   if (suggestion.confidence !== null && suggestion.confidence >= 0.75) return "review";
   return "watch";
+}
+
+function intervalCorrectionCoverage(data: BoreholeWorkbench) {
+  const intervalsWithStage = data.lithology_intervals.filter((interval) => typeof interval.attributes?.data_stage === "string");
+  if (!intervalsWithStage.length) return null;
+  const correctedIntervals = intervalsWithStage.filter((interval) =>
+    ["geologist_corrected", "approved_final"].includes(String(interval.attributes?.data_stage)),
+  );
+  const firstOpen = intervalsWithStage.find(
+    (interval) => !["geologist_corrected", "approved_final"].includes(String(interval.attributes?.data_stage)),
+  );
+  return {
+    totalCount: intervalsWithStage.length,
+    correctedCount: correctedIntervals.length,
+    firstOpenDepth: firstOpen?.from_depth ?? null,
+  };
 }
 
 function depthEvidence(fromDepth: number | null, toDepth: number | null, suffix: string) {

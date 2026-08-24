@@ -51,6 +51,28 @@ describe("interpretationQueueModel", () => {
     expect(queue).toHaveLength(1);
     expect(queue[0]).toMatchObject({ id: "workflow:ready", priority: "ready" });
   });
+
+  it("adds correction progress when intervals carry raw stage metadata", () => {
+    const queue = buildInterpretationQueue(
+      borehole({
+        intervals: [interval(0, 10, "raw_imported"), interval(10, 20, "geologist_corrected")],
+        curves: [curve("ngamma", 0, 120)],
+        seams: [seam("A", 40, 42)],
+        coreImages: 1,
+        collar: { coalgrid_easting: 1000, coalgrid_northing: 2000 },
+      }),
+    );
+
+    expect(queue).toContainEqual(
+      expect.objectContaining({
+        id: "workflow:correction-progress",
+        priority: "watch",
+        source: "workflow",
+        depth: 0,
+        evidence: "1/2 intervals corrected",
+      }),
+    );
+  });
 });
 
 function borehole(
@@ -151,7 +173,7 @@ function curve(key: string, fromDepth: number, toDepth: number): Curve {
   };
 }
 
-function interval(fromDepth: number, toDepth: number): LithologyInterval {
+function interval(fromDepth: number, toDepth: number, dataStage?: string): LithologyInterval {
   return {
     id: `${fromDepth}-${toDepth}`,
     source_row: null,
@@ -169,6 +191,7 @@ function interval(fromDepth: number, toDepth: number): LithologyInterval {
     remark: null,
     image_box: null,
     image_file: null,
+    attributes: dataStage ? { data_stage: dataStage } : null,
   };
 }
 
