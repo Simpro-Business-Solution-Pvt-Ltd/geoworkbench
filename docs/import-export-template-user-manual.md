@@ -9,7 +9,7 @@ This build is ready for controlled UAT and stakeholder exploration of the import
 Known UAT caveats:
 
 - UI/UX is still being refined and should be treated as a working product preview, not final visual design.
-- Import/export templates are editable, but the editor is still technical JSON for this phase.
+- Import/export templates show a readable mapping preview and remain editable through technical JSON for this phase.
 - Import merge preview is functional but not yet a full visual impact report.
 - Export readiness is a quality checklist, not a second-user approval workflow.
 - Minex-specific export needs the customer's exact target import template before finalization.
@@ -22,6 +22,8 @@ Known UAT caveats:
 3. Click **Process** to detect/profile the file.
 4. Click a template to review or edit its mapping.
 5. Click **Merge** and confirm the merge options.
+
+The mapping preview reads the saved template and shows the route from source columns or curve mnemonics into GeoWorkbench's canonical borehole model. The JSON editor remains available for admin users who need to change column letters, curve aliases, or template metadata during UAT.
 
 ## Import Template Editing
 
@@ -100,6 +102,8 @@ Images are stored as source files first. They become depth-linked core images af
 4. Edit the template if needed.
 5. Review readiness checks.
 6. Generate and download.
+
+The export mapping preview shows the route from canonical model fields into output columns or sections. The backend uses the selected export template when generating files; the preview is not a separate display-only setting.
 
 Export is permission-driven in this UAT build. A user with export access can generate exports directly. Readiness checks highlight quality issues, warnings, source availability, curve availability, and open AI/rule suggestions so the user can decide whether the package is fit for handover.
 

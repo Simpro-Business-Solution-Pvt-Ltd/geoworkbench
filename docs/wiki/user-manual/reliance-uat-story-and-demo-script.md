@@ -1,6 +1,6 @@
 # Reliance UAT Story And Demo Script
 
-Updated: 2026-08-21
+Updated: 2026-08-24
 
 This is the canonical story for the current GeoWorkbench UAT build. Use it for stakeholder demos, partner testing, and internal walkthroughs. Older planning documents are still useful as background, but this page is the main narrative for what the application is trying to prove now.
 
@@ -36,11 +36,11 @@ The current build demonstrates an end-to-end workflow:
 4. **Import and merge**
    Import Center accepts uploaded or registered source files. It exposes templates, mapping preview, process/merge actions, and source audit facts such as adapter, template, row count, curves, depth range, file size, and merge mode.
 
-5. **Rules and AI insights**
-   Validation and AI summary flows highlight quality issues, missing evidence, source coverage, curve availability, and geological review points. The current UAT build uses deterministic rules plus local/OpenAI-compatible model summarization where configured.
+5. **Rules, AI insights, and interpretation queue**
+   Validation, AI summary, and the interpretation queue highlight quality issues, correction progress, missing evidence, source coverage, curve availability, and geological review points. The current UAT build uses deterministic rules plus local/OpenAI-compatible model summarization where configured.
 
 6. **Correlation**
-   Correlation view compares multiple boreholes by lithology, seam markers, gamma/geophysical response, and depth/RL alignment. The AI insights dialog generates review points and lets the geologist save database-backed observations for the selected borehole set.
+   Correlation view compares multiple boreholes by lithology, seam markers, gamma/geophysical response, and depth/RL alignment. The AI insights dialog generates review points and lets the geologist save database-backed observations directly from an insight or through a free-form interpretation note.
 
 7. **Export**
    Export Center shows readiness checks, lets the user choose export settings, generates Excel/CSV/LAS outputs, and displays export audit facts. Export is permission-controlled in this UAT build, not a full second-user approval workflow.
@@ -58,8 +58,8 @@ The demo should make these points clear:
 | Stakeholder concern | What to show | Business value |
 | --- | --- | --- |
 | Data arrives from many places | Mobile capture, Excel/LAS upload, source queue, parsed imports | Reduces scattered file handling and re-entry |
-| Templates change | Template registry and mapping preview | Gives a controlled path for multiple Excel/LAS formats |
-| Corrections need traceability | Interval edit, data stage, source metadata, correction history | Makes decisions reviewable later |
+| Templates change | Template registry and source-to-model/source-to-output mapping preview | Gives a controlled path for multiple Excel/LAS formats |
+| Corrections need traceability | Interpretation queue, interval edit, data stage, source metadata, correction history | Makes decisions reviewable later |
 | Geophysical logs must support interpretation | Curve tracks, curve catalog, curve coverage, AI summary evidence | Helps compare lithology against measured log response |
 | Corebox images are important | Core image state, linked image design, current missing-package state | Keeps visual evidence in the same interpretation context |
 | Correlation is critical | Multi-borehole correlation, seam continuity, depth/RL mode, saved notes | Helps review seam continuity and missing/inconsistent markers |
@@ -126,6 +126,7 @@ Say:
 Do:
 
 - Show lithology, curve, seam/RQD/recovery, AI, and core image state tracks where configured.
+- Show the interpretation queue and explain raw/imported, partially corrected, and ready-for-review states.
 - Click a depth/lithology interval.
 - Show interval metadata, source evidence, and correction history.
 - Open an interval edit panel, change a harmless comment/remark if testing allows, and save.
@@ -187,7 +188,7 @@ Do:
 - Show depth/RL toggle.
 - Open AI insights.
 - Point out the recommended action attached to each insight.
-- Draft/save a correlation note.
+- Save an insight as a correlation observation, then draft/save a manual correlation note.
 - Close, refresh, reopen, and show the note persists with author and timestamp.
 
 Test:

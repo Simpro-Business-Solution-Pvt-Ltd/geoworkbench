@@ -1,6 +1,6 @@
 # UAT Interpretation Platform Plan
 
-Updated: 2026-08-21
+Updated: 2026-08-24
 
 This page tracks the current Reliance UAT direction. It is written for product, demo, and geology discussion, not as a low-level developer design note.
 
@@ -43,6 +43,7 @@ Acceptance checks for this pass:
 - The workbench clearly shows which useful tracks are available for the selected borehole.
 - Empty data areas are not presented as if they are missing due to a software bug.
 - Missing RL/elevation, water level, RQD, or core images are framed as data availability items.
+- Import/export templates show a readable mapping preview before the advanced JSON editor.
 - Existing saved displays may need reset or reimport with the latest Reliance layout defaults to show the explicit missing-core-image track state.
 - The team can answer: "What did Reliance provide, what did we derive, and what do we still need?"
 
@@ -72,6 +73,7 @@ When the geologist edits and saves a corrected value, the affected track or widg
 - recovery/RQD change updates quality tracks and interval metadata.
 - lithology change updates lithology track and export-ready interval data.
 - remarks change updates remarks track and correction history.
+- raw/imported interval stages appear as correction-progress work items in the interpretation queue.
 
 For UAT, a single-user correction and audit trail is acceptable. A full maker-checker approval workflow can be staged after the stakeholders validate the correction process.
 
@@ -106,7 +108,7 @@ Needed UAT refinements:
 - compute distances from a selected/reference borehole using coordinates.
 - clearly mark RL mode as estimated/limited when collar RL is missing.
 - show seam continuity/missing seam/thickness variation insights as actionable cards.
-- each insight should allow "mark reviewed", "save interpretation note", and "open borehole".
+- each insight should allow "mark reviewed", direct "save observation", note drafting, and follow-up through the workbench.
 
 Example insight wording:
 
@@ -148,7 +150,7 @@ The current system has started modularization, but the final product pattern sti
 
 ### Milestone A: Data Meaning And Visibility
 
-Status: in progress.
+Status: in progress; mapping preview and core data-availability messaging are available.
 
 Acceptance:
 
@@ -159,7 +161,7 @@ Acceptance:
 
 ### Milestone B: Corrected Interpretation Loop
 
-Status: partially available.
+Status: partially available; interval edit, audit history, and correction-progress queue are available.
 
 Acceptance:
 
@@ -170,7 +172,7 @@ Acceptance:
 
 ### Milestone C: Correlation As Interpretation Workspace
 
-Status: foundation available, needs refinement.
+Status: foundation available; insight actions and saved observations are available, visual refinement continues.
 
 Acceptance:
 
