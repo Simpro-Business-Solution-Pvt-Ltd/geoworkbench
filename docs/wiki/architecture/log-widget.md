@@ -15,6 +15,7 @@ The widget must support:
 - multiple track types in one shared depth space.
 - multiple curves in one curve track.
 - any imported curve from a borehole data source.
+- drag/drop from a Borehole Explorer into LogWidget.
 - editable display settings persisted in the saved display layout.
 - consistent click, hover, drag, zoom, ruler, and context-menu behavior.
 - runtime rendering from saved settings.
@@ -145,6 +146,156 @@ LogTrackContext
 
 Track renderers must use this context instead of calculating global depth state.
 
+## Borehole Explorer Pattern
+
+Borehole Explorer should be the discoverable source palette for the active borehole. LogWidget should be the configurable display target.
+
+This gives users a natural workflow:
+
+```text
+Borehole Explorer
+  -> shows imported curves, intervals, seam data, images, remarks, validation, AI suggestions, metadata
+  -> user drags a data object or data group
+  -> LogWidget accepts the drop
+  -> system creates or updates the relevant track configuration
+  -> display can be saved as a reusable layout
+```
+
+This avoids hardcoded UI choices such as "add gamma". The user sees whatever the borehole actually contains and can decide what to visualize.
+
+## Borehole Explorer Data Tree
+
+The explorer should group active borehole data into discoverable nodes:
+
+```text
+Borehole
+  Metadata
+    Collar
+    Coordinates
+    Water level
+    Drilling/runtime parameters
+  Intervals
+    Lithology
+    Seam
+    Recovery
+    RQD
+    Remarks
+    Custom numeric interval fields
+    Custom text/categorical interval fields
+  Geophysical Logs
+    Curves
+      <curve mnemonic/key>
+      <curve mnemonic/key>
+  Images
+    Core images
+    Prepared core strips
+    Field photos
+  Quality And Interpretation
+    Validation issues
+    AI suggestions
+    Correction versions
+```
+
+Each explorer node should expose a typed drag payload, not plain display text.
+
+Example payloads:
+
+```json
+{ "kind": "curve", "curveKey": "NGAM" }
+{ "kind": "curveGroup", "curveKeys": ["NGAM", "RES", "DENS"] }
+{ "kind": "intervalLayer", "layer": "lithology" }
+{ "kind": "intervalNumericField", "field": "rqd", "unit": "%", "label": "RQD" }
+{ "kind": "imageLayer", "layer": "core_images" }
+{ "kind": "assistantLayer", "layer": "ai_suggestions" }
+```
+
+The drag payload must reference canonical borehole data keys. It must not contain renderer-specific JSX or CSS.
+
+## Drop Behavior
+
+LogWidget should support drop targets in both edit mode and runtime mode, with different save semantics.
+
+| Mode | Behavior |
+| --- | --- |
+| Edit mode | Dropping updates the display draft. User can undo/cancel/save. |
+| Runtime mode | Dropping can create a temporary preview or ask whether to save to the active display. It must not silently persist. |
+
+Drop rules:
+
+| Dropped Object | LogWidget Behavior |
+| --- | --- |
+| Single curve | Add to selected curve track, nearest curve track, or create a new curve track. |
+| Curve group | Create a new curve track with all dropped curves, or add to selected curve track. |
+| Lithology layer | Add/show lithology track. |
+| Seam layer | Add/show seam track. |
+| Recovery/RQD numeric field | Add quantitative bar track mapped to that interval field. |
+| Custom numeric interval field | Add quantitative bar track with field mapping and unit. |
+| Text/categorical interval field | Add remarks/categorical interval track if renderer exists; otherwise prompt to configure a renderer. |
+| Core images | Add/show image track. |
+| AI suggestions | Add/show AI suggestion track. |
+| Validation issues | Add/show validation/AI marker track or widget depending on target. |
+
+If the target is ambiguous, LogWidget should present a small choice:
+
+```text
+Add to existing curve track
+Create new curve track
+Cancel
+```
+
+## Runtime Drop Semantics
+
+Runtime drag/drop is useful for exploration, but it must be safe.
+
+Runtime drop should support:
+
+- temporary visual add.
+- "Save to display" action.
+- "Discard changes" action.
+- optional "Save as new display" action.
+
+Runtime drop should not bypass display permissions or silently alter shared layouts.
+
+## Edit-Mode Drop Semantics
+
+Edit mode is the main persistent configuration path.
+
+Edit-mode drop should:
+
+- update the display draft only.
+- add an undo step.
+- show the added track/curve in the LogWidget settings panel.
+- respect existing track width/header defaults.
+- use dictionary/default settings only as initial suggestions.
+- persist only when the display is saved.
+
+## Explorer-To-Configuration Mapping
+
+The explorer should not directly render tracks. It should call a mapping layer that converts data payloads into display settings.
+
+```text
+Explorer drag payload
+  -> drop resolver
+  -> track/curve config factory
+  -> display draft update
+  -> LogWidget runtime render
+```
+
+Suggested modules:
+
+```text
+frontend/src/workbench/explorer/
+  BoreholeExplorer.tsx
+  boreholeExplorerModel.ts
+  explorerDragPayload.ts
+
+frontend/src/workbench/display/
+  logWidgetDropResolver.ts
+  trackConfigFactory.ts
+```
+
+The resolver should be pure and unit-tested. React drag/drop code should remain thin.
+
 ## Display Settings Shape
 
 LogWidget settings live inside the saved display layout:
@@ -253,7 +404,7 @@ The catalog creates a default configuration, not a fixed final display. Users ca
 
 ## Data-Source Discovery
 
-The settings UI should build its addable content from the active borehole workbench payload.
+The Borehole Explorer and settings UI should build addable content from the active borehole workbench payload.
 
 Data sources currently available in `BoreholeWorkbench` include:
 
@@ -268,7 +419,7 @@ Data sources currently available in `BoreholeWorkbench` include:
 | interval `attributes` | Recovery, RQD, remarks, water level, coordinates, extra geological fields. |
 | borehole metadata | Header, single value widgets, interval panel, export scope. |
 
-The UI should expose addable options based on what exists:
+The UI should expose addable and draggable options based on what exists:
 
 - If curves exist, curve tracks can add those curves.
 - If interval numeric fields exist, quantitative tracks can map to those fields.
@@ -413,7 +564,7 @@ It must support:
 - preserve unsaved edit state until Save/Cancel.
 - persist only when the user saves the display.
 
-The settings UI must present available curves from the active borehole data source, not from a fixed hardcoded list.
+The settings UI and Borehole Explorer must present available curves from the active borehole data source, not from a fixed hardcoded list.
 
 ## Add Track Flow
 
@@ -427,6 +578,19 @@ Open Display Edit
   -> if track type needs source data, bind selectable source from BoreholeWorkbench
   -> user saves display
   -> runtime LogWidget renders saved track config
+```
+
+## Drag From Explorer Flow
+
+```text
+Open Borehole Explorer
+  -> expand Geophysical Logs / Curves
+  -> drag a curve or curve group
+  -> drop onto LogWidget
+  -> drop resolver checks target mode and location
+  -> create or update curve track config
+  -> show preview/draft immediately
+  -> save display, save as display, or discard depending on mode
 ```
 
 ## Add Curve Flow
