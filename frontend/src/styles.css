@@ -3894,6 +3894,93 @@ h2 {
   padding-top: 8px;
 }
 
+.curve-picker {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface-alt);
+  padding: 8px;
+}
+
+.curve-picker-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.7fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.curve-picker-head span {
+  overflow: hidden;
+  color: var(--gw-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.curve-picker-head input {
+  min-width: 0;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  color: var(--gw-text);
+  padding: 6px;
+  font-size: 12px;
+}
+
+.curve-picker-group {
+  display: grid;
+  gap: 5px;
+}
+
+.curve-picker-group > strong {
+  color: var(--gw-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.curve-picker-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 5px;
+}
+
+.curve-picker-items button {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  border-color: var(--gw-border);
+  background: var(--gw-surface);
+  padding: 5px 6px;
+  text-align: left;
+}
+
+.curve-picker-items i {
+  width: 8px;
+  height: 18px;
+  border-radius: 999px;
+}
+
+.curve-picker-items span,
+.curve-picker-items small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.curve-picker-items span {
+  color: var(--gw-text);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.curve-picker-items small {
+  color: var(--gw-muted);
+  font-size: 9px;
+}
+
 .display-editor-actions,
 .catalog-actions {
   display: flex;

@@ -1,6 +1,8 @@
+import { useMemo, useState } from "react";
+
 import type { Curve, DisplayTrack } from "../../../api/types";
 import { curveFamilyLabel, curveMappingStatus, curveMnemonic } from "../../data/curveDictionary";
-import { defaultScaleForCurve } from "../trackCatalog";
+import { createCurveDisplayConfig, defaultScaleForCurve } from "../trackCatalog";
 import { moveItem } from "./displayGridUtils";
 
 type Props = {
@@ -10,9 +12,30 @@ type Props = {
 };
 
 export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props) {
+  const [curveSearch, setCurveSearch] = useState("");
   const missingCurves = availableCurves.filter((curve) => !track.curves?.some((item) => item.curveKey === curve.key));
+  const filteredMissingCurves = useMemo(() => {
+    const query = curveSearch.trim().toLowerCase();
+    if (!query) return missingCurves;
+    return missingCurves.filter((curve) =>
+      [curve.key, curve.label, curve.unit, curveFamilyLabel(curve), curveMappingStatus(curve)]
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [curveSearch, missingCurves]);
+  const groupedMissingCurves = useMemo(
+    () =>
+      filteredMissingCurves.reduce<Record<string, Curve[]>>((groups, curve) => {
+        const group = curveFamilyLabel(curve);
+        groups[group] = [...(groups[group] ?? []), curve];
+        return groups;
+      }, {}),
+    [filteredMissingCurves],
+  );
   const sampleSource = track.renderer?.sampleSource === "visible-window" ? "visible-window" : "workbench";
   const maxWindowSamples = typeof track.renderer?.maxWindowSamples === "number" ? track.renderer.maxWindowSamples : "";
+  const configuredCurveCount = track.curves?.length ?? 0;
 
   return (
     <div className="curve-settings-list">
@@ -55,34 +78,43 @@ export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props
           />
         </label>
       </div>
-      <div className="catalog-actions">
-        {missingCurves.map((curve) => (
-          <button
-            key={curve.key}
-            type="button"
-            onClick={() =>
-              patchTrack({
-                curves: [
-                  ...(track.curves ?? []),
-                  {
-                    curveKey: curve.key,
-                    label: curve.label,
-                    unit: curve.unit,
-                    color: curve.color,
-                    visible: true,
-                    tooltipEnabled: true,
-                    lineStyle: "solid",
-                    scale: defaultScaleForCurve(curve),
-                  },
-                ],
-              })
-            }
-          >
-            Add {curve.label}
-          </button>
+      <div className="curve-picker">
+        <div className="curve-picker-head">
+          <span>
+            {configuredCurveCount} configured · {missingCurves.length} available to add
+          </span>
+          <input
+            value={curveSearch}
+            placeholder="Find curve"
+            onChange={(event) => setCurveSearch(event.target.value)}
+          />
+        </div>
+        {Object.entries(groupedMissingCurves).map(([family, curves]) => (
+          <section key={family} className="curve-picker-group">
+            <strong>{family}</strong>
+            <div className="curve-picker-items">
+              {curves.map((curve) => (
+                <button
+                  key={curve.key}
+                  type="button"
+                  title={`${curve.key} · ${curve.unit || "unitless"} · ${curveMappingStatus(curve)}`}
+                  onClick={() =>
+                    patchTrack({
+                      curves: [...(track.curves ?? []), createCurveDisplayConfig(curve)],
+                    })
+                  }
+                >
+                  <i style={{ backgroundColor: curve.color }} />
+                  <span>{curveMnemonic(curve)}</span>
+                  <small>{curve.unit || "-"}</small>
+                </button>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
       {!missingCurves.length && <small>All available curves are already configured on this track.</small>}
+      {Boolean(missingCurves.length) && !filteredMissingCurves.length && <small>No curves match the current filter.</small>}
       {track.curves?.map((curve, index) => (
         <div key={curve.curveKey} className="curve-editor">
           {(() => {

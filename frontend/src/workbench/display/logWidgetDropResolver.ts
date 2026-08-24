@@ -1,6 +1,6 @@
-import type { BoreholeWorkbench, DisplayTrack, DisplayWidget } from "../../api/types";
+import type { BoreholeWorkbench, DisplayWidget } from "../../api/types";
 import type { BoreholeExplorerDragPayload } from "../explorer/boreholeExplorerModel";
-import { createCurveDisplayConfig, createTrackId, TRACK_CATALOG } from "./trackCatalog";
+import { addCurvesToLogWidget, ensureCatalogTrackOnLogWidget } from "./logWidgetConfigModel";
 
 export type LogWidgetDropResult =
   | {
@@ -65,74 +65,9 @@ export function resolveLogWidgetDrop(
 function addCurves(widget: DisplayWidget, curveKeys: string[], data: BoreholeWorkbench): LogWidgetDropResult {
   const curvesByKey = new Map(data.curves.map((curve) => [curve.key, curve]));
   const curves = curveKeys.map((key) => curvesByKey.get(key)).filter((curve): curve is NonNullable<typeof curve> => Boolean(curve));
-  if (!curves.length) {
-    return { status: "ignored", widget, message: "No matching curve data exists for this borehole." };
-  }
-
-  const tracks = [...(widget.tracks ?? [])];
-  const curveTrackIndex = tracks.findIndex((track) => track.type === "curve");
-  const curveTrack =
-    curveTrackIndex >= 0
-      ? structuredClone(tracks[curveTrackIndex])
-      : createTrackFromCatalog("curves", []);
-  const existingCurveKeys = new Set((curveTrack.curves ?? []).map((curve) => curve.curveKey));
-  const newCurves = curves.filter((curve) => !existingCurveKeys.has(curve.key));
-
-  if (!newCurves.length) {
-    return { status: "ignored", widget, message: "Selected curve is already present in the curve track." };
-  }
-
-  curveTrack.curves = [...(curveTrack.curves ?? []), ...newCurves.map(createCurveDisplayConfig)];
-  curveTrack.visible = true;
-  curveTrack.width = Math.max(curveTrack.width, curveTrack.curves.length > 3 ? 320 : curveTrack.width);
-
-  if (curveTrackIndex >= 0) {
-    tracks[curveTrackIndex] = curveTrack;
-  } else {
-    tracks.push(withUniqueTrackId(curveTrack, tracks));
-  }
-
-  return {
-    status: "changed",
-    widget: { ...widget, tracks },
-    message: `${newCurves.length} curve${newCurves.length === 1 ? "" : "s"} added to LogWidget.`,
-  };
+  return addCurvesToLogWidget(widget, curves);
 }
 
 function ensureTrack(widget: DisplayWidget, catalogId: string): LogWidgetDropResult {
-  const tracks = widget.tracks ?? [];
-  const catalogItem = TRACK_CATALOG.find((item) => item.id === catalogId);
-  if (!catalogItem) {
-    return { status: "ignored", widget, message: `No track catalog item exists for ${catalogId}.` };
-  }
-
-  const existing = tracks.find((track) => track.type === catalogItem.create([]).type && track.id === catalogId);
-  if (existing) {
-    if (existing.visible) return { status: "ignored", widget, message: `${catalogItem.label} track is already visible.` };
-    return {
-      status: "changed",
-      widget: {
-        ...widget,
-        tracks: tracks.map((track) => (track.id === existing.id ? { ...track, visible: true } : track)),
-      },
-      message: `${catalogItem.label} track is now visible.`,
-    };
-  }
-
-  const nextTrack = withUniqueTrackId(catalogItem.create([]), tracks);
-  return {
-    status: "changed",
-    widget: { ...widget, tracks: [...tracks, nextTrack] },
-    message: `${catalogItem.label} track added to LogWidget.`,
-  };
-}
-
-function createTrackFromCatalog(catalogId: string, curves: BoreholeWorkbench["curves"]) {
-  const item = TRACK_CATALOG.find((candidate) => candidate.id === catalogId);
-  if (!item) throw new Error(`Unknown track catalog item: ${catalogId}`);
-  return item.create(curves);
-}
-
-function withUniqueTrackId(track: DisplayTrack, tracks: DisplayTrack[]) {
-  return { ...track, id: createTrackId(track.id, new Set(tracks.map((item) => item.id))) };
+  return ensureCatalogTrackOnLogWidget(widget, catalogId);
 }

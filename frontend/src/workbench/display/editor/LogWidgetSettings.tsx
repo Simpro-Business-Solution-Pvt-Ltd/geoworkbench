@@ -1,7 +1,13 @@
 import type { Curve, DisplayTrack, DisplayWidget } from "../../../api/types";
-import { createTrackId, TRACK_CATALOG } from "../trackCatalog";
+import {
+  addCatalogTrackToLogWidget,
+  cloneLogWidgetTrack,
+  moveLogWidgetTrack,
+  patchLogWidgetTrack,
+  removeLogWidgetTrack,
+} from "../logWidgetConfigModel";
+import { TRACK_CATALOG } from "../trackCatalog";
 import { CurveTrackSettings } from "./CurveTrackSettings";
-import { moveItem } from "./displayGridUtils";
 import { QuantitativeTrackSettings } from "./QuantitativeTrackSettings";
 import { RemarksTrackSettings } from "./RemarksTrackSettings";
 import { SeamTrackSettings } from "./SeamTrackSettings";
@@ -38,11 +44,9 @@ export function LogWidgetSettings({ widget, availableCurves, onUpdateWidget }: P
                     type="button"
                     title={item.description}
                     onClick={() =>
-                      updateTracks((items) => {
-                        const existingTrackIds = new Set(items.map((track) => track.id));
-                        const id = createTrackId(item.id, existingTrackIds);
-                        return [...items, { ...item.create(availableCurves, existingTrackIds), id }];
-                      })
+                      onUpdateWidget((current) =>
+                        addCatalogTrackToLogWidget(current, item.id, availableCurves).widget,
+                      )
                     }
                   >
                     {item.label}
@@ -82,15 +86,10 @@ function TrackSettings({
   onUpdateTracks: (updater: (tracks: DisplayTrack[]) => DisplayTrack[]) => void;
 }) {
   const patchTrack = (patch: Partial<DisplayTrack>) => {
-    onUpdateTracks((items) => items.map((item) => (item.id === track.id ? { ...item, ...patch } : item)));
+    onUpdateTracks((items) => patchLogWidgetTrack({ type: "logWidget", title: "Borehole Log", tracks: items }, track.id, patch).tracks ?? items);
   };
   const cloneTrack = () => {
-    onUpdateTracks((items) => {
-      const clone = structuredClone(track);
-      const id = createTrackId(`${track.id}-copy`, new Set(items.map((item) => item.id)));
-      const nextTrack = { ...clone, id, title: `${clone.title} Copy` };
-      return [...items.slice(0, index + 1), nextTrack, ...items.slice(index + 1)];
-    });
+    onUpdateTracks((items) => cloneLogWidgetTrack({ type: "logWidget", title: "Borehole Log", tracks: items }, track.id).widget.tracks ?? items);
   };
 
   return (
@@ -101,20 +100,40 @@ function TrackSettings({
           <span>{track.title}</span>
         </label>
         <div>
-          <button type="button" disabled={index === 0} onClick={() => onUpdateTracks((items) => moveItem(items, index, index - 1))}>
+          <button
+            type="button"
+            disabled={index === 0}
+            onClick={() =>
+              onUpdateTracks((items) =>
+                moveLogWidgetTrack({ type: "logWidget", title: "Borehole Log", tracks: items }, track.id, -1).widget.tracks ?? items,
+              )
+            }
+          >
             Up
           </button>
           <button
             type="button"
             disabled={index === tracks.length - 1}
-            onClick={() => onUpdateTracks((items) => moveItem(items, index, index + 1))}
+            onClick={() =>
+              onUpdateTracks((items) =>
+                moveLogWidgetTrack({ type: "logWidget", title: "Borehole Log", tracks: items }, track.id, 1).widget.tracks ?? items,
+              )
+            }
           >
             Down
           </button>
           <button type="button" onClick={cloneTrack}>
             Clone
           </button>
-          <button type="button" disabled={tracks.length <= 1} onClick={() => onUpdateTracks((items) => items.filter((item) => item.id !== track.id))}>
+          <button
+            type="button"
+            disabled={tracks.length <= 1}
+            onClick={() =>
+              onUpdateTracks((items) =>
+                removeLogWidgetTrack({ type: "logWidget", title: "Borehole Log", tracks: items }, track.id).widget.tracks ?? items,
+              )
+            }
+          >
             Remove
           </button>
         </div>
