@@ -38,6 +38,14 @@ export function queryKeysForWorkbenchEvent(event: WorkbenchRealtimeEvent): Realt
     keys.push(["boreholes"]);
   }
 
+  if (event.entity === "import_profile" || event.type.includes("import_profile")) {
+    keys.push(["importProfiles"]);
+  }
+
+  if (event.entity === "export_profile" || event.type.includes("export_profile")) {
+    keys.push(["exportProfiles"]);
+  }
+
   return dedupeQueryKeys(keys);
 }
 

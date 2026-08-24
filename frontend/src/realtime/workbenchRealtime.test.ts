@@ -54,6 +54,15 @@ describe("workbench realtime", () => {
       12,
     ]);
   });
+
+  it("invalidates template profile queries for profile update events", () => {
+    expect(queryKeysForWorkbenchEvent(event({ type: "workbench.import_profile.updated", entity: "import_profile" }))).toContainEqual([
+      "importProfiles",
+    ]);
+    expect(queryKeysForWorkbenchEvent(event({ type: "workbench.export_profile.updated", entity: "export_profile" }))).toContainEqual([
+      "exportProfiles",
+    ]);
+  });
 });
 
 function event(overrides: Partial<WorkbenchRealtimeEvent>): WorkbenchRealtimeEvent {

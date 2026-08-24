@@ -29,13 +29,21 @@ def update_profile(
     profile_id: int, payload: ImportProfilePatch, db: Session = Depends(get_db)
 ) -> ImportProfileOut:
     try:
-        return service.update_import_profile(
+        profile = service.update_import_profile(
             db,
             profile_id,
             name=payload.name,
             description=payload.description,
             mapping=payload.mapping,
         )
+        publish_workbench_event(
+            "workbench.import_profile.updated",
+            borehole_id=None,
+            entity="import_profile",
+            operation="updated",
+            payload={"profile_id": profile.id, "profile_type": profile.profile_type},
+        )
+        return profile
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

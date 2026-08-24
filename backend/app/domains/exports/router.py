@@ -26,13 +26,21 @@ def update_export_profile(
     profile_id: int, payload: ExportProfilePatch, db: Session = Depends(get_db)
 ) -> ExportProfileOut:
     try:
-        return service.update_export_profile(
+        profile = service.update_export_profile(
             db,
             profile_id,
             name=payload.name,
             description=payload.description,
             mapping=payload.mapping,
         )
+        publish_workbench_event(
+            "workbench.export_profile.updated",
+            borehole_id=None,
+            entity="export_profile",
+            operation="updated",
+            payload={"profile_id": profile.id, "export_type": profile.export_type},
+        )
+        return profile
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
