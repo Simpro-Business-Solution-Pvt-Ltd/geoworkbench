@@ -12,11 +12,20 @@ type Props = {
 };
 
 const DEFAULT_LABEL_MIN_HEIGHT_PX = 18;
+const DEFAULT_LABEL_MAX_VISIBLE_SPAN_M = 160;
 
 export function SeamTrack({ data, track, context }: Props) {
   const { scale, visibleDepthSpan } = context;
   const labelMinHeightPx = numericRendererSetting(track, "labelMinHeightPx", DEFAULT_LABEL_MIN_HEIGHT_PX);
-  const seamModels = buildSeamRenderModels(data.seam_intervals, scale, visibleDepthSpan, { labelMinHeightPx });
+  const labelMaxVisibleSpanM = numericRendererSetting(
+    track,
+    "labelMaxVisibleSpanM",
+    DEFAULT_LABEL_MAX_VISIBLE_SPAN_M,
+  );
+  const seamModels = buildSeamRenderModels(data.seam_intervals, scale, visibleDepthSpan, {
+    labelMinHeightPx,
+    labelMaxVisibleSpanM,
+  });
 
   return (
     <TrackFrame

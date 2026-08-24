@@ -18,7 +18,7 @@ export function buildSeamRenderModels(
   seams: SeamInterval[],
   scale: DepthScale,
   visibleDepthSpan: DepthSpan,
-  options: { labelMinHeightPx: number },
+  options: { labelMinHeightPx: number; labelMaxVisibleSpanM: number },
 ): SeamRenderModel[] {
   return visibleDepthIntervals(seams, visibleDepthSpan).map((seam) =>
     buildSeamRenderModel(seam, scale, options),
@@ -28,9 +28,10 @@ export function buildSeamRenderModels(
 export function buildSeamRenderModel(
   seam: SeamInterval,
   scale: DepthScale,
-  options: { labelMinHeightPx: number },
+  options: { labelMinHeightPx: number; labelMaxVisibleSpanM: number },
 ): SeamRenderModel {
   const pixelHeight = Math.abs(scale.depthToY(seam.to_depth) - scale.depthToY(seam.from_depth));
+  const visibleEnoughForLabels = scale.visibleSpan <= options.labelMaxVisibleSpanM;
   return {
     seam,
     key: seam.id,
@@ -40,7 +41,7 @@ export function buildSeamRenderModel(
       minHeight: "4px",
     },
     pixelHeight,
-    showLabel: pixelHeight >= options.labelMinHeightPx,
+    showLabel: visibleEnoughForLabels && pixelHeight >= options.labelMinHeightPx,
   };
 }
 
