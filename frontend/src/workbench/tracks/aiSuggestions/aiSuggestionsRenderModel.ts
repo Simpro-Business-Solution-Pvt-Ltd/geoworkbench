@@ -11,6 +11,7 @@ export type AiSuggestionGroupRenderModel = {
   className: string;
   confidenceLabel: string;
   title: string;
+  showDetail: boolean;
   suggestions: AiSuggestion[];
 };
 
@@ -26,8 +27,9 @@ export function buildAiSuggestionGroupRenderModels(
   data: BoreholeWorkbench,
   scale: DepthScale,
   visibleDepthSpan: DepthSpan,
-  options: { bucketPixels: number },
+  options: { bucketPixels: number; labelMaxVisibleSpanM?: number },
 ): AiSuggestionGroupRenderModel[] {
+  const showDetail = scale.visibleSpan <= (options.labelMaxVisibleSpanM ?? 120);
   const visibleSuggestions = data.ai_suggestions
     .filter((suggestion) => RENDERABLE_STATUSES.has(suggestion.status))
     .map((suggestion, index) => {
@@ -55,9 +57,9 @@ export function buildAiSuggestionGroupRenderModels(
       last.suggestions.push(item.suggestion);
       last.depth = Math.min(last.depth, item.depth);
       last.y = Math.min(last.y, item.y);
-      refreshGroup(last);
+      refreshGroup(last, showDetail);
     } else {
-      groups.push(createGroup(item.suggestion, item.depth, item.y));
+      groups.push(createGroup(item.suggestion, item.depth, item.y, showDetail));
     }
   }
 
@@ -82,7 +84,12 @@ export function confidenceLabel(value: number | null) {
   return `${Math.round(value * 100)}%`;
 }
 
-function createGroup(suggestion: AiSuggestion, depth: number, y: number): AiSuggestionGroupRenderModel {
+function createGroup(
+  suggestion: AiSuggestion,
+  depth: number,
+  y: number,
+  showDetail: boolean,
+): AiSuggestionGroupRenderModel {
   const group = {
     id: `ai:${suggestion.id}`,
     depth,
@@ -91,18 +98,20 @@ function createGroup(suggestion: AiSuggestion, depth: number, y: number): AiSugg
     className: "",
     confidenceLabel: "",
     title: "",
+    showDetail,
     suggestions: [suggestion],
   };
-  refreshGroup(group);
+  refreshGroup(group, showDetail);
   return group;
 }
 
-function refreshGroup(group: AiSuggestionGroupRenderModel) {
+function refreshGroup(group: AiSuggestionGroupRenderModel, showDetail: boolean) {
   const primary = group.suggestions[0];
   group.label = groupLabel(group.suggestions, group.depth);
   group.className = `${primary.status} ${primary.suggestion_type}`;
   group.confidenceLabel = confidenceLabel(primary.confidence);
   group.title = group.suggestions.map((suggestion) => suggestion.title).join("\n");
+  group.showDetail = showDetail;
 }
 
 function groupLabel(suggestions: AiSuggestion[], depth: number) {

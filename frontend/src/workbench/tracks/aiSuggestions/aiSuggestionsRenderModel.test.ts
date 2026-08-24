@@ -41,6 +41,7 @@ describe("aiSuggestionsRenderModel", () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].label).toBe("2 AI items near 10.0m");
     expect(groups[0].className).toBe("open validation_issue");
+    expect(groups[0].showDetail).toBe(true);
   });
 
   it("filters depth-backed suggestions to the visible span but keeps no-depth items", () => {
@@ -73,6 +74,20 @@ describe("aiSuggestionsRenderModel", () => {
     expect(confidenceLabel(0.764)).toBe("76%");
     expect(confidenceLabel(null)).toBe("");
     expect(suggestionDepth(suggestion(1, "open", null), 2, 2)).toBe(2);
+  });
+
+  it("collapses marker detail when the visible depth span is broad", () => {
+    const scale = createDepthScale(600, 640, 40, 0, 600, 0, 600);
+
+    const groups = buildAiSuggestionGroupRenderModels(
+      workbench([suggestion(1, "open", 10)]),
+      scale,
+      { fromDepth: 0, toDepth: 600 },
+      { bucketPixels: 0, labelMaxVisibleSpanM: 120 },
+    );
+
+    expect(groups[0].showDetail).toBe(false);
+    expect(groups[0].label).toBe("Suggestion 1");
   });
 });
 

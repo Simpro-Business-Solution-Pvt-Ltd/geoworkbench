@@ -14,6 +14,7 @@ type Props = {
 const DEFAULT_BUCKET_PIXELS = 28;
 const DEFAULT_HIT_TOP_PADDING_PX = 2;
 const DEFAULT_HIT_HEIGHT_PX = 28;
+const DEFAULT_LABEL_MAX_VISIBLE_SPAN_M = 120;
 
 export function AiSuggestionsTrack({ data, track, context }: Props) {
   const { scale, visibleDepthSpan } = context;
@@ -21,7 +22,11 @@ export function AiSuggestionsTrack({ data, track, context }: Props) {
   const bucketPixels = numericRendererSetting(track, "bucketPixels", DEFAULT_BUCKET_PIXELS);
   const hitTopPaddingPx = numericRendererSetting(track, "hitTopPaddingPx", DEFAULT_HIT_TOP_PADDING_PX);
   const hitHeightPx = numericRendererSetting(track, "hitHeightPx", DEFAULT_HIT_HEIGHT_PX);
-  const groups = buildAiSuggestionGroupRenderModels(data, scale, visibleDepthSpan, { bucketPixels });
+  const labelMaxVisibleSpanM = numericRendererSetting(track, "labelMaxVisibleSpanM", DEFAULT_LABEL_MAX_VISIBLE_SPAN_M);
+  const groups = buildAiSuggestionGroupRenderModels(data, scale, visibleDepthSpan, {
+    bucketPixels,
+    labelMaxVisibleSpanM,
+  });
 
   return (
     <TrackFrame
@@ -43,7 +48,11 @@ export function AiSuggestionsTrack({ data, track, context }: Props) {
           : null;
       }}
     >
-      {groups.length === 0 && <div className="ai-track-empty">Run AI review</div>}
+      {groups.length === 0 && (
+        <div className="ai-track-empty">
+          {data.ai_suggestions.length > 0 ? "No AI findings in view" : "Run AI review"}
+        </div>
+      )}
       {groups.map((group) => {
         const primary = group.suggestions[0];
         const isSelected = group.suggestions.some((suggestion) => suggestion.id === selectedAiSuggestion?.id);
@@ -51,7 +60,7 @@ export function AiSuggestionsTrack({ data, track, context }: Props) {
           <button
             type="button"
             key={group.id}
-            className={`ai-marker ${group.className} ${isSelected ? "selected" : ""}`}
+            className={`ai-marker ${group.className} ${group.showDetail ? "" : "compact"} ${isSelected ? "selected" : ""}`}
             style={{ top: `${group.y}px` }}
             title={group.title}
             onMouseDown={(event) => event.stopPropagation()}
@@ -62,8 +71,12 @@ export function AiSuggestionsTrack({ data, track, context }: Props) {
             }}
           >
             <b>{group.suggestions.length}</b>
-            <span>{group.suggestions.length > 1 ? group.label : primary.suggestion_type.replaceAll("_", " ")}</span>
-            <small>{group.confidenceLabel}</small>
+            {group.showDetail && (
+              <>
+                <span>{group.suggestions.length > 1 ? group.label : primary.suggestion_type.replaceAll("_", " ")}</span>
+                <small>{group.confidenceLabel}</small>
+              </>
+            )}
           </button>
         );
       })}
