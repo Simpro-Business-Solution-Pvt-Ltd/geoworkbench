@@ -159,13 +159,13 @@ Current track renderers:
 
 | Track | File | Purpose |
 | --- | --- | --- |
-| Depth | `tracks/depth/DepthTrack.tsx` | Depth ticks and depth-axis hit testing. |
+| Depth | `tracks/depth/DepthTrack.tsx`, `depthRenderModel.ts` | Depth ticks and depth-axis hit testing. |
 | Lithology | `tracks/lithology/LithologyTrack.tsx`, `lithologyRenderModel.ts` | Colored lithology intervals. |
 | Seam | `tracks/seam/SeamTrack.tsx`, `seamRenderModel.ts` | Coal seam markers. |
 | Recovery/RQD | `tracks/quantitativeBar/QuantitativeBarTrack.tsx`, `quantitativeBarRenderModel.ts` | Quantitative interval bar tracks. |
 | Curves | `tracks/curve/CurveTrack.tsx`, `curveRenderModel.ts` | Multi-curve normalized curve rendering and tooltips. |
 | Remarks | `tracks/remarks/RemarksTrack.tsx`, `remarksRenderModel.ts` | Grouped remarks to avoid clutter. |
-| AI Suggestions | `tracks/aiSuggestions/AiSuggestionsTrack.tsx` | Depth-aligned suggestion markers. |
+| AI Suggestions | `tracks/aiSuggestions/AiSuggestionsTrack.tsx`, `aiSuggestionsRenderModel.ts` | Depth-aligned suggestion markers. |
 | Images | `tracks/images/ImageTrack.tsx`, `coreImageRenderModel.ts` | Depth-aligned core image state and prepared rock-lane rendering. |
 
 ## State
