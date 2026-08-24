@@ -3663,7 +3663,7 @@ h2 {
 
 .display-editor-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -3675,6 +3675,18 @@ h2 {
 
 .widget-inspector {
   border-left: 1px solid var(--gw-border);
+}
+
+.display-inspector-window {
+  grid-template-rows: 38px minmax(0, 1fr);
+  width: min(330px, calc(100vw - 24px));
+  height: min(660px, calc(100vh - 120px));
+}
+
+.floating-inspector-body {
+  height: 100%;
+  border-left: 0;
+  overflow: auto;
 }
 
 .widget-library-window {

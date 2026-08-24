@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { BoreholeWorkbench, Curve, DisplayGridItem, DisplayLayout, DisplayWidget } from "../../api/types";
+import { FloatingWindow } from "../ui/FloatingWindow";
 import { defaultGridItem, normalizeDisplayLayout } from "./displayEditorModel";
 import { buildDisplayEditorSummary, displayLayoutsEqual } from "./displayEditorState";
 import { DisplayGridCanvas } from "./editor/DisplayGridCanvas";
@@ -53,6 +54,7 @@ export function DisplayEditorDialog({
   const [settingsWidgetId, setSettingsWidgetId] = useState<string | null>(null);
   const [widgetLibraryOpen, setWidgetLibraryOpen] = useState(true);
   const [boreholeExplorerOpen, setBoreholeExplorerOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
 
   useEffect(() => {
     if (open && layout) {
@@ -63,6 +65,7 @@ export function DisplayEditorDialog({
       setSettingsWidgetId(null);
       setWidgetLibraryOpen(true);
       setBoreholeExplorerOpen(false);
+      setInspectorOpen(true);
     }
   }, [availableCurves, layout, open]);
 
@@ -214,6 +217,9 @@ export function DisplayEditorDialog({
             <button type="button" onClick={() => setWidgetLibraryOpen((open) => !open)}>
               Widget library
             </button>
+            <button type="button" onClick={() => setInspectorOpen((open) => !open)}>
+              Inspector
+            </button>
             <button type="button" disabled={!data} onClick={() => setBoreholeExplorerOpen((open) => !open)}>
               Borehole explorer
             </button>
@@ -255,53 +261,64 @@ export function DisplayEditorDialog({
             onDropWidget={addWidget}
             onDropBoreholeItem={dropExplorerItemOnWidget}
           />
-
-          <aside className="widget-inspector">
-            <h2>Display Settings</h2>
-            <label>
-              Display name
-              <input
-                value={draft.name}
-                onChange={(event) =>
-                  updateDraft((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <label>
-              Columns
-              <input
-                type="number"
-                min="4"
-                max="24"
-                value={draft.settings.grid?.columns ?? 12}
-                onChange={(event) =>
-                  updateDraft((current) => {
-                    current.settings.grid!.columns = Number(event.target.value);
-                    return current;
-                  })
-                }
-              />
-            </label>
-
-            <h2>Selected Widget</h2>
-            {selectedWidget && (
-              <WidgetInspector
-                widgetId={selectedWidgetId}
-                widget={selectedWidget}
-                gridItem={gridItems.find((item) => item.widgetId === selectedWidgetId) ?? null}
-                availableCurves={availableCurves}
-                onOpenSettings={() => setSettingsWidgetId(selectedWidgetId)}
-                onClone={() => cloneWidget(selectedWidgetId)}
-                onRemove={() => removeWidget(selectedWidgetId)}
-                onUpdateGrid={(patch) => updateGridItem(selectedWidgetId, patch)}
-                onUpdateWidget={(updater) => updateWidget(selectedWidgetId, updater)}
-              />
-            )}
-          </aside>
         </div>
+
+        {inspectorOpen && (
+          <FloatingWindow
+            title="Display Inspector"
+            className="display-inspector-window"
+            defaultPosition={{ x: window.innerWidth - 360, y: 118 }}
+            onClose={() => setInspectorOpen(false)}
+          >
+            <aside className="widget-inspector floating-inspector-body">
+              <h2>Display Settings</h2>
+              <label>
+                Display name
+                <input
+                  value={draft.name}
+                  onChange={(event) =>
+                    updateDraft((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Columns
+                <input
+                  type="number"
+                  min="4"
+                  max="24"
+                  value={draft.settings.grid?.columns ?? 12}
+                  onChange={(event) =>
+                    updateDraft((current) => {
+                      current.settings.grid!.columns = Number(event.target.value);
+                      return current;
+                    })
+                  }
+                />
+              </label>
+
+              <h2>Selected Widget</h2>
+              {selectedWidget ? (
+                <WidgetInspector
+                  widgetId={selectedWidgetId}
+                  widget={selectedWidget}
+                  gridItem={gridItems.find((item) => item.widgetId === selectedWidgetId) ?? null}
+                  availableCurves={availableCurves}
+                  onOpenSettings={() => setSettingsWidgetId(selectedWidgetId)}
+                  onClone={() => cloneWidget(selectedWidgetId)}
+                  onRemove={() => removeWidget(selectedWidgetId)}
+                  onUpdateGrid={(patch) => updateGridItem(selectedWidgetId, patch)}
+                  onUpdateWidget={(updater) => updateWidget(selectedWidgetId, updater)}
+                />
+              ) : (
+                <div className="empty">Select a widget on the display canvas.</div>
+              )}
+            </aside>
+          </FloatingWindow>
+        )}
 
         <WidgetLibrary
           open={widgetLibraryOpen}
