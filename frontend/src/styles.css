@@ -3822,6 +3822,43 @@ h2 {
   line-height: 1.4;
 }
 
+.ai-review-focus-list {
+  display: grid;
+  gap: 6px;
+}
+
+.ai-review-focus {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  padding: 7px;
+}
+
+.ai-review-focus.critical {
+  border-color: #b05252;
+}
+
+.ai-review-focus.review {
+  border-color: #b9862f;
+}
+
+.ai-review-focus.ready {
+  border-color: #2f7d6f;
+}
+
+.ai-review-focus small {
+  color: var(--gw-muted);
+  font-size: 10px;
+}
+
+.ai-review-focus span {
+  color: var(--gw-text);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .ai-suggestion-list {
   display: grid;
   gap: 8px;

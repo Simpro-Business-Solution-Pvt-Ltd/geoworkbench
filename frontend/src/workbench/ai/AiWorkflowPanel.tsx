@@ -32,6 +32,22 @@ function evidenceSummary(evidence: AiSuggestion["evidence"]) {
   return rows;
 }
 
+type ReviewFocusItem = {
+  priority?: string;
+  title?: string;
+  evidence?: string;
+  action?: string;
+};
+
+function reviewFocusItems(summary: BoreholeAiSummary | undefined): ReviewFocusItem[] {
+  const value = summary?.metrics?.review_focus;
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "object" && item !== null ? (item as ReviewFocusItem) : null))
+    .filter((item): item is ReviewFocusItem => Boolean(item?.title))
+    .slice(0, 4);
+}
+
 export function AiWorkflowPanel({
   summary,
   provider,
@@ -44,6 +60,7 @@ export function AiWorkflowPanel({
 }: Props) {
   const selectedAiSuggestion = useWorkbenchStore((state) => state.selectedAiSuggestion);
   const openSuggestions = suggestions.filter((suggestion) => suggestion.status === "open");
+  const reviewFocus = reviewFocusItems(summary);
   const orderedSuggestions = selectedAiSuggestion
     ? [
         ...suggestions.filter((suggestion) => suggestion.id === selectedAiSuggestion.id),
@@ -65,6 +82,17 @@ export function AiWorkflowPanel({
           </small>
         )}
         <p>{summary?.summary ?? "Run validation and generate suggestions to prepare an assistant review."}</p>
+        {reviewFocus.length > 0 && (
+          <div className="ai-review-focus-list">
+            {reviewFocus.map((item) => (
+              <article key={`${item.priority}:${item.title}`} className={`ai-review-focus ${item.priority ?? "watch"}`}>
+                <strong>{item.title}</strong>
+                {item.evidence && <small>{item.evidence}</small>}
+                {item.action && <span>{item.action}</span>}
+              </article>
+            ))}
+          </div>
+        )}
       </div>
       <div className="validation-summary">
         <span>{openSuggestions.length} open suggestions</span>

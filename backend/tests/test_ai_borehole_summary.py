@@ -28,12 +28,15 @@ def test_borehole_summary_includes_reliance_uat_evidence(monkeypatch) -> None:
         assert "about 1.50m combined thickness" in result["summary"]
         assert "S1" in result["summary"]
         assert "corebox image package not supplied" in result["summary"]
+        assert "Review focus:" in result["summary"]
         assert result["metrics"]["coal_combined_thickness_m"] == 1.5
         assert result["metrics"]["seam_markers"] == ["S1"]
         assert result["metrics"]["source_imports"] == 1
         assert result["metrics"]["source_files"] == 1
         assert result["metrics"]["curve_coverage"][0]["sample_count"] == 2
         assert result["metrics"]["open_suggestion_count"] == 0
+        assert result["metrics"]["review_focus"][0]["title"] == "missing rqd data"
+        assert result["metrics"]["review_focus"][0]["priority"] == "review"
     finally:
         db.close()
 
@@ -97,4 +100,3 @@ def _seed_borehole(db: Session) -> Borehole:
     db.commit()
     db.refresh(borehole)
     return borehole
-

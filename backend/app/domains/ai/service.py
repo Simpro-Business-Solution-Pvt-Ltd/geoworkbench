@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import AiSuggestion, Borehole, CoreImage, CorrectionAudit, Curve, LithologyInterval, ValidationIssue
+from app.domains.ai.review_focus import build_review_focus, review_focus_sentence
 from app.domains.quality.service import get_quality_settings_payload
 from app.services.ai_provider import AiProviderUnavailable, ai_provider_status, local_chat_completion
 from app.services.quality_config import ai_summary_settings, ai_suggestion_settings
@@ -375,6 +376,13 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
         code = interval.lithology_code or "UNKNOWN"
         top_codes[code] = top_codes.get(code, 0) + 1
     common = sorted(top_codes.items(), key=lambda item: item[1], reverse=True)[:5]
+    review_focus = build_review_focus(
+        borehole,
+        warnings,
+        len(open_suggestions),
+        curve_coverage,
+        core_image_status,
+    )
     deterministic_summary = (
         f"{borehole.code} covers {borehole.total_depth:.1f}m with {len(intervals)} lithology intervals. "
         f"Coal/carbonaceous intervals appear in {len(coal)} rows with about {coal_thickness:.2f}m combined thickness. "
@@ -383,6 +391,7 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
         f"{curve_coverage_text} Source evidence includes {len(borehole.source_imports)} import batch(es), "
         f"{len(borehole.source_files)} source file(s), and {core_image_status}. "
         f"Current validation has {len(warnings)} error/warning items and {len(open_suggestions)} open AI/rule suggestion(s). "
+        f"{review_focus_sentence(review_focus)}"
         f"{summary_config['geologist_approval_note']}"
     )
     summary = deterministic_summary
@@ -424,6 +433,7 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
                 }
                 for item in warnings[: summary_config["max_rule_findings"]]
             ],
+            "review_focus": review_focus,
         }
         borehole_json = json.dumps(prompt, ensure_ascii=True)
         user_prompt = str(summary_config["user_prompt_template"])
@@ -477,6 +487,7 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
             "top_lithology_codes": common,
             "deterministic_summary": deterministic_summary,
             "ai_provider": provider,
+            "review_focus": review_focus,
         },
     }
 
