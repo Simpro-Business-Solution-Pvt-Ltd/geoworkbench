@@ -1,4 +1,4 @@
-import type { BoreholeWorkbench } from "../../api/types";
+import type { BoreholeWorkbench, Curve } from "../../api/types";
 import { metadataFor, rlLabel, type BoreholeMeta } from "./correlationMetadata";
 
 export type CorrelationAlignMode = "depth" | "rl";
@@ -113,10 +113,11 @@ export function buildCorrelationInsights(
   const commonSeams = seamRows.filter((row) => row.presentCount >= Math.max(2, Math.ceil(items.length * 0.6)));
   const missingSeams = seamRows.filter((row) => row.missingCount > 0 && row.presentCount >= 2);
   const variableSeams = seamRows.filter((row) => row.maxThickness - row.minThickness >= 1);
+  const topSpreadSeams = seamRows.filter((row) => row.presentCount >= 2 && row.maxTop - row.minTop >= 10);
   const curveCoverage = items.map((item) => ({
     code: item.code,
     curves: item.curves.length,
-    hasGamma: item.curves.some((curve) => ["ngam", "gamma"].includes(curve.key)),
+    hasGamma: item.curves.some(isGammaCurve),
   }));
   const curveGaps = curveCoverage.filter((item) => !item.hasGamma || item.curves < 2);
   const defaultRl = items.filter((item) => metadataFor(item).rlSource === "default");
@@ -188,6 +189,18 @@ export function buildCorrelationInsights(
     });
   }
 
+  if (topSpreadSeams.length) {
+    const seam = topSpreadSeams[0];
+    insights.push({
+      id: `top-spread:${seam.seamName}`,
+      severity: "review",
+      title: `Seam top spread: ${seam.seamName}`,
+      detail: `${seam.seamName} top depth varies by ${(seam.maxTop - seam.minTop).toFixed(1)}m across selected boreholes. This may indicate dip, fault offset, naming mismatch, or local seam behavior.`,
+      evidence: seam.items.map((item) => `${item.borehole}: top ${item.top.toFixed(1)}m`).join(" · "),
+      action: "Review this seam in depth and RL modes, compare nearby collar positions, and save a correlation note for accepted continuity or uncertainty.",
+    });
+  }
+
   if (curveGaps.length) {
     insights.push({
       id: "curve-gaps",
@@ -228,7 +241,7 @@ export function correlationStats(
   domain: { min: number; max: number },
   alignMode: CorrelationAlignMode,
 ) {
-  const gammaCount = items.filter((item) => item.curves.some((curve) => ["ngam", "gamma"].includes(curve.key))).length;
+  const gammaCount = items.filter((item) => item.curves.some(isGammaCurve)).length;
   const commonSeams = seamRows.filter((row) => row.presentCount >= Math.max(2, Math.ceil(items.length * 0.6))).length;
   const distances = collarRows
     .map((row) => row.distanceFromReference)
@@ -257,6 +270,12 @@ export function correlationStats(
         : "not evaluated",
     rlDefaulted: defaultRlCount > 0,
   };
+}
+
+export function isGammaCurve(curve: Pick<Curve, "key" | "label">): boolean {
+  const key = curve.key.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const label = curve.label.toLowerCase();
+  return ["gamma", "ngam", "ngamma", "gr"].includes(key) || label.includes("gamma");
 }
 
 export function formatCoordinatePair(row: CollarContextRow): string {

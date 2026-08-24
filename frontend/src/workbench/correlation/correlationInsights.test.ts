@@ -6,6 +6,7 @@ import {
   collarContextRows,
   correlationStats,
   formatDistance,
+  isGammaCurve,
   seamCorrelationRows,
 } from "./correlationInsights";
 
@@ -66,6 +67,25 @@ describe("correlation insights", () => {
     expect(formatDistance(collars[1].distanceFromReference)).toBe("500 m");
     expect(stats.spatialLabel).toBe("within 500 m");
     expect(stats.rlDefaulted).toBe(false);
+  });
+
+  it("recognizes common gamma mnemonics used by imported LAS templates", () => {
+    expect(isGammaCurve(curve("ngamma"))).toBe(true);
+    expect(isGammaCurve(curve("GR"))).toBe(true);
+    expect(isGammaCurve({ ...curve("custom"), label: "Natural Gamma" })).toBe(true);
+    expect(isGammaCurve(curve("res"))).toBe(false);
+  });
+
+  it("flags large seam top spread as a practical correlation review item", () => {
+    const items = [
+      borehole("BH-1", { seams: [seam("A", 100, 102)], curves: [curve("ngamma")] }),
+      borehole("BH-2", { seams: [seam("A", 118, 120)], curves: [curve("res")] }),
+      borehole("BH-3", { seams: [seam("A", 122, 125)], curves: [curve("gamma")] }),
+    ];
+    const insights = buildCorrelationInsights(items, seamCorrelationRows(items));
+
+    expect(insights.map((item) => item.id)).toContain("top-spread:A");
+    expect(insights.find((item) => item.id === "top-spread:A")?.action).toContain("depth and RL modes");
   });
 });
 

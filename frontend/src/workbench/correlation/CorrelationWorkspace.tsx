@@ -10,6 +10,7 @@ import {
   correlationStats,
   formatCoordinatePair,
   formatDistance,
+  isGammaCurve,
   seamCorrelationRows,
   type CollarContextRow,
   type CorrelationAlignMode,
@@ -429,7 +430,7 @@ function CorrelationColumn({
   onOpenWorkbench: (id: number) => void;
 }) {
   const meta = metadataFor(data);
-  const gamma = data.curves.find((curve) => curve.key === "ngam" || curve.key === "gamma");
+  const gamma = data.curves.find(isGammaCurve);
   const gammaPath = gamma ? curvePath(gamma, data, domain, alignMode, meta) : "";
   const seamThickness = data.seam_intervals.reduce((sum, seam) => sum + Math.max(0, seam.to_depth - seam.from_depth), 0);
   return (
