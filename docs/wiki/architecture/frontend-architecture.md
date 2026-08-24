@@ -167,7 +167,7 @@ Current track renderers:
 | Curves | `tracks/curve/CurveTrack.tsx`, `curveRenderModel.ts`, `curveHitTestModel.ts` | Multi-curve normalized curve rendering, hit testing, and tooltips. |
 | Remarks | `tracks/remarks/RemarksTrack.tsx`, `remarksRenderModel.ts` | Grouped remarks to avoid clutter. |
 | AI Suggestions | `tracks/aiSuggestions/AiSuggestionsTrack.tsx`, `aiSuggestionsRenderModel.ts` | Depth-aligned suggestion markers. |
-| Images | `tracks/images/ImageTrack.tsx`, `coreImageRenderModel.ts` | Depth-aligned core image state and prepared rock-lane rendering. |
+| Images | `tracks/images/ImageTrack.tsx`, `coreImageRenderModel.ts`, `coreImageHitTestModel.ts` | Depth-aligned core image state, prepared rock-lane rendering, and image selection. |
 
 ## State
 

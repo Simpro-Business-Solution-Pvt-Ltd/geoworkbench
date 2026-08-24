@@ -3,14 +3,13 @@ import { useMemo, type CSSProperties } from "react";
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { TrackFrame } from "../../core/TrackFrame";
+import { buildCoreImageHit } from "./coreImageHitTestModel";
 import {
   canLoadCoreImage,
   canShowPreparedCoreImage,
   CORE_IMAGE_LOAD_IDLE_MS,
   CORE_IMAGE_OVERSCAN_DEPTH,
   coreImageDisplayUrl,
-  imageAtDepth,
-  nearestImage,
   prepareCoreImages,
   resolveCoreImageRenderModel,
   stripDimension,
@@ -43,26 +42,7 @@ export function ImageTrack({ data, track, context }: Props) {
       track={track}
       context={context}
       className="image-track"
-      hitTest={({ depth }) => {
-        const image = imageAtDepth(preparedImages, depth);
-        if (image) {
-          return {
-            kind: "core-image",
-            id: `core-image:${image.image.box_number}`,
-            depth,
-            image: image.image,
-          };
-        }
-        const nearest = nearestImage(preparedImages, depth);
-        return nearest
-          ? {
-              kind: "core-image",
-              id: `core-image:${nearest.image.box_number}`,
-              depth,
-              image: nearest.image,
-            }
-          : null;
-      }}
+      hitTest={({ depth }) => buildCoreImageHit(preparedImages, depth)}
     >
       {preparedImages.length === 0 && (
         <div className="image-track-empty">
