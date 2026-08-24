@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { Curve, DisplayTrack } from "../../../api/types";
 import { curveFamilyLabel, curveMappingStatus, curveMnemonic } from "../../data/curveDictionary";
@@ -13,6 +13,10 @@ type Props = {
 
 export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props) {
   const [curveSearch, setCurveSearch] = useState("");
+  const [selectedCurveKey, setSelectedCurveKey] = useState<string | null>(null);
+  const configuredCurves = track.curves ?? [];
+  const selectedCurve = configuredCurves.find((curve) => curve.curveKey === selectedCurveKey) ?? configuredCurves[0] ?? null;
+  const selectedCurveIndex = selectedCurve ? configuredCurves.findIndex((curve) => curve.curveKey === selectedCurve.curveKey) : -1;
   const missingCurves = availableCurves.filter((curve) => !track.curves?.some((item) => item.curveKey === curve.key));
   const filteredMissingCurves = useMemo(() => {
     const query = curveSearch.trim().toLowerCase();
@@ -35,7 +39,17 @@ export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props
   );
   const sampleSource = track.renderer?.sampleSource === "visible-window" ? "visible-window" : "workbench";
   const maxWindowSamples = typeof track.renderer?.maxWindowSamples === "number" ? track.renderer.maxWindowSamples : "";
-  const configuredCurveCount = track.curves?.length ?? 0;
+  const configuredCurveCount = configuredCurves.length;
+
+  useEffect(() => {
+    if (!configuredCurves.length) {
+      setSelectedCurveKey(null);
+      return;
+    }
+    if (!selectedCurveKey || !configuredCurves.some((curve) => curve.curveKey === selectedCurveKey)) {
+      setSelectedCurveKey(configuredCurves[0].curveKey);
+    }
+  }, [configuredCurves, selectedCurveKey]);
 
   return (
     <div className="curve-settings-list">
@@ -115,147 +129,163 @@ export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props
       </div>
       {!missingCurves.length && <small>All available curves are already configured on this track.</small>}
       {Boolean(missingCurves.length) && !filteredMissingCurves.length && <small>No curves match the current filter.</small>}
-      {track.curves?.map((curve, index) => (
-        <div key={curve.curveKey} className="curve-editor">
-          {(() => {
-            const sourceCurve = availableCurves.find((item) => item.key === curve.curveKey);
-            return sourceCurve ? (
-              <small>
-                {curveMnemonic(sourceCurve)} · {curveFamilyLabel(sourceCurve)} · {curveMappingStatus(sourceCurve)}
-              </small>
-            ) : null;
-          })()}
-          <label>
-            <input
-              type="checkbox"
-              checked={curve.visible}
-              onChange={(event) =>
-                patchTrack({
-                  curves: track.curves?.map((item) =>
-                    item.curveKey === curve.curveKey ? { ...item, visible: event.target.checked } : item,
-                  ),
-                })
-              }
-            />
-            <span style={{ color: curve.color }}>{curve.label}</span>
-          </label>
-          <div className="curve-scale-grid">
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={curve.tooltipEnabled !== false}
-                onChange={(event) =>
-                  patchTrack({
-                    curves: track.curves?.map((item) =>
-                      item.curveKey === curve.curveKey ? { ...item, tooltipEnabled: event.target.checked } : item,
-                    ),
-                  })
-                }
-              />
-              Tooltip
-            </label>
-            <label>
-              Line
-              <select
-                value={curve.lineStyle ?? "solid"}
-                onChange={(event) =>
-                  patchTrack({
-                    curves: track.curves?.map((item) =>
-                      item.curveKey === curve.curveKey ? { ...item, lineStyle: event.target.value } : item,
-                    ),
-                  })
-                }
-              >
-                <option value="solid">Solid</option>
-                <option value="dashed">Dashed</option>
-                <option value="dotted">Dotted</option>
-              </select>
-            </label>
-            <label>
-              Min
-              <input
-                type="number"
-                value={curve.scale.min}
-                onChange={(event) =>
-                  patchTrack({
-                    curves: track.curves?.map((item) =>
-                      item.curveKey === curve.curveKey
-                        ? { ...item, scale: { ...item.scale, min: Number(event.target.value), mode: "manual" } }
-                        : item,
-                    ),
-                  })
-                }
-              />
-            </label>
-            <label>
-              Max
-              <input
-                type="number"
-                value={curve.scale.max}
-                onChange={(event) =>
-                  patchTrack({
-                    curves: track.curves?.map((item) =>
-                      item.curveKey === curve.curveKey
-                        ? { ...item, scale: { ...item.scale, max: Number(event.target.value), mode: "manual" } }
-                        : item,
-                    ),
-                  })
-                }
-              />
-            </label>
-            <label>
-              Color
-              <input
-                type="color"
-                value={curve.color}
-                onChange={(event) =>
-                  patchTrack({
-                    curves: track.curves?.map((item) =>
-                      item.curveKey === curve.curveKey ? { ...item, color: event.target.value } : item,
-                    ),
-                  })
-                }
-              />
-            </label>
-          </div>
-          <button
-            type="button"
-            onClick={() => patchTrack({ curves: track.curves?.filter((item) => item.curveKey !== curve.curveKey) })}
-          >
-            Remove curve
-          </button>
-          <div className="curve-action-row">
+      <div className="configured-curve-manager">
+        <div className="configured-curve-list">
+          {configuredCurves.map((curve) => (
             <button
+              key={curve.curveKey}
               type="button"
-              disabled={index === 0}
-              onClick={() => patchTrack({ curves: moveItem(track.curves ?? [], index, index - 1) })}
+              className={selectedCurve?.curveKey === curve.curveKey ? "selected" : ""}
+              onClick={() => setSelectedCurveKey(curve.curveKey)}
             >
-              Move up
+              <i style={{ backgroundColor: curve.color }} />
+              <span>{curve.label}</span>
+              <small>{curve.unit || "-"}</small>
+              {!curve.visible && <b>Hidden</b>}
             </button>
-            <button
-              type="button"
-              disabled={index === (track.curves?.length ?? 0) - 1}
-              onClick={() => patchTrack({ curves: moveItem(track.curves ?? [], index, index + 1) })}
-            >
-              Move down
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const sourceCurve = availableCurves.find((item) => item.key === curve.curveKey);
-                if (!sourceCurve) return;
-                patchTrack({
-                  curves: track.curves?.map((item) =>
-                    item.curveKey === curve.curveKey ? { ...item, scale: defaultScaleForCurve(sourceCurve) } : item,
-                  ),
-                });
-              }}
-            >
-              Reset scale
-            </button>
-          </div>
+          ))}
+          {!configuredCurves.length && <div className="empty">No curves configured on this track.</div>}
         </div>
-      ))}
+
+        {selectedCurve && (
+          <CurveEditor
+            curve={selectedCurve}
+            index={selectedCurveIndex}
+            curves={configuredCurves}
+            availableCurves={availableCurves}
+            patchTrack={patchTrack}
+            onSelectCurve={setSelectedCurveKey}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CurveEditor({
+  curve,
+  index,
+  curves,
+  availableCurves,
+  patchTrack,
+  onSelectCurve,
+}: {
+  curve: NonNullable<DisplayTrack["curves"]>[number];
+  index: number;
+  curves: NonNullable<DisplayTrack["curves"]>;
+  availableCurves: Curve[];
+  patchTrack: (patch: Partial<DisplayTrack>) => void;
+  onSelectCurve: (curveKey: string | null) => void;
+}) {
+  const sourceCurve = availableCurves.find((item) => item.key === curve.curveKey);
+  const patchCurve = (updater: (item: typeof curve) => typeof curve) => {
+    patchTrack({
+      curves: curves.map((item) => (item.curveKey === curve.curveKey ? updater(item) : item)),
+    });
+  };
+
+  return (
+    <div className="curve-editor">
+      {sourceCurve ? (
+        <small>
+          {curveMnemonic(sourceCurve)} · {curveFamilyLabel(sourceCurve)} · {curveMappingStatus(sourceCurve)}
+        </small>
+      ) : (
+        <small>{curve.curveKey} · source curve missing from current borehole payload</small>
+      )}
+      <label>
+        <input
+          type="checkbox"
+          checked={curve.visible}
+          onChange={(event) => patchCurve((item) => ({ ...item, visible: event.target.checked }))}
+        />
+        <span style={{ color: curve.color }}>{curve.label}</span>
+      </label>
+      <div className="curve-scale-grid">
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={curve.tooltipEnabled !== false}
+            onChange={(event) => patchCurve((item) => ({ ...item, tooltipEnabled: event.target.checked }))}
+          />
+          Tooltip
+        </label>
+        <label>
+          Line
+          <select
+            value={curve.lineStyle ?? "solid"}
+            onChange={(event) => patchCurve((item) => ({ ...item, lineStyle: event.target.value }))}
+          >
+            <option value="solid">Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+          </select>
+        </label>
+        <label>
+          Min
+          <input
+            type="number"
+            value={curve.scale.min}
+            onChange={(event) =>
+              patchCurve((item) => ({ ...item, scale: { ...item.scale, min: Number(event.target.value), mode: "manual" } }))
+            }
+          />
+        </label>
+        <label>
+          Max
+          <input
+            type="number"
+            value={curve.scale.max}
+            onChange={(event) =>
+              patchCurve((item) => ({ ...item, scale: { ...item.scale, max: Number(event.target.value), mode: "manual" } }))
+            }
+          />
+        </label>
+        <label>
+          Color
+          <input
+            type="color"
+            value={curve.color}
+            onChange={(event) => patchCurve((item) => ({ ...item, color: event.target.value }))}
+          />
+        </label>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          const fallbackCurve = curves[index + 1] ?? curves[index - 1] ?? null;
+          patchTrack({ curves: curves.filter((item) => item.curveKey !== curve.curveKey) });
+          onSelectCurve(fallbackCurve?.curveKey ?? null);
+        }}
+      >
+        Remove curve
+      </button>
+      <div className="curve-action-row">
+        <button
+          type="button"
+          disabled={index === 0}
+          onClick={() => patchTrack({ curves: moveItem(curves, index, index - 1) })}
+        >
+          Move up
+        </button>
+        <button
+          type="button"
+          disabled={index === curves.length - 1}
+          onClick={() => patchTrack({ curves: moveItem(curves, index, index + 1) })}
+        >
+          Move down
+        </button>
+        <button
+          type="button"
+          disabled={!sourceCurve}
+          onClick={() => {
+            if (!sourceCurve) return;
+            patchCurve((item) => ({ ...item, scale: defaultScaleForCurve(sourceCurve) }));
+          }}
+        >
+          Reset scale
+        </button>
+      </div>
     </div>
   );
 }

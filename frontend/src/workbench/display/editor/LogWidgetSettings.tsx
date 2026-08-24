@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
+
 import type { Curve, DisplayTrack, DisplayWidget } from "../../../api/types";
 import {
   addCatalogTrackToLogWidget,
@@ -19,11 +21,28 @@ type Props = {
 };
 
 export function LogWidgetSettings({ widget, availableCurves, onUpdateWidget }: Props) {
+  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const tracks = widget.tracks ?? [];
-  const trackGroups = TRACK_CATALOG.reduce<Record<string, typeof TRACK_CATALOG>>((groups, item) => {
-    groups[item.category] = [...(groups[item.category] ?? []), item];
-    return groups;
-  }, {});
+  const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? tracks[0] ?? null;
+  const selectedTrackIndex = selectedTrack ? tracks.findIndex((track) => track.id === selectedTrack.id) : -1;
+  const trackGroups = useMemo(
+    () =>
+      TRACK_CATALOG.reduce<Record<string, typeof TRACK_CATALOG>>((groups, item) => {
+        groups[item.category] = [...(groups[item.category] ?? []), item];
+        return groups;
+      }, {}),
+    [],
+  );
+
+  useEffect(() => {
+    if (!tracks.length) {
+      setSelectedTrackId(null);
+      return;
+    }
+    if (!selectedTrackId || !tracks.some((track) => track.id === selectedTrackId)) {
+      setSelectedTrackId(tracks[0].id);
+    }
+  }, [selectedTrackId, tracks]);
 
   const updateTracks = (updater: (tracks: DisplayTrack[]) => DisplayTrack[]) => {
     onUpdateWidget((item) => ({ ...item, tracks: updater(item.tracks ?? []) }));
@@ -31,43 +50,78 @@ export function LogWidgetSettings({ widget, availableCurves, onUpdateWidget }: P
 
   return (
     <div className="log-widget-settings">
-      <section className="track-editor">
-        <strong>Add Track</strong>
-        <div className="track-catalog-groups">
-          {Object.entries(trackGroups).map(([category, group]) => (
-            <div key={category} className="track-catalog-group">
-              <span>{category}</span>
-              <div className="catalog-actions">
-                {group.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    title={item.description}
-                    onClick={() =>
-                      onUpdateWidget((current) =>
-                        addCatalogTrackToLogWidget(current, item.id, availableCurves).widget,
-                      )
-                    }
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+      <div className="log-widget-track-manager">
+        <aside className="log-widget-track-list">
+          <section className="track-editor">
+            <strong>Add Track</strong>
+            <div className="track-catalog-groups">
+              {Object.entries(trackGroups).map(([category, group]) => (
+                <div key={category} className="track-catalog-group">
+                  <span>{category}</span>
+                  <div className="catalog-actions">
+                    {group.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        title={item.description}
+                        onClick={() => {
+                          let nextTrackId: string | undefined;
+                          onUpdateWidget((current) => {
+                            const result = addCatalogTrackToLogWidget(current, item.id, availableCurves);
+                            nextTrackId = result.trackId;
+                            return result.widget;
+                          });
+                          if (nextTrackId) setSelectedTrackId(nextTrackId);
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
 
-      {tracks.map((track, index) => (
-        <TrackSettings
-          key={track.id}
-          track={track}
-          index={index}
-          tracks={tracks}
-          availableCurves={availableCurves}
-          onUpdateTracks={updateTracks}
-        />
-      ))}
+          <section className="track-editor">
+            <strong>Tracks</strong>
+            <div className="configured-track-list">
+              {tracks.map((track, index) => (
+                <button
+                  key={track.id}
+                  type="button"
+                  className={selectedTrack?.id === track.id ? "selected" : ""}
+                  onClick={() => setSelectedTrackId(track.id)}
+                >
+                  <span>{index + 1}</span>
+                  <b>{track.title || track.type}</b>
+                  <small>
+                    {track.type}
+                    {track.type === "curve" ? ` · ${track.curves?.filter((curve) => curve.visible).length ?? 0} curves` : ""}
+                  </small>
+                  {!track.visible && <i>Hidden</i>}
+                </button>
+              ))}
+              {!tracks.length && <div className="empty">No tracks configured.</div>}
+            </div>
+          </section>
+        </aside>
+
+        <div className="log-widget-track-detail">
+          {selectedTrack ? (
+            <TrackSettings
+              track={selectedTrack}
+              index={selectedTrackIndex}
+              tracks={tracks}
+              availableCurves={availableCurves}
+              onUpdateTracks={updateTracks}
+              onSelectTrack={setSelectedTrackId}
+            />
+          ) : (
+            <div className="empty">Select or add a track to configure it.</div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -78,18 +132,26 @@ function TrackSettings({
   tracks,
   availableCurves,
   onUpdateTracks,
+  onSelectTrack,
 }: {
   track: DisplayTrack;
   index: number;
   tracks: DisplayTrack[];
   availableCurves: Curve[];
   onUpdateTracks: (updater: (tracks: DisplayTrack[]) => DisplayTrack[]) => void;
+  onSelectTrack: (trackId: string | null) => void;
 }) {
   const patchTrack = (patch: Partial<DisplayTrack>) => {
     onUpdateTracks((items) => patchLogWidgetTrack({ type: "logWidget", title: "Borehole Log", tracks: items }, track.id, patch).tracks ?? items);
   };
   const cloneTrack = () => {
-    onUpdateTracks((items) => cloneLogWidgetTrack({ type: "logWidget", title: "Borehole Log", tracks: items }, track.id).widget.tracks ?? items);
+    let nextTrackId: string | undefined;
+    onUpdateTracks((items) => {
+      const result = cloneLogWidgetTrack({ type: "logWidget", title: "Borehole Log", tracks: items }, track.id);
+      nextTrackId = result.trackId;
+      return result.widget.tracks ?? items;
+    });
+    if (nextTrackId) onSelectTrack(nextTrackId);
   };
 
   return (
@@ -128,11 +190,13 @@ function TrackSettings({
           <button
             type="button"
             disabled={tracks.length <= 1}
-            onClick={() =>
+            onClick={() => {
+              const fallbackTrack = tracks[index + 1] ?? tracks[index - 1] ?? null;
               onUpdateTracks((items) =>
                 removeLogWidgetTrack({ type: "logWidget", title: "Borehole Log", tracks: items }, track.id).widget.tracks ?? items,
-              )
-            }
+              );
+              onSelectTrack(fallbackTrack?.id ?? null);
+            }}
           >
             Remove
           </button>
