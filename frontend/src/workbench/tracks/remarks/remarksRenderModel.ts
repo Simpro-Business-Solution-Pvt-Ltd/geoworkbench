@@ -16,6 +16,7 @@ export type RemarkGroupRenderModel = {
   count: number;
   text: string;
   label: string;
+  showLabel: boolean;
   remarks: RemarkItem[];
 };
 
@@ -23,8 +24,9 @@ export function buildRemarkGroupRenderModels(
   data: BoreholeWorkbench,
   scale: DepthScale,
   visibleDepthSpan: DepthSpan,
-  options: { bucketPixels: number },
+  options: { bucketPixels: number; labelMaxVisibleSpanM?: number },
 ): RemarkGroupRenderModel[] {
+  const showLabelsForSpan = scale.visibleSpan <= (options.labelMaxVisibleSpanM ?? 120);
   const remarks = data.lithology_intervals
     .filter((item) => item.remark)
     .filter((item) => intervalIntersectsDepthSpan(item, visibleDepthSpan))
@@ -47,6 +49,7 @@ export function buildRemarkGroupRenderModels(
       last.y = Math.min(last.y, y);
       last.key = remarkGroupKey(last);
       last.label = remarkGroupLabel(last);
+      last.showLabel = showLabelsForSpan;
     } else {
       const group = {
         depth: remark.depth,
@@ -59,6 +62,7 @@ export function buildRemarkGroupRenderModels(
         ...group,
         key: remarkGroupKey(group),
         label: remarkGroupLabel(group),
+        showLabel: showLabelsForSpan,
       });
     }
   }

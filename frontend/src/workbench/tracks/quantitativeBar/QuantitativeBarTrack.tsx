@@ -35,6 +35,12 @@ export function QuantitativeBarTrack({ data, track, context }: Props) {
           <span style={model.barStyle} />
         </div>
       ))}
+      {!barModels.length && (
+        <div className="quant-track-empty">
+          <strong>{track.title}</strong>
+          <span>No {track.valueField === "rqd" ? "RQD" : "recovery"} values in visible data.</span>
+        </div>
+      )}
     </TrackFrame>
   );
 }

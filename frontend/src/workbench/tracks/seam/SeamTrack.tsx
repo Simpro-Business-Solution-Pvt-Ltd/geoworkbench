@@ -11,8 +11,8 @@ type Props = {
   context: LogTrackContext;
 };
 
-const DEFAULT_LABEL_MIN_HEIGHT_PX = 18;
-const DEFAULT_LABEL_MAX_VISIBLE_SPAN_M = 160;
+const DEFAULT_LABEL_MIN_HEIGHT_PX = 24;
+const DEFAULT_LABEL_MAX_VISIBLE_SPAN_M = 90;
 
 export function SeamTrack({ data, track, context }: Props) {
   const { scale, visibleDepthSpan } = context;

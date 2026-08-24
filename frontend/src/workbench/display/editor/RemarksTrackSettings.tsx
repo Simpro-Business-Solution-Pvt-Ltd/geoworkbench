@@ -6,8 +6,9 @@ type Props = {
   patchTrack: (patch: Partial<DisplayTrack>) => void;
 };
 
-export function SeamTrackSettings({ track, patchTrack }: Props) {
-  const labelMinHeightPx = rendererNumber(track, "labelMinHeightPx");
+export function RemarksTrackSettings({ track, patchTrack }: Props) {
+  const bucketPixels = rendererNumber(track, "bucketPixels");
+  const hitHeightPx = rendererNumber(track, "hitHeightPx");
   const labelMaxVisibleSpanM = rendererNumber(track, "labelMaxVisibleSpanM");
   const patchRenderer = (key: string, value: number | undefined) => {
     patchTrack({
@@ -20,27 +21,38 @@ export function SeamTrackSettings({ track, patchTrack }: Props) {
 
   return (
     <div className="curve-settings-list">
-      <strong>Seam Labels</strong>
+      <strong>Remark Grouping</strong>
       <div className="curve-scale-grid">
         <label>
-          Min label height
+          Bucket pixels
           <input
             type="number"
-            min="4"
+            min="8"
             max="80"
-            value={labelMinHeightPx ?? ""}
-            placeholder="24"
-            onChange={(event) => patchRenderer("labelMinHeightPx", optionalNumber(event.target.value))}
+            value={bucketPixels ?? ""}
+            placeholder="26"
+            onChange={(event) => patchRenderer("bucketPixels", optionalNumber(event.target.value))}
           />
         </label>
         <label>
-          Max visible span
+          Hit height
+          <input
+            type="number"
+            min="8"
+            max="80"
+            value={hitHeightPx ?? ""}
+            placeholder="26"
+            onChange={(event) => patchRenderer("hitHeightPx", optionalNumber(event.target.value))}
+          />
+        </label>
+        <label>
+          Max label span
           <input
             type="number"
             min="10"
             step="10"
             value={labelMaxVisibleSpanM ?? ""}
-            placeholder="90"
+            placeholder="120"
             onChange={(event) => patchRenderer("labelMaxVisibleSpanM", optionalNumber(event.target.value))}
           />
         </label>

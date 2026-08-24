@@ -4487,6 +4487,30 @@ h2 {
   min-height: 1px;
 }
 
+.quant-track-empty {
+  position: sticky;
+  top: calc(var(--track-header-height, 88px) + 10px);
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  margin: 10px 6px;
+  border: 1px dashed #9ca3af;
+  border-radius: 5px;
+  background: rgb(255 255 255 / 42%);
+  color: #4b5563;
+  padding: 7px 5px;
+  text-align: center;
+}
+
+.quant-track-empty strong {
+  font-size: 10px;
+}
+
+.quant-track-empty span {
+  font-size: 9px;
+  line-height: 1.25;
+}
+
 .remark-group {
   position: absolute;
   left: 8px;
@@ -4502,6 +4526,11 @@ h2 {
   color: #49350e;
   padding: 4px 6px;
   font-size: 10px;
+}
+
+.remark-group.collapsed {
+  grid-template-columns: 1fr;
+  justify-items: center;
 }
 
 .remark-group b {

@@ -3,6 +3,7 @@ import { createTrackId, TRACK_CATALOG } from "../trackCatalog";
 import { CurveTrackSettings } from "./CurveTrackSettings";
 import { moveItem } from "./displayGridUtils";
 import { QuantitativeTrackSettings } from "./QuantitativeTrackSettings";
+import { RemarksTrackSettings } from "./RemarksTrackSettings";
 import { SeamTrackSettings } from "./SeamTrackSettings";
 
 type Props = {
@@ -195,6 +196,7 @@ function TrackSettings({
 
       {track.type === "curve" && <CurveTrackSettings track={track} availableCurves={availableCurves} patchTrack={patchTrack} />}
       {track.type === "seam" && <SeamTrackSettings track={track} patchTrack={patchTrack} />}
+      {track.type === "remarks" && <RemarksTrackSettings track={track} patchTrack={patchTrack} />}
       {track.type === "quantitativeBar" && <QuantitativeTrackSettings track={track} patchTrack={patchTrack} />}
     </section>
   );

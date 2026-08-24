@@ -17,12 +17,13 @@ describe("remarksRenderModel", () => {
       ]),
       scale,
       { fromDepth: 0, toDepth: 50 },
-      { bucketPixels: 6 },
+      { bucketPixels: 6, labelMaxVisibleSpanM: 120 },
     );
 
     expect(groups).toHaveLength(2);
     expect(groups[0].count).toBe(2);
     expect(groups[0].label).toBe("10.0m group");
+    expect(groups[0].showLabel).toBe(true);
     expect(groups[0].text).toBe("first; second");
     expect(groups[1].label).toBe("third");
   });
@@ -33,11 +34,25 @@ describe("remarksRenderModel", () => {
       workbench([interval("a", 10, "first")]),
       scale,
       { fromDepth: 0, toDepth: 50 },
-      { bucketPixels: 6 },
+      { bucketPixels: 6, labelMaxVisibleSpanM: 120 },
     );
 
     expect(findRemarkGroupAtY(groups, groups[0].y + 10, 26)?.key).toBe(groups[0].key);
     expect(findRemarkGroupAtY(groups, groups[0].y + 40, 26)).toBeNull();
+  });
+
+  it("collapses labels when the visible depth span is broad", () => {
+    const scale = createDepthScale(600, 640, 40, 0, 600, 0, 600);
+
+    const groups = buildRemarkGroupRenderModels(
+      workbench([interval("a", 10, "first")]),
+      scale,
+      { fromDepth: 0, toDepth: 600 },
+      { bucketPixels: 6, labelMaxVisibleSpanM: 120 },
+    );
+
+    expect(groups[0].showLabel).toBe(false);
+    expect(groups[0].label).toBe("first");
   });
 });
 

@@ -12,12 +12,18 @@ type Props = {
 
 const DEFAULT_BUCKET_PIXELS = 26;
 const DEFAULT_HIT_HEIGHT_PX = 26;
+const DEFAULT_LABEL_MAX_VISIBLE_SPAN_M = 120;
 
 export function RemarksTrack({ data, track, context }: Props) {
   const { scale, visibleDepthSpan } = context;
   const bucketPixels = numericRendererSetting(track, "bucketPixels", DEFAULT_BUCKET_PIXELS);
   const hitHeightPx = numericRendererSetting(track, "hitHeightPx", DEFAULT_HIT_HEIGHT_PX);
-  const groups = buildRemarkGroupRenderModels(data, scale, visibleDepthSpan, { bucketPixels });
+  const labelMaxVisibleSpanM = numericRendererSetting(
+    track,
+    "labelMaxVisibleSpanM",
+    DEFAULT_LABEL_MAX_VISIBLE_SPAN_M,
+  );
+  const groups = buildRemarkGroupRenderModels(data, scale, visibleDepthSpan, { bucketPixels, labelMaxVisibleSpanM });
 
   return (
     <TrackFrame
@@ -42,12 +48,12 @@ export function RemarksTrack({ data, track, context }: Props) {
       {groups.map((group) => (
         <div
           key={group.key}
-          className="remark-group"
+          className={`remark-group ${group.showLabel ? "" : "collapsed"}`}
           style={{ top: `${group.y}px` }}
           title={group.text}
         >
           <b>{group.count}</b>
-          <span>{group.label}</span>
+          {group.showLabel && <span>{group.label}</span>}
         </div>
       ))}
     </TrackFrame>
