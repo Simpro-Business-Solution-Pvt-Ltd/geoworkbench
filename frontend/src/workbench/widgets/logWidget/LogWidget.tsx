@@ -28,6 +28,7 @@ import { useElementHeight } from "./useElementHeight";
 
 type Props = {
   data: BoreholeWorkbench;
+  widget?: DisplayWidget;
 };
 
 type DragSelection = {
@@ -51,7 +52,7 @@ const ZOOM_IN_FACTOR = 1.35;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
 const ZOOM_EPSILON = 0.01;
 
-export function LogWidget({ data }: Props) {
+export function LogWidget({ data, widget }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const dragSelectionRef = useRef<DragSelection | null>(null);
   const store = useWorkbenchStore();
@@ -73,8 +74,8 @@ export function LogWidget({ data }: Props) {
   const containerHeight = useElementHeight(scrollRef, DEFAULT_CONTAINER_HEIGHT);
 
   const sourceWidget = useMemo<DisplayWidget>(
-    () => data.layout?.settings.widgets?.["log-widget"] ?? { type: "logWidget", title: "Borehole Log", tracks: [] },
-    [data.layout],
+    () => widget ?? data.layout?.settings.widgets?.["log-widget"] ?? { type: "logWidget", title: "Borehole Log", tracks: [] },
+    [data.layout, widget],
   );
   const tracks = runtimeTracks ?? sourceWidget.tracks ?? [];
   const visibleTracks = useMemo(() => tracks.filter((track) => track.visible), [tracks]);

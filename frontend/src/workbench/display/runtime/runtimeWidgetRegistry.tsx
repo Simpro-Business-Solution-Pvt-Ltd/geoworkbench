@@ -11,7 +11,6 @@ import { IntervalDetailsWidget } from "./IntervalDetailsWidget";
 import { RuntimeWidgetFrame } from "./RuntimeWidgetFrame";
 import { SingleValueWidget } from "./SingleValueWidget";
 import { ValidationWidget } from "./ValidationWidget";
-import { withRuntimeLogWidget } from "./runtimeLogWidgetModel";
 import type { DisplayRuntimeProps } from "./runtimeTypes";
 
 type RuntimeWidget = NonNullable<DisplayLayout["settings"]["widgets"]>[string];
@@ -44,7 +43,7 @@ const RUNTIME_WIDGET_DEFINITIONS: RuntimeWidgetDefinition[] = [
   {
     type: "logWidget",
     label: "Log Widget",
-    render: ({ widgetId, widget, props }) => <LogWidget data={withRuntimeLogWidget(props.data, widgetId, widget)} />,
+    render: ({ widget, props }) => <LogWidget data={props.data} widget={widget} />,
   },
   {
     type: "validationPanel",
