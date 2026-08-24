@@ -55,40 +55,39 @@ export function useLogViewportController({
     configRef.current = config;
   }, [config]);
 
-  const syncScrollElement = useCallback(
-    (nextScrollTop: number, maxScrollTop = snapshotRef.current.viewport.maxScrollTop) => {
-      const clamped = clampToBounds(nextScrollTop, 0, maxScrollTop);
-      pendingScrollTop.current = clamped;
-      setState((current) => scrollLogViewportController(config, current, clamped).state);
-    },
-    [config],
-  );
+  const commitSnapshot = useCallback((next: LogViewportControllerSnapshot) => {
+    pendingScrollTop.current = next.viewport.scrollTop;
+    setState((current) => (sameControllerState(current, next.state) ? current : next.state));
+  }, []);
 
   useLayoutEffect(() => {
     const target = pendingScrollTop.current;
     if (target === null || !scrollElement) return;
     const clamped = clampToBounds(target, 0, viewport.maxScrollTop);
-    scrollElement.scrollTop = clamped;
-    setState((current) => scrollLogViewportController(config, current, clamped).state);
+    if (Math.abs(scrollElement.scrollTop - clamped) > 0.5) {
+      scrollElement.scrollTop = clamped;
+    }
     pendingScrollTop.current = null;
-  }, [config, scrollElement, viewport.contentHeight, viewport.maxScrollTop]);
+  }, [scrollElement, viewport.contentHeight, viewport.maxScrollTop]);
 
   useEffect(() => {
     const next = resetLogViewportController(configRef.current);
     pendingScrollTop.current = 0;
-    setState(next.state);
+    setState((current) => (sameControllerState(current, next.state) ? current : next.state));
   }, [resetKey]);
 
   useEffect(() => {
     if (!state.zoomPinned) {
-      setState(defaultLogViewportControllerState(config));
+      const next = defaultLogViewportControllerState(config);
+      pendingScrollTop.current = next.scrollTop;
+      setState((current) => (sameControllerState(current, next) ? current : next));
     }
   }, [config, defaultScale, state.zoomPinned]);
 
   useEffect(() => {
     if (state.scrollTop <= viewport.maxScrollTop) return;
-    syncScrollElement(viewport.maxScrollTop);
-  }, [state.scrollTop, syncScrollElement, viewport.maxScrollTop]);
+    commitSnapshot(scrollLogViewportController(config, state, viewport.maxScrollTop));
+  }, [commitSnapshot, config, state, viewport.maxScrollTop]);
 
   const applyZoomAtDepth = useCallback(
     (depth: number, factor: number, viewportBodyY = snapshotRef.current.viewport.visibleBodyHeight / 2) => {
@@ -99,10 +98,9 @@ export function useLogViewportController({
         factor,
         viewportBodyY,
       );
-      setState(next.state);
-      syncScrollElement(next.viewport.scrollTop, next.viewport.maxScrollTop);
+      commitSnapshot(next);
     },
-    [config, syncScrollElement],
+    [commitSnapshot, config],
   );
 
   const zoomToDepthWindow = useCallback(
@@ -114,21 +112,22 @@ export function useLogViewportController({
         toDepth,
         minDepthSpan,
       );
-      setState(next.state);
-      syncScrollElement(next.viewport.scrollTop, next.viewport.maxScrollTop);
+      commitSnapshot(next);
     },
-    [config, syncScrollElement],
+    [commitSnapshot, config],
   );
 
   const resetToFullDepth = useCallback(() => {
     const next = resetLogViewportController(config);
-    setState(next.state);
-    syncScrollElement(0, next.viewport.maxScrollTop);
-  }, [config, syncScrollElement]);
+    commitSnapshot(next);
+  }, [commitSnapshot, config]);
 
   const setScrollTop = useCallback(
     (nextScrollTop: number) => {
-      setState((current) => scrollLogViewportController(config, current, nextScrollTop).state);
+      setState((current) => {
+        const next = scrollLogViewportController(config, current, nextScrollTop).state;
+        return sameControllerState(current, next) ? current : next;
+      });
     },
     [config],
   );
@@ -142,4 +141,12 @@ export function useLogViewportController({
     resetToFullDepth,
     setScrollTop,
   };
+}
+
+function sameControllerState(left: LogViewportControllerState, right: LogViewportControllerState) {
+  return (
+    Math.abs(left.pixelsPerDepth - right.pixelsPerDepth) < 0.0001 &&
+    Math.abs(left.scrollTop - right.scrollTop) < 0.5 &&
+    left.zoomPinned === right.zoomPinned
+  );
 }

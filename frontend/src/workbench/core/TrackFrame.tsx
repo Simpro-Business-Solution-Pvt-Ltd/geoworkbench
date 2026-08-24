@@ -4,6 +4,7 @@ import type { BoreholeWorkbench, DisplayTrack } from "../../api/types";
 import type { LogTrackContext } from "./logTrackContext";
 import type { DepthScale } from "./depthScale";
 import { emptyTrackObject, type TrackObject, type TrackPointerEvent } from "./trackObject";
+import { objectForTrackPointerEvent, shouldEmitTrackPointerEvent } from "./trackInteractionPolicy";
 import { isTrackHeaderTarget, resolveTrackPointerFromClient } from "./trackPointerMapping";
 
 type Props = {
@@ -38,6 +39,7 @@ export function TrackFrame({
   function emit(type: TrackPointerEvent["type"], event: MouseEvent<HTMLDivElement>) {
     if (!scale || !onTrackEvent) return;
     if (isTrackHeaderTarget(event.target)) return;
+    if (!shouldEmitTrackPointerEvent(track, type)) return;
     const body = event.currentTarget.querySelector<HTMLElement>(".track-body");
     const bounds = body?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
     const { localX, localY, depth } = resolveTrackPointerFromClient(
@@ -46,7 +48,9 @@ export function TrackFrame({
       event.clientY,
       bounds,
     );
-    const object = hitTest?.({ depth, localX, localY }) ?? emptyTrackObject(depth);
+    const fallbackObject = emptyTrackObject(depth);
+    const hitObject = hitTest?.({ depth, localX, localY }) ?? fallbackObject;
+    const object = objectForTrackPointerEvent(track, type, hitObject, fallbackObject);
     onTrackEvent({
       type,
       trackId: track.id,
