@@ -1,8 +1,9 @@
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
-import { depthIsInsideInterval, visibleDepthIntervals } from "../../core/depthVisibility";
+import { depthIsInsideInterval } from "../../core/depthVisibility";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { numericRendererSetting } from "../../core/rendererSettings";
 import { TrackFrame } from "../../core/TrackFrame";
+import { buildSeamRenderModels } from "./seamRenderModel";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -15,7 +16,7 @@ const DEFAULT_LABEL_MIN_HEIGHT_PX = 18;
 export function SeamTrack({ data, track, context }: Props) {
   const { scale, visibleDepthSpan } = context;
   const labelMinHeightPx = numericRendererSetting(track, "labelMinHeightPx", DEFAULT_LABEL_MIN_HEIGHT_PX);
-  const visibleSeams = visibleDepthIntervals(data.seam_intervals, visibleDepthSpan);
+  const seamModels = buildSeamRenderModels(data.seam_intervals, scale, visibleDepthSpan, { labelMinHeightPx });
 
   return (
     <TrackFrame
@@ -28,22 +29,16 @@ export function SeamTrack({ data, track, context }: Props) {
         return seam ? { kind: "seam-interval", id: seam.id, depth, seam } : null;
       }}
     >
-      {visibleSeams
-        .map((seam) => {
-          const style = scale.intervalToStyle(seam.from_depth, seam.to_depth);
-          const pixelHeight = Math.abs(scale.depthToY(seam.to_depth) - scale.depthToY(seam.from_depth));
-          const showLabel = pixelHeight >= labelMinHeightPx;
+      {seamModels
+        .map((model) => {
           return (
             <div
               className="seam-marker"
-              key={seam.id}
-              style={{
-                ...style,
-                minHeight: "4px",
-              }}
-              title={`${seam.name}: ${seam.from_depth}-${seam.to_depth}m`}
+              key={model.key}
+              style={model.style}
+              title={model.title}
             >
-              {showLabel && <span>{seam.name}</span>}
+              {model.showLabel && <span>{model.seam.name}</span>}
             </div>
           );
         })}
