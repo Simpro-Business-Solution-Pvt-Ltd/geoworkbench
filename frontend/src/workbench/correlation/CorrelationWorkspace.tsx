@@ -19,6 +19,7 @@ import {
   type SeamCorrelationRow,
 } from "./correlationInsights";
 import { metadataFor, rlLabel, type BoreholeMeta } from "./correlationMetadata";
+import { buildSeamTieLines, type CorrelationTieLine } from "./correlationTieLines";
 
 type Props = {
   boreholes: BoreholeListItem[];
@@ -60,6 +61,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   const domain = useMemo(() => correlationDomain(loaded, alignMode), [loaded, alignMode]);
   const seamRows = useMemo(() => seamCorrelationRows(loaded), [loaded]);
   const collarRows = useMemo(() => collarContextRows(loaded, referenceId), [loaded, referenceId]);
+  const tieLines = useMemo(() => buildSeamTieLines(loaded, domain, alignMode), [alignMode, domain, loaded]);
   const insights = useMemo(() => buildCorrelationInsights(loaded, seamRows), [loaded, seamRows]);
   const stats = useMemo(
     () => correlationStats(loaded, seamRows, collarRows, domain, alignMode),
@@ -166,6 +168,9 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
           <b>Evidence</b> {stats.boreholes} boreholes · {stats.commonSeams} common seam groups · {stats.gammaCoverage}
         </span>
         <span>
+          <b>Seam links</b> {tieLines.length} adjacent ties · {tieLines.filter((line) => line.status === "review").length} review
+        </span>
+        <span>
           <b>Range</b> {stats.rangeLabel}
         </span>
         <span>
@@ -252,6 +257,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
           </div>
         </div>
         <div className="correlation-columns">
+          <SeamTieLineOverlay lines={tieLines} columnCount={loaded.length} />
           {loaded.map((data) => (
             <CorrelationColumn
               key={data.id}
@@ -286,6 +292,29 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         />
       )}
     </section>
+  );
+}
+
+function SeamTieLineOverlay({ lines, columnCount }: { lines: CorrelationTieLine[]; columnCount: number }) {
+  if (columnCount < 2 || !lines.length) return null;
+  const columnCenter = (index: number) => ((index + 0.5) / columnCount) * 100;
+  return (
+    <svg className="correlation-tie-lines" aria-hidden="true" preserveAspectRatio="none">
+      {lines.map((line) => (
+        <line
+          key={line.id}
+          className={`correlation-tie-line ${line.status}`}
+          x1={`${columnCenter(line.fromColumn)}%`}
+          x2={`${columnCenter(line.toColumn)}%`}
+          y1={`${line.fromY}%`}
+          y2={`${line.toY}%`}
+        >
+          <title>
+            {line.seamName}: {line.offset.toFixed(1)}m adjacent seam offset
+          </title>
+        </line>
+      ))}
+    </svg>
   );
 }
 

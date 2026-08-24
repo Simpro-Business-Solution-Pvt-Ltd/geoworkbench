@@ -13,7 +13,10 @@ type Props = {
 
 export function LogWidgetSettings({ widget, availableCurves, onUpdateWidget }: Props) {
   const tracks = widget.tracks ?? [];
-  const existingTrackIds = new Set(tracks.map((track) => track.id));
+  const trackGroups = TRACK_CATALOG.reduce<Record<string, typeof TRACK_CATALOG>>((groups, item) => {
+    groups[item.category] = [...(groups[item.category] ?? []), item];
+    return groups;
+  }, {});
 
   const updateTracks = (updater: (tracks: DisplayTrack[]) => DisplayTrack[]) => {
     onUpdateWidget((item) => ({ ...item, tracks: updater(item.tracks ?? []) }));
@@ -23,21 +26,29 @@ export function LogWidgetSettings({ widget, availableCurves, onUpdateWidget }: P
     <div className="log-widget-settings">
       <section className="track-editor">
         <strong>Add Track</strong>
-        <div className="catalog-actions">
-          {TRACK_CATALOG.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              title={`${item.category}: ${item.description}`}
-              onClick={() =>
-                updateTracks((items) => {
-                  const id = createTrackId(item.id, new Set(items.map((track) => track.id)));
-                  return [...items, { ...item.create(availableCurves, existingTrackIds), id }];
-                })
-              }
-            >
-              {item.label}
-            </button>
+        <div className="track-catalog-groups">
+          {Object.entries(trackGroups).map(([category, group]) => (
+            <div key={category} className="track-catalog-group">
+              <span>{category}</span>
+              <div className="catalog-actions">
+                {group.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={item.description}
+                    onClick={() =>
+                      updateTracks((items) => {
+                        const existingTrackIds = new Set(items.map((track) => track.id));
+                        const id = createTrackId(item.id, existingTrackIds);
+                        return [...items, { ...item.create(availableCurves, existingTrackIds), id }];
+                      })
+                    }
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </section>
@@ -72,6 +83,14 @@ function TrackSettings({
   const patchTrack = (patch: Partial<DisplayTrack>) => {
     onUpdateTracks((items) => items.map((item) => (item.id === track.id ? { ...item, ...patch } : item)));
   };
+  const cloneTrack = () => {
+    onUpdateTracks((items) => {
+      const clone = structuredClone(track);
+      const id = createTrackId(`${track.id}-copy`, new Set(items.map((item) => item.id)));
+      const nextTrack = { ...clone, id, title: `${clone.title} Copy` };
+      return [...items.slice(0, index + 1), nextTrack, ...items.slice(index + 1)];
+    });
+  };
 
   return (
     <section className="track-editor">
@@ -90,6 +109,9 @@ function TrackSettings({
             onClick={() => onUpdateTracks((items) => moveItem(items, index, index + 1))}
           >
             Down
+          </button>
+          <button type="button" onClick={cloneTrack}>
+            Clone
           </button>
           <button type="button" disabled={tracks.length <= 1} onClick={() => onUpdateTracks((items) => items.filter((item) => item.id !== track.id))}>
             Remove
@@ -138,6 +160,36 @@ function TrackSettings({
             }
           />
           Tooltip
+        </label>
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={track.interaction?.contextMenuEnabled !== false}
+            onChange={(event) =>
+              patchTrack({
+                interaction: {
+                  ...(track.interaction ?? {}),
+                  contextMenuEnabled: event.target.checked,
+                },
+              })
+            }
+          />
+          Context menu
+        </label>
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={track.interaction?.selectable !== false}
+            onChange={(event) =>
+              patchTrack({
+                interaction: {
+                  ...(track.interaction ?? {}),
+                  selectable: event.target.checked,
+                },
+              })
+            }
+          />
+          Selectable
         </label>
       </div>
 
