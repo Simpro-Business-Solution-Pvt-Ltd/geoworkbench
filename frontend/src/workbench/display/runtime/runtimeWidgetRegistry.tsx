@@ -43,7 +43,7 @@ const RUNTIME_WIDGET_DEFINITIONS: RuntimeWidgetDefinition[] = [
   {
     type: "logWidget",
     label: "Log Widget",
-    render: ({ widget, props }) => <LogWidget data={props.data} widget={widget} />,
+    render: ({ widgetId, widget, props }) => <LogWidget data={props.data} widgetKey={widgetId} widget={widget} />,
   },
   {
     type: "validationPanel",

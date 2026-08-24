@@ -28,6 +28,7 @@ import { useElementHeight } from "./useElementHeight";
 
 type Props = {
   data: BoreholeWorkbench;
+  widgetKey?: string;
   widget?: DisplayWidget;
 };
 
@@ -52,7 +53,7 @@ const ZOOM_IN_FACTOR = 1.35;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
 const ZOOM_EPSILON = 0.01;
 
-export function LogWidget({ data, widget }: Props) {
+export function LogWidget({ data, widgetKey = "log-widget", widget }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const dragSelectionRef = useRef<DragSelection | null>(null);
   const store = useWorkbenchStore();
@@ -100,7 +101,7 @@ export function LogWidget({ data, widget }: Props) {
       containerHeight,
       headerHeight,
       scrollElement,
-      resetKey: data.id,
+      resetKey: `${data.id}:${widgetKey}:${sourceWidget.tracks?.map((track) => track.id).join("|") ?? ""}`,
       zoomEpsilon: ZOOM_EPSILON,
     });
   const viewport = controlPlane.snapshot.viewport;
@@ -121,7 +122,7 @@ export function LogWidget({ data, widget }: Props) {
     setRuler(null);
     setRuntimeTracks(null);
     setDropMessage(null);
-  }, [data.id]);
+  }, [data.id, sourceWidget]);
 
   const resolvePointerDepth = useCallback(
     (clientY: number) => {
