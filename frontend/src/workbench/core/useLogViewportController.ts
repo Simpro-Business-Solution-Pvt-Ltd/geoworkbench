@@ -36,6 +36,7 @@ export function useLogViewportController({
     () => ({ depthDomain, containerHeight, headerHeight, zoomEpsilon }),
     [containerHeight, depthDomain, headerHeight, zoomEpsilon],
   );
+  const configRef = useRef(config);
   const [state, setState] = useState<LogViewportControllerState>(() =>
     defaultLogViewportControllerState(config),
   );
@@ -49,6 +50,10 @@ export function useLogViewportController({
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
+
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
 
   const syncScrollElement = useCallback(
     (nextScrollTop: number, maxScrollTop = snapshotRef.current.viewport.maxScrollTop) => {
@@ -69,10 +74,10 @@ export function useLogViewportController({
   }, [config, scrollElement, viewport.contentHeight, viewport.maxScrollTop]);
 
   useEffect(() => {
-    const next = resetLogViewportController(config);
+    const next = resetLogViewportController(configRef.current);
     pendingScrollTop.current = 0;
     setState(next.state);
-  }, [config, resetKey]);
+  }, [resetKey]);
 
   useEffect(() => {
     if (!state.zoomPinned) {
