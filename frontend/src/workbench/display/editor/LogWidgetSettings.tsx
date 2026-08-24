@@ -140,6 +140,65 @@ function TrackSettings({
       </div>
 
       {track.type === "curve" && <CurveTrackSettings track={track} availableCurves={availableCurves} patchTrack={patchTrack} />}
+      {track.type === "seam" && <SeamTrackSettings track={track} patchTrack={patchTrack} />}
     </section>
   );
+}
+
+function SeamTrackSettings({
+  track,
+  patchTrack,
+}: {
+  track: DisplayTrack;
+  patchTrack: (patch: Partial<DisplayTrack>) => void;
+}) {
+  const labelMinHeightPx = rendererNumber(track, "labelMinHeightPx");
+  const labelMaxVisibleSpanM = rendererNumber(track, "labelMaxVisibleSpanM");
+  const patchRenderer = (key: string, value: number | undefined) => {
+    patchTrack({
+      renderer: {
+        ...(track.renderer ?? {}),
+        [key]: value,
+      },
+    });
+  };
+
+  return (
+    <div className="curve-settings-list">
+      <strong>Seam Labels</strong>
+      <div className="curve-scale-grid">
+        <label>
+          Min label height
+          <input
+            type="number"
+            min="4"
+            max="80"
+            value={labelMinHeightPx ?? ""}
+            placeholder="18"
+            onChange={(event) => patchRenderer("labelMinHeightPx", optionalNumber(event.target.value))}
+          />
+        </label>
+        <label>
+          Max visible span
+          <input
+            type="number"
+            min="10"
+            step="10"
+            value={labelMaxVisibleSpanM ?? ""}
+            placeholder="160"
+            onChange={(event) => patchRenderer("labelMaxVisibleSpanM", optionalNumber(event.target.value))}
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function rendererNumber(track: DisplayTrack, key: string) {
+  const value = track.renderer?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function optionalNumber(value: string) {
+  return value ? Number(value) : undefined;
 }
