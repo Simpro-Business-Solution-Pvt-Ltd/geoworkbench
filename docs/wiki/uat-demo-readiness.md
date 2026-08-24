@@ -62,7 +62,7 @@ Invoke-RestMethod http://127.0.0.1:8081/api/diagnostics/health
 .\scripts\uat-smoke.ps1 -BaseUrl http://127.0.0.1:8081
 ```
 
-The smoke script prefers a `RELIANCE-COAL` borehole when one is present. It verifies health, diagnostics, login, current session, borehole/workbench data, import profiles, source-file audit route, export profiles, export readiness, AI summary evidence, and correlation observation route availability. Use `-PreferredProjectCode` to target another project during local/demo-data checks.
+The smoke script prefers a `RELIANCE-COAL` borehole when one is present. It verifies health, diagnostics, login, current session, borehole/workbench data, active display layout/options, import profile mappings, source-file audit route, export profile mappings, export readiness, AI summary evidence, and correlation observation route availability. Use `-PreferredProjectCode` to target another project during local/demo-data checks.
 
 The frontend profile menu uses the diagnostics endpoint and refreshes it while open.
 

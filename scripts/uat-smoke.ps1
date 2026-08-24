@@ -82,6 +82,12 @@ $workbench = Invoke-GeoCheck "workbench" {
   if (@($workbench.lithology_intervals).Count -lt 1) {
     throw "Workbench did not include lithology intervals"
   }
+  if (-not $workbench.layout -or -not $workbench.layout.settings) {
+    throw "Workbench did not include an active display layout"
+  }
+  if (@($workbench.display_layouts).Count -lt 1) {
+    throw "Workbench did not include display layout options"
+  }
   $workbench
 }
 
@@ -89,6 +95,10 @@ Invoke-GeoCheck "import profiles" {
   $profiles = Invoke-RestMethod -Method Get -Uri "$api/imports/profiles" -Headers $headers
   if (@($profiles).Count -lt 1) {
     throw "No import profiles returned"
+  }
+  $mapped = @($profiles | Where-Object { $_.mapping })
+  if ($mapped.Count -lt 1) {
+    throw "Import profiles did not include mapping metadata"
   }
   $profiles
 } | Out-Null
@@ -105,6 +115,10 @@ Invoke-GeoCheck "export profiles" {
   $profiles = Invoke-RestMethod -Method Get -Uri "$api/exports/profiles" -Headers $headers
   if (@($profiles).Count -lt 1) {
     throw "No export profiles returned"
+  }
+  $mapped = @($profiles | Where-Object { $_.mapping })
+  if ($mapped.Count -lt 1) {
+    throw "Export profiles did not include mapping metadata"
   }
   $profiles
 } | Out-Null
