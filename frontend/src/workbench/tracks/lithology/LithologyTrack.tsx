@@ -1,9 +1,8 @@
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
-import { depthIsInsideInterval, visibleDepthIntervals } from "../../core/depthVisibility";
+import { depthIsInsideInterval } from "../../core/depthVisibility";
 import type { LogTrackContext } from "../../core/logTrackContext";
-import { lithologyPattern } from "../../core/lithologyPatterns";
 import { TrackFrame } from "../../core/TrackFrame";
-import { isCorrectedInterval } from "../../display/runtime/correctionDisplay";
+import { buildLithologyRenderModels } from "./lithologyRenderModel";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -13,7 +12,7 @@ type Props = {
 
 export function LithologyTrack({ data, track, context }: Props) {
   const { scale, visibleDepthSpan } = context;
-  const visibleIntervals = visibleDepthIntervals(data.lithology_intervals, visibleDepthSpan);
+  const lithologyModels = buildLithologyRenderModels(data.lithology_intervals, scale, visibleDepthSpan);
   return (
     <TrackFrame
       data={data}
@@ -32,21 +31,14 @@ export function LithologyTrack({ data, track, context }: Props) {
           : null;
       }}
     >
-      {visibleIntervals
-        .map((interval) => {
-          const pattern = lithologyPattern(interval.lithology_code);
-          return (
-            <div
-              className={`lithology-block lithology-pattern ${pattern.className} ${isCorrectedInterval(interval) ? "corrected-interval" : ""}`}
-              key={interval.id}
-              style={{
-                ...scale.intervalToStyle(interval.from_depth, interval.to_depth),
-                backgroundColor: interval.display_color ?? pattern.color,
-              }}
-              title={`${interval.from_depth}-${interval.to_depth}m ${interval.lithology_code}`}
-            />
-          );
-        })}
+      {lithologyModels.map((model) => (
+        <div
+          className={model.className}
+          key={model.key}
+          style={model.style}
+          title={model.title}
+        />
+      ))}
     </TrackFrame>
   );
 }

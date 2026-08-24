@@ -1,7 +1,8 @@
-import type { BoreholeWorkbench, DisplayTrack, LithologyInterval } from "../../../api/types";
-import { depthIsInsideInterval, visibleDepthIntervals } from "../../core/depthVisibility";
+import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
+import { depthIsInsideInterval } from "../../core/depthVisibility";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { TrackFrame } from "../../core/TrackFrame";
+import { buildQuantitativeBarRenderModels } from "./quantitativeBarRenderModel";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -9,19 +10,9 @@ type Props = {
   context: LogTrackContext;
 };
 
-function valueForInterval(track: DisplayTrack, interval: LithologyInterval): number | null {
-  if (!track.valueField) return null;
-  const raw = interval[track.valueField];
-  if (raw === null || raw === undefined) return null;
-  return raw * (track.valueMultiplier ?? 1);
-}
-
 export function QuantitativeBarTrack({ data, track, context }: Props) {
   const { scale, visibleDepthSpan } = context;
-  const min = track.min ?? 0;
-  const max = track.max ?? 100;
-  const span = Math.max(0.001, max - min);
-  const visibleIntervals = visibleDepthIntervals(data.lithology_intervals, visibleDepthSpan);
+  const barModels = buildQuantitativeBarRenderModels(data.lithology_intervals, track, scale, visibleDepthSpan);
 
   return (
     <TrackFrame
@@ -34,22 +25,16 @@ export function QuantitativeBarTrack({ data, track, context }: Props) {
         return interval ? { kind: "lithology-interval", id: interval.id, depth, interval } : null;
       }}
     >
-      {visibleIntervals
-        .map((interval) => {
-          const value = valueForInterval(track, interval);
-          if (value === null) return null;
-          const width = Math.max(0, Math.min(100, ((value - min) / span) * 100));
-          return (
-            <div
-              key={`${track.id}:${interval.id}`}
-              className="quant-row"
-              style={scale.intervalToStyle(interval.from_depth, interval.to_depth)}
-              title={`${track.title}: ${value.toFixed(1)}${track.unit ?? ""}`}
-            >
-              <span style={{ width: `${width}%`, background: track.color ?? "#55b7aa" }} />
-            </div>
-          );
-        })}
+      {barModels.map((model) => (
+        <div
+          key={model.key}
+          className="quant-row"
+          style={model.rowStyle}
+          title={model.title}
+        >
+          <span style={model.barStyle} />
+        </div>
+      ))}
     </TrackFrame>
   );
 }
