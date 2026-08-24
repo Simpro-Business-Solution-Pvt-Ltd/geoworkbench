@@ -2,7 +2,8 @@ param(
   [string]$BaseUrl = "http://127.0.0.1:8081",
   [string]$Username = "geologist",
   [string]$Password = "geologist123",
-  [string]$PreferredProjectCode = "RELIANCE-COAL"
+  [string]$PreferredProjectCode = "RELIANCE-COAL",
+  [switch]$RequireAi
 )
 
 $ErrorActionPreference = "Stop"
@@ -140,6 +141,16 @@ Invoke-GeoCheck "AI summary" {
     throw "AI summary response did not include metrics"
   }
   $summary
+} | Out-Null
+
+Invoke-GeoCheck "AI provider status" {
+  $provider = Invoke-RestMethod -Method Get -Uri "$api/ai/provider-status" -Headers $headers
+  if ($RequireAi -and (-not $provider.enabled -or -not $provider.reachable)) {
+    throw "AI provider is required but not reachable. Provider=$($provider.provider), Model=$($provider.model), BaseUrl=$($provider.base_url)"
+  }
+  $state = if ($provider.enabled -and $provider.reachable) { "reachable" } elseif ($provider.enabled) { "configured but unreachable" } else { "disabled" }
+  Write-Host "AI provider ${state}: $($provider.provider) / $($provider.model) / $($provider.base_url)" -ForegroundColor DarkCyan
+  $provider
 } | Out-Null
 
 Invoke-GeoCheck "correlation observations" {

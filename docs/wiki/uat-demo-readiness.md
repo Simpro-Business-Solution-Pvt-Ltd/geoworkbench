@@ -1,6 +1,6 @@
 # GeoWorkbench UAT Demo Readiness
 
-Updated: 2026-08-21
+Updated: 2026-08-24
 
 This note maps the UAT/explore backlog to the current demo build. It is intended for stakeholder walkthroughs where we need to show visible progress while keeping deeper production work explicit.
 
@@ -62,7 +62,13 @@ Invoke-RestMethod http://127.0.0.1:8081/api/diagnostics/health
 .\scripts\uat-smoke.ps1 -BaseUrl http://127.0.0.1:8081
 ```
 
-The smoke script prefers a `RELIANCE-COAL` borehole when one is present. It verifies health, diagnostics, login, current session, borehole/workbench data, active display layout/options, import profile mappings, source-file audit route, export profile mappings, export readiness, AI summary evidence, and correlation observation route availability. Use `-PreferredProjectCode` to target another project during local/demo-data checks.
+The smoke script prefers a `RELIANCE-COAL` borehole when one is present. It verifies health, diagnostics, login, current session, borehole/workbench data, active display layout/options, import profile mappings, source-file audit route, export profile mappings, export readiness, AI summary evidence, AI provider status, and correlation observation route availability. Use `-PreferredProjectCode` to target another project during local/demo-data checks.
+
+For an AI-enabled deployment, add `-RequireAi` so the smoke check fails if the configured local/OpenAI-compatible model is not reachable:
+
+```powershell
+.\scripts\uat-smoke.ps1 -BaseUrl https://geowb.simproapps.in -RequireAi
+```
 
 The frontend profile menu uses the diagnostics endpoint and refreshes it while open.
 
@@ -75,7 +81,7 @@ Capture this evidence after every customer-server deployment or refresh:
 | Git revision | Branch and commit deployed | `git status --short --branch`; `git rev-parse HEAD` |
 | Backend health | API process responds | `Invoke-RestMethod https://geowb.simproapps.in/health` |
 | Diagnostics | Database, AI config, upload/export paths | `Invoke-RestMethod https://geowb.simproapps.in/api/diagnostics/health` |
-| UAT smoke | End-to-end API happy path | `.\scripts\uat-smoke.ps1 -BaseUrl https://geowb.simproapps.in` |
+| UAT smoke | End-to-end API happy path | `.\scripts\uat-smoke.ps1 -BaseUrl https://geowb.simproapps.in -RequireAi` |
 | PostgreSQL | Database name, host, backup job, migration status | `alembic current`; DBA backup evidence |
 | AI endpoint | Local LM Studio or configured provider is reachable from server | Profile diagnostics and AI summary screen |
 | Import | One Excel or LAS source can be uploaded, parsed, merged, and audited | Import Center source queue and parsed imports |

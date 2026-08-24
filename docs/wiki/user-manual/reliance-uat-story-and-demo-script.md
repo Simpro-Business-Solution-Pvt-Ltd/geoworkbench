@@ -77,6 +77,12 @@ Before the walkthrough:
 .\scripts\uat-smoke.ps1 -BaseUrl http://127.0.0.1:8081
 ```
 
+For the AI-enabled server demo, run:
+
+```powershell
+.\scripts\uat-smoke.ps1 -BaseUrl https://geowb.simproapps.in -RequireAi
+```
+
 3. Confirm at least one Reliance borehole is available.
 4. Confirm local AI provider status if AI narrative is part of the demo.
 5. Keep this page open in the Wiki view as the demo guide.
