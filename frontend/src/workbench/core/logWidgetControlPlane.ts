@@ -38,6 +38,7 @@ export type LogWidgetInvariantSnapshot = {
   pixelsPerDepth: number;
   contentHeight: number;
   bodyHeight: number;
+  visibleBodyHeight: number;
   headerHeight: number;
 };
 
@@ -113,6 +114,7 @@ export function createLogWidgetControlPlane(
       pixelsPerDepth: viewport.pixelsPerDepth,
       contentHeight: viewport.contentHeight,
       bodyHeight: viewport.bodyHeight,
+      visibleBodyHeight: viewport.visibleBodyHeight,
       headerHeight: config.headerHeight,
     }),
     roundTripDepth: (depth) => bodyYToDepth(depthToBodyY(depth)),

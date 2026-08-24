@@ -14,7 +14,7 @@ import {
 import type { BoreholeWorkbench, DisplayTrack } from "../../api/types";
 import { addBottomDepthPadding, depthSpanSize, inferLogWidgetDepthSpan } from "../core/depthDomain";
 import type { LogTrackContext } from "../core/logTrackContext";
-import { buildLogViewportDiagnostics } from "../core/logViewportDiagnostics";
+import { buildLogWidgetControlPlaneDiagnostics } from "../core/logViewportDiagnostics";
 import { useLogWidgetControlPlane } from "../core/useLogWidgetControlPlane";
 import { handleTrackPointerEvent } from "../core/interactions";
 import { legendForIntervals } from "../core/lithologyPatterns";
@@ -222,7 +222,10 @@ export function LogWidget({ data }: Props) {
   const selectedDepthY = selectedDepth === null ? null : viewport.scale.depthToY(selectedDepth);
   const domainSpan = depthSpanSize(depthDomain);
   const rulerLabel = ruler ? `${ruler.depth.toFixed(2)} m` : "";
-  const diagnostics = useMemo(() => buildLogViewportDiagnostics(viewport), [viewport]);
+  const diagnostics = useMemo(
+    () => buildLogWidgetControlPlaneDiagnostics(controlPlane.invariantSnapshot()),
+    [controlPlane],
+  );
 
   return (
     <div className="log-widget">
