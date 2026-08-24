@@ -24,9 +24,11 @@ export type SeamCorrelationRow = {
 };
 
 export type CollarContextRow = {
+  boreholeId: number;
   borehole: string;
   x: number | null;
   y: number | null;
+  isReference: boolean;
   rlLabel: string;
   rlSource: BoreholeMeta["rlSource"];
   waterLevel: number | null;
@@ -69,8 +71,12 @@ export function seamCorrelationRows(items: BoreholeWorkbench[]): SeamCorrelation
     .sort((a, b) => b.presentCount - a.presentCount || a.minTop - b.minTop);
 }
 
-export function collarContextRows(items: BoreholeWorkbench[]): CollarContextRow[] {
-  const reference = items.map((item) => metadataFor(item)).find((meta) => meta.x !== null && meta.y !== null) ?? null;
+export function collarContextRows(items: BoreholeWorkbench[], referenceBoreholeId?: number | null): CollarContextRow[] {
+  const referenceItem =
+    items.find((item) => item.id === referenceBoreholeId && hasCoordinates(metadataFor(item))) ??
+    items.find((item) => hasCoordinates(metadataFor(item))) ??
+    null;
+  const reference = referenceItem ? metadataFor(referenceItem) : null;
   return items.map((item) => {
     const meta = metadataFor(item);
     const distanceFromReference =
@@ -78,9 +84,11 @@ export function collarContextRows(items: BoreholeWorkbench[]): CollarContextRow[
         ? Math.hypot(meta.x - reference.x!, meta.y - reference.y!)
         : null;
     return {
+      boreholeId: item.id,
       borehole: item.code,
       x: meta.x,
       y: meta.y,
+      isReference: referenceItem?.id === item.id,
       rlLabel: rlLabel(meta),
       rlSource: meta.rlSource,
       waterLevel: meta.waterLevel,
@@ -89,6 +97,10 @@ export function collarContextRows(items: BoreholeWorkbench[]): CollarContextRow[
       curveCount: item.curves.length,
     };
   });
+}
+
+function hasCoordinates(meta: BoreholeMeta) {
+  return meta.x !== null && meta.y !== null;
 }
 
 export function buildCorrelationInsights(

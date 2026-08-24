@@ -69,6 +69,21 @@ describe("correlation insights", () => {
     expect(stats.rlDefaulted).toBe(false);
   });
 
+  it("uses the selected borehole as correlation distance reference", () => {
+    const items = [
+      borehole("BH-1", { collar: { coalgrid_easting: 1000, coalgrid_northing: 2000 } }),
+      borehole("BH-2", { collar: { coalgrid_easting: 1300, coalgrid_northing: 2400 } }),
+      borehole("BH-3", { collar: { coalgrid_easting: 1300, coalgrid_northing: 2500 } }),
+    ];
+    const collars = collarContextRows(items, items[1].id);
+
+    expect(collars[0]).toMatchObject({ borehole: "BH-1", isReference: false });
+    expect(formatDistance(collars[0].distanceFromReference)).toBe("500 m");
+    expect(collars[1]).toMatchObject({ borehole: "BH-2", isReference: true });
+    expect(formatDistance(collars[1].distanceFromReference)).toBe("reference");
+    expect(formatDistance(collars[2].distanceFromReference)).toBe("100 m");
+  });
+
   it("recognizes common gamma mnemonics used by imported LAS templates", () => {
     expect(isGammaCurve(curve("ngamma"))).toBe(true);
     expect(isGammaCurve(curve("GR"))).toBe(true);

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { Curve, DisplayGridItem, DisplayLayout, DisplayWidget } from "../../api/types";
 import { defaultGridItem, normalizeDisplayLayout } from "./displayEditorModel";
+import { buildDisplayEditorSummary, displayLayoutsEqual } from "./displayEditorState";
 import { DisplayGridCanvas } from "./editor/DisplayGridCanvas";
 import { clampGridItem } from "./editor/displayGridUtils";
 import { WidgetInspector } from "./editor/WidgetInspector";
@@ -59,6 +60,12 @@ export function DisplayEditorDialog({
   const selectedWidget = selectedWidgetId ? widgets[selectedWidgetId] : null;
   const settingsWidget = settingsWidgetId ? widgets[settingsWidgetId] : null;
   const existingWidgetIds = useMemo(() => new Set(Object.keys(widgets)), [widgets]);
+  const normalizedSourceLayout = useMemo(
+    () => (layout ? normalizeDisplayLayout(layout, availableCurves) : null),
+    [availableCurves, layout],
+  );
+  const isDirty = !displayLayoutsEqual(draft, normalizedSourceLayout);
+  const summary = buildDisplayEditorSummary(draft);
 
   if (!open) return null;
 
@@ -159,6 +166,7 @@ export function DisplayEditorDialog({
   };
 
   const cancel = () => {
+    if (isDirty && !window.confirm("Discard unsaved display changes?")) return;
     setDraft(normalizeDisplayLayout(layout, availableCurves));
     setHistory([]);
     onClose();
@@ -171,6 +179,13 @@ export function DisplayEditorDialog({
           <div>
             <strong>Display Editor</strong>
             <span>{draft.name}</span>
+          </div>
+          <div className="display-editor-summary" aria-label="Display editor summary">
+            <span>{summary.widgetCount} widgets</span>
+            <span>{summary.logTrackCount} tracks</span>
+            <span>{summary.configuredCurveCount} curves</span>
+            <span>{summary.gridItemCount} grid items</span>
+            {isDirty && <b>Unsaved</b>}
           </div>
           <div className="display-editor-actions">
             <button type="button" disabled={!history.length || saving} onClick={undo}>
@@ -194,7 +209,7 @@ export function DisplayEditorDialog({
             <button type="button" disabled={saving} onClick={cancel}>
               Cancel
             </button>
-            <button type="button" disabled={saving} onClick={() => onSave(draft)}>
+            <button type="button" disabled={saving || !isDirty} onClick={() => onSave(draft)}>
               {saving ? "Saving..." : "Save display"}
             </button>
           </div>

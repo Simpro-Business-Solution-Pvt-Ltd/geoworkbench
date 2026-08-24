@@ -41,6 +41,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   const defaultIds = syntheticIds.length ? syntheticIds : initialIds;
   const [datasetMode, setDatasetMode] = useState<CorrelationDatasetMode>(syntheticIds.length ? "synthetic" : "received");
   const [selectedIds, setSelectedIds] = useState<number[]>(defaultIds);
+  const [referenceId, setReferenceId] = useState<number | null>(defaultIds[0] ?? null);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [alignMode, setAlignMode] = useState<AlignMode>("depth");
   const [insightsOpen, setInsightsOpen] = useState(false);
@@ -58,7 +59,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
     .filter((item): item is BoreholeWorkbench => Boolean(item));
   const domain = useMemo(() => correlationDomain(loaded, alignMode), [loaded, alignMode]);
   const seamRows = useMemo(() => seamCorrelationRows(loaded), [loaded]);
-  const collarRows = useMemo(() => collarContextRows(loaded), [loaded]);
+  const collarRows = useMemo(() => collarContextRows(loaded, referenceId), [loaded, referenceId]);
   const insights = useMemo(() => buildCorrelationInsights(loaded, seamRows), [loaded, seamRows]);
   const stats = useMemo(
     () => correlationStats(loaded, seamRows, collarRows, domain, alignMode),
@@ -75,7 +76,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
       createCorrelationObservation({
         borehole_ids: selectedIds,
         text,
-        observation_metadata: { source: "correlation_dialog", align_mode: alignMode },
+        observation_metadata: { source: "correlation_dialog", align_mode: alignMode, reference_borehole_id: referenceId },
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["correlation-observations", correlationKey] });
@@ -89,6 +90,16 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
     else if (initialIds.length) setSelectedIds(initialIds);
   }, [boreholes.length, datasetMode, initialIds, receivedIds, selectedIds.length, syntheticIds]);
 
+  useEffect(() => {
+    if (!selectedIds.length) {
+      setReferenceId(null);
+      return;
+    }
+    if (referenceId === null || !selectedIds.includes(referenceId)) {
+      setReferenceId(selectedIds[0]);
+    }
+  }, [referenceId, selectedIds]);
+
   const toggleBorehole = (id: number) => {
     setDatasetMode("custom");
     setSelectedIds((current) =>
@@ -97,8 +108,16 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   };
   const applyPreset = (mode: CorrelationDatasetMode) => {
     setDatasetMode(mode);
-    if (mode === "synthetic") setSelectedIds(syntheticIds.length ? syntheticIds : initialIds);
-    if (mode === "received") setSelectedIds(receivedIds.length ? receivedIds : initialIds);
+    if (mode === "synthetic") {
+      const ids = syntheticIds.length ? syntheticIds : initialIds;
+      setSelectedIds(ids);
+      setReferenceId(ids[0] ?? null);
+    }
+    if (mode === "received") {
+      const ids = receivedIds.length ? receivedIds : initialIds;
+      setSelectedIds(ids);
+      setReferenceId(ids[0] ?? null);
+    }
     if (mode !== "custom") setSelectorOpen(false);
   };
   const selectedBoreholes = boreholes.filter((item) => selectedIds.includes(item.id));
@@ -189,6 +208,20 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         <div className="selected-correlation-summary">
           <strong>{selectedIds.length} selected</strong>
           <span>{selectedBoreholes.map((item) => item.code).join(", ") || "No boreholes selected"}</span>
+        </div>
+        <div className="correlation-reference-control">
+          <span>Reference</span>
+          <select
+            value={referenceId ?? ""}
+            disabled={!selectedBoreholes.length}
+            onChange={(event) => setReferenceId(Number(event.target.value) || null)}
+          >
+            {selectedBoreholes.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.code}
+              </option>
+            ))}
+          </select>
         </div>
         {selectorOpen && (
           <div className="correlation-picker-list">
@@ -350,7 +383,7 @@ function CorrelationInsightsDialog({
                 <span>RL / WL</span>
                 {collarRows.map((row) => (
                   <Fragment key={row.borehole}>
-                    <b>{row.borehole}</b>
+                    <b>{row.borehole}{row.isReference ? " · REF" : ""}</b>
                     <span>{formatCoordinatePair(row)}</span>
                     <span>{formatDistance(row.distanceFromReference)}</span>
                     <span>{row.seamCount} seams · {row.curveCount} curves</span>
