@@ -158,6 +158,9 @@ Current display-management support:
 
 - Choose **Saved display** or **Default correction display** from the dashboard.
 - If a borehole has multiple saved layouts, choose the active layout from the top bar display selector.
+- Open **Borehole Explorer** in runtime mode to inspect available metadata, intervals, curves, source files, images, validation issues, and AI suggestions for the selected borehole.
+- Drag supported Borehole Explorer items onto a LogWidget to preview additional tracks or curves without silently changing the saved display.
+- Use the temporary display banner to **Save**, **Save as**, or **Discard** runtime display changes.
 - Clone a display before experimenting with a new arrangement.
 - Delete a cloned/saved display when it is no longer needed; the system keeps at least one display layout for the borehole.
 - Save changes to make runtime mode match the edited layout.
@@ -166,10 +169,14 @@ Current display-management support:
 
 The editor supports:
 
+- Floating **Widget Library**, **Borehole Explorer**, **Display Inspector**, and **Widget Settings** tools.
 - Add, remove, clone, drag, and resize widgets on the grid.
+- Drag widgets from Widget Library onto the display canvas.
+- Drag Borehole Explorer data onto LogWidget tiles to update the draft LogWidget configuration.
 - Add or remove tracks inside the log widget.
 - Reorder tracks, change track width, hide/show tracks, and set track header height.
-- Configure curve tracks with selected LAS/geophysical curves.
+- Configure LogWidget tracks through a compact track list and selected-track editor.
+- Configure curve tracks through a searchable curve picker and selected-curve editor.
 - Reorder curves in a curve track.
 - Set curve visibility, color, tooltip behavior, line style, and min/max normalization range.
 - Reset a curve scale back to the range detected from the imported source samples.

@@ -134,12 +134,16 @@ Do:
 - Show lithology, curve, seam/RQD/recovery, AI, and core image state tracks where configured.
 - Show Evidence Coverage and explain which evidence is available, partial, or missing for the borehole.
 - Show the interpretation queue and explain raw/imported, partially corrected, and ready-for-review states.
+- Open Borehole Explorer and show the selected borehole data tree: metadata, intervals, curves, images/source files, validation, and AI suggestions.
+- Drag one available curve or data item onto the LogWidget and show that it creates a temporary display preview.
+- Use the temporary display banner to explain **Save**, **Save as**, and **Discard** behavior.
 - Click a depth/lithology interval.
 - Show interval metadata, source evidence, and correction history.
 - Open an interval edit panel, change a harmless comment/remark if testing allows, and save.
 
 Test:
 
+- Confirm runtime drops do not silently persist until **Save** or **Save as** is selected.
 - Click several depths and confirm the metadata panel follows the selected depth.
 - Confirm source/stage metadata remains visible.
 - Confirm saved edits create correction history.

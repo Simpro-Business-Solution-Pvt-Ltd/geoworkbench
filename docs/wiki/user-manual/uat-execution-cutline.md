@@ -22,6 +22,9 @@ This page separates the full product roadmap from the Reliance UAT execution lis
 | Import Center foundation | Templates, mapping preview, source files, processing/merge actions, and audit facts exist. |
 | Export Center foundation | Excel/CSV/LAS exports, readiness checks, profile/mapping preview, and export history exist. |
 | Display editor foundation | Full-page editor, widget add/remove/clone, drag/resize grid, undo/cancel/save, dirty-state summary, widget settings, track settings, curve settings, and track clone are available. |
+| Floating workbench tools | Widget Library, Borehole Explorer, Display Inspector, and Widget Settings use a shared floating window pattern with collapse and focus behavior. |
+| Runtime display preview | Borehole Explorer drops onto LogWidget create temporary display changes with Save, Save as, and Discard actions. |
+| LogWidget control plane hardening | Virtual depth, visible depth, scroll, zoom, rubber-band zoom, pointer depth, and bottom-scroll invariants are covered by shared control-plane tests. |
 | Correlation foundation | Borehole set selection, depth/RL mode, reference borehole distance context, seam tie-lines, AI/rule insight actions, and saved correlation observations exist. |
 | Mobile foundation | Login screen, mobile data-entry/upload path, runtime parameters, and camera/upload path exist. |
 | Wiki and deployment docs | User manual, UAT story, architecture notes, Windows/IIS deployment guide, and smoke-script guidance exist. |
@@ -32,14 +35,13 @@ These are the items that should still be in my execution list before we call the
 
 | Priority | Area | Work remaining |
 | --- | --- | --- |
-| 1 | LogWidget control plane hardening | Make virtual depth, visible depth, scroll, wheel behavior, rubber-band zoom, ruler, click, tooltip, and context menu consistently use one coordinate model. See the developer architecture page [Log Widget Control Plane](../architecture/log-widget-control-plane.md). |
+| 1 | Manual workbench smoke pass | Verify virtual depth, visible depth, scroll, zoom, ruler, click, tooltip, context menu, Borehole Explorer drops, and runtime Save/Save as/Discard in the running app. |
 | 2 | Workbench visual readability | Hide or summarize seam/remark labels at low zoom, keep RQD/recovery/core-image empty states clear, and ensure headers fit with real Reliance curves. |
 | 3 | Import/merge UAT flow | Make the Excel/LAS import happy path obvious: choose source, choose template, see mapping, choose merge mode, preview, commit, and verify the borehole updates. |
 | 4 | Export UAT flow | Make default corrected-log and curve export templates easy to understand, with visible selected fields/curves and generated file audit facts. |
 | 5 | Correlation usefulness | Improve the correlation narrative with received-vs-demo dataset separation, clearer tie-line legend, missing seam states, and saved interpretation wording. |
-| 6 | Display editor maturity | Continue modularizing widget/track settings so future settings are added through registries rather than one-off UI patches. |
-| 7 | Mobile polish | Improve styling and make upload/form progress/status clearer for field-demo confidence. |
-| 8 | UAT deployment package | Prepare server deployment with external Postgres, service/restart scripts, reverse proxy notes, health/smoke evidence, and seeded users/roles. |
+| 6 | Mobile polish | Improve styling and make upload/form progress/status clearer for field-demo confidence. |
+| 7 | UAT deployment package | Prepare server deployment with external Postgres, service/restart scripts, reverse proxy notes, health/smoke evidence, and seeded users/roles. |
 
 ## Manual Test Only
 
