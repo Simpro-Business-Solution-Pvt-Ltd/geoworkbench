@@ -3657,44 +3657,96 @@ h2 {
 
 .display-editor-shell {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   min-height: 0;
 }
 
-.widget-collection,
 .widget-inspector {
   overflow: auto;
   padding: 12px;
   background: var(--gw-surface-alt);
 }
 
-.widget-collection {
-  border-right: 1px solid var(--gw-border);
-}
-
 .widget-inspector {
   border-left: 1px solid var(--gw-border);
 }
 
-.widget-palette {
-  display: grid;
-  gap: 8px;
+.widget-library-window {
+  grid-template-rows: 38px 42px minmax(0, 1fr);
+  width: min(320px, calc(100vw - 24px));
+  height: min(520px, calc(100vh - 120px));
 }
 
-.widget-palette button {
+.widget-library-search {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid var(--gw-border);
+  padding: 7px 10px;
+}
+
+.widget-library-search input {
+  min-width: 0;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.widget-library-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.widget-library-group {
+  display: grid;
+  gap: 6px;
+}
+
+.widget-library-group > strong {
+  color: var(--gw-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.widget-library-items {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.widget-library-items button {
+  display: grid;
+  align-content: center;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
+  gap: 4px;
+  min-width: 0;
+  height: 58px;
+  padding: 5px;
   text-align: center;
   border-color: var(--gw-border);
   background: var(--gw-surface);
 }
 
-.widget-palette button strong {
+.widget-library-items button span {
   color: var(--gw-text);
   font-size: 12px;
+  font-weight: 800;
+}
+
+.widget-library-items button small {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--gw-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
 }
 
 .widget-settings-form small,
