@@ -80,6 +80,7 @@ export function LogWidget({
   const [dragSelection, setDragSelection] = useState<DragSelection | null>(null);
   const [ruler, setRuler] = useState<RulerState | null>(null);
   const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
+  const [dropActive, setDropActive] = useState(false);
   const [dropMessage, setDropMessage] = useState<string | null>(null);
   const containerHeight = useElementHeight(scrollRef, DEFAULT_CONTAINER_HEIGHT);
 
@@ -129,6 +130,7 @@ export function LogWidget({
   useEffect(() => {
     setDragSelectionState(null);
     setRuler(null);
+    setDropActive(false);
     setDropMessage(null);
   }, [data.id, sourceWidget]);
 
@@ -240,6 +242,7 @@ export function LogWidget({
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     if (!event.dataTransfer.types.includes(BOREHOLE_EXPLORER_DRAG_MIME_TYPE)) return;
     event.preventDefault();
+    setDropActive(true);
     event.dataTransfer.dropEffect = "copy";
   };
 
@@ -247,6 +250,7 @@ export function LogWidget({
     const rawPayload = event.dataTransfer.getData(BOREHOLE_EXPLORER_DRAG_MIME_TYPE);
     if (!rawPayload) return;
     event.preventDefault();
+    setDropActive(false);
     try {
       const payload = JSON.parse(rawPayload);
       const result = resolveLogWidgetDrop({ ...sourceWidget, tracks }, payload, data);
@@ -293,6 +297,9 @@ export function LogWidget({
         onScroll={handleScroll}
         onWheel={handleWheel}
         onDragOver={handleDragOver}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropActive(false);
+        }}
         onDrop={handleDrop}
       >
         <div
@@ -306,6 +313,7 @@ export function LogWidget({
         >
           {visibleTracks.map((track) => renderRegisteredTrack(data, track, trackContext))}
           {visibleTracks.length === 0 && <div className="log-track-empty">No visible log tracks</div>}
+          {dropActive && <div className="log-widget-drop-target">Drop borehole data to preview this LogWidget</div>}
           {ruler && (
             <div className="depth-ruler" style={{ top: `${viewport.scale.topOffset + ruler.y}px` }}>
               <span>{rulerLabel}</span>

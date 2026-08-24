@@ -3820,6 +3820,11 @@ h2 {
   background-size: 80px 80px;
 }
 
+.display-grid-canvas.drop-active {
+  outline: 2px dashed var(--gw-accent);
+  outline-offset: -4px;
+}
+
 .display-widget-tile {
   position: relative;
   display: grid;
@@ -3838,6 +3843,11 @@ h2 {
 .display-widget-tile.selected {
   border-color: var(--gw-accent);
   background: var(--gw-accent-soft);
+}
+
+.display-widget-tile.drop-target {
+  border-color: var(--gw-accent);
+  box-shadow: inset 0 0 0 2px var(--gw-accent);
 }
 
 .display-widget-drag-handle {
@@ -4803,6 +4813,23 @@ h2 {
   min-height: 0;
   overflow: auto;
   background: #f6f1e7;
+}
+
+.log-widget-drop-target {
+  position: sticky;
+  top: calc(var(--track-header-height, 38px) + 10px);
+  left: 12px;
+  z-index: 19;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  border: 1px dashed var(--gw-accent);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  color: var(--gw-accent);
+  padding: 7px 9px;
+  box-shadow: 0 10px 24px var(--gw-shadow);
+  font-size: 12px;
+  pointer-events: none;
 }
 
 .log-widget-drop-message {

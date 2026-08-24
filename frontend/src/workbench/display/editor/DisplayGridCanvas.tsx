@@ -39,6 +39,8 @@ export function DisplayGridCanvas({
   onDropBoreholeItem,
 }: Props) {
   const [layoutInteractionSnapshot, setLayoutInteractionSnapshot] = useState<DisplayLayout | null>(null);
+  const [canvasDropActive, setCanvasDropActive] = useState(false);
+  const [widgetDropTargetId, setWidgetDropTargetId] = useState<string | null>(null);
   const canvasPanelRef = useRef<HTMLElement | null>(null);
   const canvasWidth = useElementWidth(canvasPanelRef, 960);
 
@@ -61,18 +63,23 @@ export function DisplayGridCanvas({
       onDragOver={(event) => {
         if (!event.dataTransfer.types.includes(WIDGET_LIBRARY_DRAG_MIME_TYPE)) return;
         event.preventDefault();
+        setCanvasDropActive(true);
         event.dataTransfer.dropEffect = "copy";
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCanvasDropActive(false);
       }}
       onDrop={(event) => {
         const rawPayload = event.dataTransfer.getData(WIDGET_LIBRARY_DRAG_MIME_TYPE);
         if (!rawPayload) return;
         event.preventDefault();
+        setCanvasDropActive(false);
         const payload = JSON.parse(rawPayload) as { widgetType?: string };
         if (payload.widgetType) onDropWidget(payload.widgetType, resolveDropPlacement(event.clientX, event.clientY));
       }}
     >
       <GridLayout
-        className="display-grid-canvas"
+        className={`display-grid-canvas ${canvasDropActive ? "drop-active" : ""}`}
         cols={draft.settings.grid?.columns ?? 12}
         rowHeight={draft.settings.grid?.rowHeight ?? 72}
         width={Math.max(720, canvasWidth - 28)}
@@ -109,7 +116,9 @@ export function DisplayGridCanvas({
               key={item.widgetId}
               role="button"
               tabIndex={0}
-              className={`display-widget-tile ${selectedWidgetId === item.widgetId ? "selected" : ""}`}
+              className={`display-widget-tile ${selectedWidgetId === item.widgetId ? "selected" : ""} ${
+                widgetDropTargetId === item.widgetId ? "drop-target" : ""
+              }`}
               onClick={() => onSelectWidget(item.widgetId)}
               onContextMenu={(event) => {
                 event.preventDefault();
@@ -119,12 +128,17 @@ export function DisplayGridCanvas({
               onDragOver={(event) => {
                 if (!event.dataTransfer.types.includes(BOREHOLE_EXPLORER_DRAG_MIME_TYPE)) return;
                 event.preventDefault();
+                setWidgetDropTargetId(item.widgetId);
                 event.dataTransfer.dropEffect = "copy";
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setWidgetDropTargetId(null);
               }}
               onDrop={(event) => {
                 const rawPayload = event.dataTransfer.getData(BOREHOLE_EXPLORER_DRAG_MIME_TYPE);
                 if (!rawPayload) return;
                 event.preventDefault();
+                setWidgetDropTargetId(null);
                 onDropBoreholeItem(item.widgetId, JSON.parse(rawPayload) as BoreholeExplorerDragPayload);
               }}
             >
