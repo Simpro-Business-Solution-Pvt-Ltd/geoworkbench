@@ -1,12 +1,11 @@
 import { useMemo } from "react";
 
 import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
-import { nearestSample } from "../../core/curveMath";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { numericRendererSetting } from "../../core/rendererSettings";
-import { createValueScale } from "../../core/valueScale";
 import { TrackFrame } from "../../core/TrackFrame";
 import { useWorkbenchStore } from "../../display/workbenchStore";
+import { buildCurveSampleHit, curveHitBelongsToTrack } from "./curveHitTestModel";
 import { buildCurveRenderModels, strokeDasharray } from "./curveRenderModel";
 import { useCurveWindowData } from "./useCurveWindowData";
 
@@ -24,19 +23,6 @@ export function CurveTrack({ data, track, context }: Props) {
     track,
     visibleDepthSpan: context.visibleDepthSpan,
   });
-  const valueScales = useMemo(() => {
-    const map = new Map<string, ReturnType<typeof createValueScale>>();
-    for (const { config, curve } of curves) {
-      map.set(
-        curve.key,
-        createValueScale({
-          min: config.scale.min,
-          max: config.scale.max,
-        }),
-      );
-    }
-    return map;
-  }, [curves]);
   const renderModels = useMemo(
     () =>
       buildCurveRenderModels(curves, scale, {
@@ -44,10 +30,7 @@ export function CurveTrack({ data, track, context }: Props) {
       }),
     [curves, scale, track],
   );
-  const hit =
-    hoveredObject?.kind === "curve-sample" && curves.some(({ curve }) => curve.key === hoveredObject.curve.key)
-      ? hoveredObject
-      : null;
+  const hit = curveHitBelongsToTrack(hoveredObject, curves) ? hoveredObject : null;
 
   return (
     <TrackFrame
@@ -70,41 +53,7 @@ export function CurveTrack({ data, track, context }: Props) {
           ))}
         </div>
       }
-      hitTest={({ depth }) => {
-        const hits = curves
-          .map(({ config, curve }) => {
-            const nearest = nearestSample(curve, depth);
-            if (!nearest) return null;
-            const valueScale = valueScales.get(curve.key);
-            return {
-              ...nearest,
-              config,
-              screenXPercent: valueScale?.toPercent(nearest.sample.value) ?? 50,
-              screenYPercent: scale.depthToContentPercent(nearest.sample.depth),
-            };
-          })
-          .filter((item): item is NonNullable<typeof item> => Boolean(item));
-        const sortedHits = hits.sort((a, b) => a.distance - b.distance);
-        const best = sortedHits[0];
-        return best
-          ? {
-              kind: "curve-sample",
-              id: `${best.curve.key}:${best.sample.depth}`,
-              depth: best.sample.depth,
-              curve: best.curve,
-              sample: best.sample,
-              distance: best.distance,
-              screenXPercent: best.screenXPercent,
-              screenYPercent: best.screenYPercent,
-              relatedSamples: sortedHits.map((hit) => ({
-                curve: hit.curve,
-                sample: hit.sample,
-                distance: hit.distance,
-                screenXPercent: hit.screenXPercent,
-              })),
-            }
-          : null;
-      }}
+      hitTest={({ depth }) => buildCurveSampleHit(curves, scale, depth)}
     >
       <svg className="curve-svg" preserveAspectRatio="none" viewBox="0 0 100 100">
         {renderModels.map((model) => {

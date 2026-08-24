@@ -161,6 +161,8 @@ Track components should stay thin. Track-specific rendering calculations belong 
 
 These modules calculate visible objects, CSS positions, label visibility, grouped objects, and SVG/image data. React components should mostly map render models to DOM/SVG. This makes zoom, scroll, density, and clutter behavior testable without a browser.
 
+Tracks with richer selection behavior can also have a pure hit-test model, such as `curveHitTestModel.ts`. That keeps nearest-object selection, tooltip payload construction, and track ownership checks testable without tying them to React state.
+
 ### Central Interaction Handler
 
 `handleTrackPointerEvent()` decides what happens:

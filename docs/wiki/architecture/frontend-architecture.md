@@ -108,6 +108,7 @@ Shared read-model helpers:
 | `ticks.ts` | Generates nice depth ticks for zoom levels. |
 | `curveMath.ts` | Curve point normalization, visible/boundary sample selection, nearest sample search. |
 | `tracks/curve/curveRenderModel.ts` | Converts configured curves and depth/value scales into renderer-ready polyline models. |
+| `tracks/curve/curveHitTestModel.ts` | Converts pointer depth into nearest curve sample objects and multi-curve tooltip payloads. |
 | `tracks/curve/curveWindowData.ts` | Pure helpers for visible-window curve sample identity, cache keys, and sample replacement. |
 | `tracks/curve/useCurveWindowData.ts` | Optional TanStack Query bridge for fetching curve samples by visible depth window. |
 | `TrackFrame.tsx` | Shared wrapper for track title, body, hover/click/context-menu, hit-test dispatch. |
@@ -163,7 +164,7 @@ Current track renderers:
 | Lithology | `tracks/lithology/LithologyTrack.tsx`, `lithologyRenderModel.ts` | Colored lithology intervals. |
 | Seam | `tracks/seam/SeamTrack.tsx`, `seamRenderModel.ts` | Coal seam markers. |
 | Recovery/RQD | `tracks/quantitativeBar/QuantitativeBarTrack.tsx`, `quantitativeBarRenderModel.ts` | Quantitative interval bar tracks. |
-| Curves | `tracks/curve/CurveTrack.tsx`, `curveRenderModel.ts` | Multi-curve normalized curve rendering and tooltips. |
+| Curves | `tracks/curve/CurveTrack.tsx`, `curveRenderModel.ts`, `curveHitTestModel.ts` | Multi-curve normalized curve rendering, hit testing, and tooltips. |
 | Remarks | `tracks/remarks/RemarksTrack.tsx`, `remarksRenderModel.ts` | Grouped remarks to avoid clutter. |
 | AI Suggestions | `tracks/aiSuggestions/AiSuggestionsTrack.tsx`, `aiSuggestionsRenderModel.ts` | Depth-aligned suggestion markers. |
 | Images | `tracks/images/ImageTrack.tsx`, `coreImageRenderModel.ts` | Depth-aligned core image state and prepared rock-lane rendering. |
