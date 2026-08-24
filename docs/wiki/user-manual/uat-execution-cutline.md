@@ -32,7 +32,7 @@ These are the items that should still be in my execution list before we call the
 
 | Priority | Area | Work remaining |
 | --- | --- | --- |
-| 1 | LogWidget control plane hardening | Make virtual depth, visible depth, scroll, wheel behavior, rubber-band zoom, ruler, click, tooltip, and context menu consistently use one coordinate model. |
+| 1 | LogWidget control plane hardening | Make virtual depth, visible depth, scroll, wheel behavior, rubber-band zoom, ruler, click, tooltip, and context menu consistently use one coordinate model. See the developer architecture page [Log Widget Control Plane](../architecture/log-widget-control-plane.md). |
 | 2 | Workbench visual readability | Hide or summarize seam/remark labels at low zoom, keep RQD/recovery/core-image empty states clear, and ensure headers fit with real Reliance curves. |
 | 3 | Import/merge UAT flow | Make the Excel/LAS import happy path obvious: choose source, choose template, see mapping, choose merge mode, preview, commit, and verify the borehole updates. |
 | 4 | Export UAT flow | Make default corrected-log and curve export templates easy to understand, with visible selected fields/curves and generated file audit facts. |

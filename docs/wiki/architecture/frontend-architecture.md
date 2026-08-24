@@ -239,6 +239,8 @@ Log widget track config has:
 
 `DisplayEditorDialog.tsx` owns the edit session. `DisplayRuntime.tsx` renders the saved display grid during runtime and delegates each widget to a file under `display/runtime/`. `displayEditorModel.ts` owns catalog/default/normalization helpers. `LogWidget.tsx` uses the saved log widget settings to decide which track components to render.
 
+For the depth/scroll/zoom/click/ruler architecture, use [Log Widget Control Plane](log-widget-control-plane.md). That page is the contract for virtual depth, visible depth, coordinate transforms, pointer mapping, track renderer isolation, and future realtime refresh behavior.
+
 Correlation-specific display helpers should stay under `workbench/correlation/`. For example, seam tie-line construction is kept in `correlationTieLines.ts` and tested separately from the React workspace so future section/correlation rendering can change layout without losing the geological continuity rules.
 
 ## Adding A New Track
