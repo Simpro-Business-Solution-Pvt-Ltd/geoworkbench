@@ -1,6 +1,6 @@
 def default_borehole_layout() -> dict:
     return {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "mode": "runtime",
         "regions": {
             "left": ["validation-panel", "ai-workflow"],

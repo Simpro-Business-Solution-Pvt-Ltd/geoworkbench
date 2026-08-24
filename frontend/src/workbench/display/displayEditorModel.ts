@@ -2,9 +2,13 @@ import type { Curve, DisplayGridItem, DisplayLayout, DisplayWidget } from "../..
 import { defaultTracks, syncTrackCurves } from "./trackCatalog";
 import { createCatalogWidget } from "./widgetCatalog";
 
+const CURRENT_DISPLAY_SCHEMA_VERSION = 3;
+const V3_DEFAULT_TRACK_IDS = new Set(["core-images", "recovery", "rqd", "ai-suggestions"]);
+
 export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: Curve[]): DisplayLayout {
   const draft = structuredClone(layout);
-  draft.settings.schemaVersion = draft.settings.schemaVersion ?? 2;
+  const sourceSchemaVersion = draft.settings.schemaVersion ?? 1;
+  draft.settings.schemaVersion = CURRENT_DISPLAY_SCHEMA_VERSION;
   draft.settings.mode = draft.settings.mode ?? "runtime";
   draft.settings.widgets = draft.settings.widgets ?? {};
   if (!draft.settings.grid) {
@@ -17,6 +21,12 @@ export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: C
   }
   draft.settings.widgets["log-widget"].tracks =
     draft.settings.widgets["log-widget"].tracks ?? defaultTracks(availableCurves);
+  if (sourceSchemaVersion < CURRENT_DISPLAY_SCHEMA_VERSION) {
+    draft.settings.widgets["log-widget"].tracks = migrateLogWidgetTracks(
+      draft.settings.widgets["log-widget"].tracks,
+      availableCurves,
+    );
+  }
   for (const [widgetId, widget] of Object.entries(draft.settings.widgets)) {
     if (widget.type === "dataArrival") {
       delete draft.settings.widgets[widgetId];
@@ -57,6 +67,17 @@ export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: C
     (item) => Boolean(draft.settings.widgets?.[item.widgetId]),
   );
   return draft;
+}
+
+function migrateLogWidgetTracks(tracks: DisplayWidget["tracks"], availableCurves: Curve[]): NonNullable<DisplayWidget["tracks"]> {
+  const next = [...(tracks ?? [])];
+  const existingIds = new Set(next.map((track) => track.id));
+  for (const track of defaultTracks(availableCurves)) {
+    if (!V3_DEFAULT_TRACK_IDS.has(track.id) || existingIds.has(track.id)) continue;
+    next.push(track);
+    existingIds.add(track.id);
+  }
+  return next;
 }
 
 export function defaultRuntimeWidgets(availableCurves: Curve[]): Record<string, DisplayWidget> {

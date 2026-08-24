@@ -4,7 +4,7 @@ from app.domains.display_layouts.defaults import default_borehole_layout
 def test_default_borehole_layout_uses_current_runtime_regions() -> None:
     layout = default_borehole_layout()
 
-    assert layout["schemaVersion"] == 2
+    assert layout["schemaVersion"] == 3
     assert layout["regions"]["right"] == ["interval-details", "curve-catalog"]
     assert "export-panel" not in layout["widgets"]
 
