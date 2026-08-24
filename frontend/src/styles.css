@@ -4476,6 +4476,43 @@ h2 {
   background: #f6f1e7;
 }
 
+.log-widget-drop-message {
+  position: absolute;
+  right: 10px;
+  bottom: 44px;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: min(460px, calc(100% - 20px));
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  color: var(--gw-text);
+  padding: 7px 8px;
+  box-shadow: 0 12px 30px var(--gw-shadow);
+  font-size: 12px;
+}
+
+.log-widget-drop-message span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-widget-drop-message b {
+  border-radius: 999px;
+  background: var(--gw-accent-soft);
+  color: var(--gw-accent);
+  padding: 2px 6px;
+  font-size: 10px;
+}
+
+.log-widget-drop-message button {
+  padding: 3px 6px;
+  font-size: 11px;
+}
+
 .track-row {
   position: relative;
   display: flex;

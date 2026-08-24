@@ -1,5 +1,6 @@
 import {
   type UIEvent,
+  type DragEvent,
   type WheelEvent,
   useCallback,
   useEffect,
@@ -8,7 +9,7 @@ import {
   useState,
 } from "react";
 
-import type { BoreholeWorkbench, DisplayTrack } from "../../../api/types";
+import type { BoreholeWorkbench, DisplayTrack, DisplayWidget } from "../../../api/types";
 import { addBottomDepthPadding, depthSpanSize, inferLogWidgetDepthSpan } from "../../core/depthDomain";
 import type { LogTrackContext } from "../../core/logTrackContext";
 import { buildLogWidgetControlPlaneDiagnostics } from "../../core/logViewportDiagnostics";
@@ -16,7 +17,9 @@ import { useLogWidgetControlPlane } from "../../core/useLogWidgetControlPlane";
 import { handleTrackPointerEvent } from "../../core/interactions";
 import { legendForIntervals } from "../../core/lithologyPatterns";
 import type { TrackPointerEvent } from "../../core/trackObject";
+import { resolveLogWidgetDrop } from "../../display/logWidgetDropResolver";
 import { useWorkbenchStore } from "../../display/workbenchStore";
+import { BOREHOLE_EXPLORER_DRAG_MIME_TYPE } from "../../explorer/BoreholeExplorer";
 import { renderRegisteredTrack } from "../../tracks/trackRegistry";
 import { LogContextMenu } from "./LogContextMenu";
 import { LogWidgetFooter } from "./LogWidgetFooter";
@@ -65,9 +68,15 @@ export function LogWidget({ data }: Props) {
   const [dragSelection, setDragSelection] = useState<DragSelection | null>(null);
   const [ruler, setRuler] = useState<RulerState | null>(null);
   const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
+  const [runtimeTracks, setRuntimeTracks] = useState<DisplayTrack[] | null>(null);
+  const [dropMessage, setDropMessage] = useState<string | null>(null);
   const containerHeight = useElementHeight(scrollRef, DEFAULT_CONTAINER_HEIGHT);
 
-  const tracks = data.layout?.settings.widgets?.["log-widget"]?.tracks ?? [];
+  const sourceWidget = useMemo<DisplayWidget>(
+    () => data.layout?.settings.widgets?.["log-widget"] ?? { type: "logWidget", title: "Borehole Log", tracks: [] },
+    [data.layout],
+  );
+  const tracks = runtimeTracks ?? sourceWidget.tracks ?? [];
   const visibleTracks = useMemo(() => tracks.filter((track) => track.visible), [tracks]);
   const depthDomain = useMemo(
     () => addBottomDepthPadding(inferLogWidgetDepthSpan(data, visibleTracks)),
@@ -109,6 +118,8 @@ export function LogWidget({ data }: Props) {
   useEffect(() => {
     setDragSelectionState(null);
     setRuler(null);
+    setRuntimeTracks(null);
+    setDropMessage(null);
   }, [data.id]);
 
   const resolvePointerDepth = useCallback(
@@ -216,6 +227,28 @@ export function LogWidget({ data }: Props) {
     scrollTo(event.currentTarget.scrollTop);
   };
 
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!event.dataTransfer.types.includes(BOREHOLE_EXPLORER_DRAG_MIME_TYPE)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    const rawPayload = event.dataTransfer.getData(BOREHOLE_EXPLORER_DRAG_MIME_TYPE);
+    if (!rawPayload) return;
+    event.preventDefault();
+    try {
+      const payload = JSON.parse(rawPayload);
+      const result = resolveLogWidgetDrop({ ...sourceWidget, tracks }, payload, data);
+      setDropMessage(result.message);
+      if (result.status === "changed") {
+        setRuntimeTracks(result.widget.tracks ?? []);
+      }
+    } catch {
+      setDropMessage("Dropped explorer item could not be applied.");
+    }
+  };
+
   const setScrollRef = useCallback((element: HTMLDivElement | null) => {
     scrollRef.current = element;
     setScrollElement(element);
@@ -249,6 +282,8 @@ export function LogWidget({ data }: Props) {
         ref={setScrollRef}
         onScroll={handleScroll}
         onWheel={handleWheel}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
         <div
           className="track-row"
@@ -334,6 +369,15 @@ export function LogWidget({ data }: Props) {
         onToggleTooltips={() => setTooltipsEnabled(!tooltipsEnabled)}
         onToggleDiagnostics={() => setDiagnosticsVisible((visible) => !visible)}
       />
+      {dropMessage && (
+        <div className="log-widget-drop-message">
+          <span>{dropMessage}</span>
+          {runtimeTracks && <b>Temporary</b>}
+          <button type="button" onClick={() => setDropMessage(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
     </div>
   );
 }

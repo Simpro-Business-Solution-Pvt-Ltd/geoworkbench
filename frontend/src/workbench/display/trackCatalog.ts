@@ -181,7 +181,7 @@ export function syncTrackCurves(tracks: DisplayTrack[], availableCurves: Curve[]
   });
 }
 
-function createCurveDisplayConfig(curve: Curve) {
+export function createCurveDisplayConfig(curve: Curve) {
   return {
     curveKey: curve.key,
     label: curve.label,
