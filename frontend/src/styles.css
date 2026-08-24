@@ -3092,6 +3092,13 @@ button.active {
   white-space: nowrap;
 }
 
+.export-mapping-grid.compact small {
+  grid-column: 1 / -1;
+  color: var(--gw-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
 .export-mapping-grid article::before {
   position: absolute;
   top: 50%;
@@ -3100,6 +3107,11 @@ button.active {
   color: var(--gw-accent);
   content: "->";
   font-weight: 900;
+}
+
+.template-mapping-preview-list {
+  display: grid;
+  gap: 8px;
 }
 
 .export-preview-card {

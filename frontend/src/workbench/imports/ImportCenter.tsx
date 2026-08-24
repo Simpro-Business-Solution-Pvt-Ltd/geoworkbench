@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import type { BoreholeWorkbench, ImportProfile, SourceFile } from "../../api/types";
+import { mappingRowsFromTemplate, safeMappingFromText } from "../templates/templateMappingSummary";
 import { sourceFileAuditFacts, sourceImportAuditFacts } from "./importAuditFacts";
 
 type Props = {
@@ -491,37 +492,32 @@ function TemplateMappingDialog({
               </button>
             </div>
           </section>
-          <TemplateMappingPreview profile={{ ...profile, name, description, mapping: safeMapping(mappingText) }} />
+          <TemplateMappingPreview
+            profile={{ ...profile, name, description }}
+            mapping={safeMappingFromText(mappingText) ?? profile.mapping}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function safeMapping(mappingText: string): Record<string, unknown> {
-  try {
-    return JSON.parse(mappingText) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-function TemplateMappingPreview({ profile }: { profile: ImportProfile }) {
-  const mapping = profile.mapping ?? {};
-  const lithology = typeof mapping.lithology === "object" && mapping.lithology !== null ? mapping.lithology : null;
+function TemplateMappingPreview({ profile, mapping }: { profile: ImportProfile; mapping: Record<string, unknown> }) {
+  const mappingRows = mappingRowsFromTemplate(mapping);
   return (
     <div className="template-mapping-preview">
       <div className="workflow-panel-header compact">
         <strong>Mapping Preview</strong>
         <span>{String(mapping.template_key ?? mapping.status ?? profile.profile_type)}</span>
       </div>
-      {lithology ? (
-        <div className="mapping-grid">
-          {Object.entries(lithology).map(([field, column]) => (
-            <span key={field}>
-              <b>{field.replaceAll("_", " ")}</b>
-              <code>{String(column)}</code>
-            </span>
+      {mappingRows.length ? (
+        <div className="export-mapping-grid compact">
+          {mappingRows.map((row) => (
+            <article key={`${row.source}:${row.target}:${row.detail ?? ""}`}>
+              <strong>{row.source}</strong>
+              <span>{row.target}</span>
+              {row.detail && <small>{row.detail}</small>}
+            </article>
           ))}
         </div>
       ) : (

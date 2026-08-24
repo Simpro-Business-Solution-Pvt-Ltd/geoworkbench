@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { exportDownloadUrl } from "../../api/client";
 import type { BoreholeWorkbench, ExportJob, ExportProfile, ExportReadiness } from "../../api/types";
+import { mappingRowsFromTemplate, safeMappingFromText } from "../templates/templateMappingSummary";
 import { exportAuditFacts } from "./exportJobAudit";
 
 type Props = {
@@ -139,7 +140,7 @@ export function ExportCenter({
   const matchingProfiles = exportProfiles?.filter((profile) => profile.export_type === format) ?? [];
   const selectedProfile =
     matchingProfiles.find((profile) => profile.id === selectedProfileId) ?? matchingProfiles[0] ?? null;
-  const mappingRows = mappingRowsFromProfile(selectedProfile) ?? EXPORT_MAPPINGS[exportType] ?? [];
+  const mappingRows = selectedProfile ? mappingRowsFromTemplate(selectedProfile.mapping) : EXPORT_MAPPINGS[exportType] ?? [];
   const sectionOptions = SECTION_OPTIONS[format] ?? SECTION_OPTIONS.corrected_lithology_xlsx;
   const includedSections = useMemo(
     () => sectionOptions.filter((item) => sections[item.key]).map((item) => item.key),
@@ -363,25 +364,6 @@ export function ExportCenter({
   );
 }
 
-function mappingRowsFromProfile(profile: ExportProfile | null) {
-  if (!profile) return null;
-  const columns = profile.mapping.columns;
-  if (Array.isArray(columns)) {
-    return columns.map((item) => {
-      if (typeof item === "string") return { source: item, target: item };
-      if (item && typeof item === "object") {
-        const row = item as Record<string, unknown>;
-        return { source: String(row.source ?? row.key ?? ""), target: String(row.target ?? row.label ?? "") };
-      }
-      return { source: String(item), target: String(item) };
-    });
-  }
-  return Object.entries(profile.mapping).map(([source, target]) => ({
-    source,
-    target: typeof target === "string" ? target : JSON.stringify(target),
-  }));
-}
-
 function optionalNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -437,6 +419,7 @@ function ExportProfileDialog({
   };
 
   const selectedCurves = selectedCurveKeys(mappingText);
+  const mappingPreviewRows = mappingRowsFromTemplate(safeMappingFromText(mappingText) ?? profile.mapping);
   const setCurveKeys = (curveKeys: string[]) => {
     setMappingText(JSON.stringify({ ...safeMapping(mappingText), curves: curveKeys }, null, 2));
   };
@@ -473,6 +456,21 @@ function ExportProfileDialog({
               Mapping JSON
               <textarea value={mappingText} spellCheck={false} onChange={(event) => setMappingText(event.target.value)} />
             </label>
+            <div className="template-mapping-preview-list">
+              <div className="workflow-panel-header compact">
+                <strong>Mapping Preview</strong>
+                <span>{mappingPreviewRows.length} fields</span>
+              </div>
+              <div className="export-mapping-grid compact">
+                {mappingPreviewRows.map((row) => (
+                  <article key={`${row.source}:${row.target}:${row.detail ?? ""}`}>
+                    <strong>{row.source}</strong>
+                    <span>{row.target}</span>
+                    {row.detail && <small>{row.detail}</small>}
+                  </article>
+                ))}
+              </div>
+            </div>
             {isCurveTemplate && (
               <div className="curve-template-selector">
                 <div>
@@ -528,9 +526,5 @@ function selectedCurveKeys(mappingText: string) {
 }
 
 function safeMapping(mappingText: string): Record<string, unknown> {
-  try {
-    return JSON.parse(mappingText) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
+  return safeMappingFromText(mappingText) ?? {};
 }
