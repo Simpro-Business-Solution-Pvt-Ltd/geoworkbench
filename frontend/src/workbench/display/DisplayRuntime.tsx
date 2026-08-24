@@ -1,11 +1,14 @@
-import { useMemo } from "react";
+import { Database } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import type { DisplayLayout } from "../../api/types";
+import { BoreholeExplorer } from "../explorer/BoreholeExplorer";
 import { normalizeDisplayLayout } from "./displayEditorModel";
 import { renderRuntimeWidget } from "./runtime/runtimeWidgetRegistry";
 import type { DisplayRuntimeProps } from "./runtime/runtimeTypes";
 
 export function DisplayRuntime(props: DisplayRuntimeProps) {
+  const [explorerOpen, setExplorerOpen] = useState(false);
   const layout = useMemo(
     () => (props.data.layout ? normalizeDisplayLayout(props.data.layout as DisplayLayout, props.data.curves) : null),
     [props.data.curves, props.data.layout],
@@ -19,6 +22,16 @@ export function DisplayRuntime(props: DisplayRuntimeProps) {
 
   return (
     <section className="runtime-display">
+      <div className="runtime-tool-strip">
+        <button
+          type="button"
+          className={explorerOpen ? "active" : ""}
+          onClick={() => setExplorerOpen((open) => !open)}
+        >
+          <Database size={14} strokeWidth={2.1} />
+          Explorer
+        </button>
+      </div>
       <div
         className="runtime-grid"
         style={{
@@ -43,6 +56,7 @@ export function DisplayRuntime(props: DisplayRuntimeProps) {
           );
         })}
       </div>
+      {explorerOpen && <BoreholeExplorer data={props.data} onClose={() => setExplorerOpen(false)} />}
     </section>
   );
 }

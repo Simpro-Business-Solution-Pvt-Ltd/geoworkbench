@@ -2375,10 +2375,36 @@ button.active {
 }
 
 .runtime-display {
+  position: relative;
   min-height: 0;
   overflow: auto;
   padding: 10px;
   background: var(--gw-page);
+}
+
+.runtime-tool-strip {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 8px;
+  pointer-events: none;
+}
+
+.runtime-tool-strip button {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  color: var(--gw-text);
+  padding: 6px 9px;
+  font-size: 12px;
+  box-shadow: 0 6px 18px var(--gw-shadow);
 }
 
 .workflow-center {
@@ -3217,6 +3243,204 @@ button.active {
 
 .runtime-widget-logWidget .log-widget {
   height: 100%;
+}
+
+.borehole-explorer-window {
+  position: fixed;
+  z-index: 90;
+  display: grid;
+  grid-template-rows: 38px 42px minmax(0, 1fr);
+  width: min(560px, calc(100vw - 24px));
+  height: min(620px, calc(100vh - 82px));
+  overflow: hidden;
+  border: 1px solid var(--gw-border);
+  border-radius: 8px;
+  background: var(--gw-surface);
+  color: var(--gw-text);
+  box-shadow: 0 24px 80px var(--gw-shadow);
+}
+
+.floating-tool-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--gw-border);
+  background: var(--gw-surface-alt);
+  padding: 0 10px;
+  touch-action: none;
+  user-select: none;
+}
+
+.floating-tool-header strong {
+  overflow: hidden;
+  color: var(--gw-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.floating-tool-header button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--gw-muted);
+}
+
+.borehole-explorer-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid var(--gw-border);
+  padding: 7px 10px;
+}
+
+.borehole-explorer-search input {
+  min-width: 0;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.borehole-explorer-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(190px, 0.9fr);
+  min-height: 0;
+}
+
+.borehole-explorer-tree {
+  min-width: 0;
+  overflow: auto;
+  border-right: 1px solid var(--gw-border);
+  padding: 6px;
+}
+
+.borehole-explorer-node-wrap {
+  display: grid;
+  min-width: 0;
+}
+
+.borehole-explorer-node {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--gw-text);
+  padding-block: 5px;
+  padding-right: 7px;
+  text-align: left;
+}
+
+.borehole-explorer-node:hover,
+.borehole-explorer-node.selected {
+  border-color: var(--gw-accent);
+  background: var(--gw-accent-soft);
+}
+
+.borehole-explorer-node.unavailable {
+  color: var(--gw-muted);
+  opacity: 0.72;
+}
+
+.borehole-explorer-toggle {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  color: var(--gw-muted);
+}
+
+.borehole-explorer-label {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.borehole-explorer-label strong,
+.borehole-explorer-label small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.borehole-explorer-label strong {
+  font-size: 12px;
+}
+
+.borehole-explorer-label small {
+  color: var(--gw-muted);
+  font-size: 10px;
+}
+
+.borehole-explorer-node b {
+  min-width: 22px;
+  border-radius: 999px;
+  background: var(--gw-surface-alt);
+  color: var(--gw-muted);
+  padding: 2px 5px;
+  text-align: center;
+  font-size: 10px;
+}
+
+.borehole-explorer-preview {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  overflow: auto;
+  padding: 10px;
+  background: var(--gw-surface-alt);
+}
+
+.borehole-explorer-preview strong {
+  color: var(--gw-text);
+  font-size: 13px;
+}
+
+.borehole-explorer-preview span {
+  color: var(--gw-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.borehole-explorer-preview dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.borehole-explorer-preview dl div {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.42fr) minmax(0, 1fr);
+  gap: 7px;
+  border-bottom: 1px solid var(--gw-border);
+  padding-bottom: 5px;
+}
+
+.borehole-explorer-preview dt {
+  overflow-wrap: anywhere;
+  color: var(--gw-muted);
+  font-size: 10px;
+}
+
+.borehole-explorer-preview dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--gw-text);
+  font-size: 11px;
 }
 
 .runtime-kpi {
