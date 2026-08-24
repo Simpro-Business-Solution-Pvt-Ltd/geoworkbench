@@ -193,6 +193,8 @@ Do:
 - Open Correlation.
 - Switch between synthetic/demo and received data sets if both are available.
 - Show depth/RL toggle.
+- Select a reference borehole and explain that distance context is recalculated from that borehole's coordinates.
+- Point out seam tie-lines between adjacent boreholes: green means matching seam markers are close enough for continuity review, dashed red means the depth offset needs geological review.
 - Open AI insights.
 - Point out the recommended action attached to each insight.
 - Save an insight as a correlation observation, then draft/save a manual correlation note.

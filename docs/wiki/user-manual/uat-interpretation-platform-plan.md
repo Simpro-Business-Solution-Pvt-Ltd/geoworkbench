@@ -106,6 +106,7 @@ Needed UAT refinements:
 
 - show a compact collar/spatial context table for selected boreholes.
 - compute distances from a selected/reference borehole using coordinates.
+- draw seam tie-lines between adjacent boreholes where matching seam names are present, and highlight larger offsets for review.
 - clearly mark RL mode as estimated/limited when collar RL is missing.
 - show seam continuity/missing seam/thickness variation insights as actionable cards.
 - each insight should allow "mark reviewed", direct "save observation", note drafting, and follow-up through the workbench.
@@ -172,12 +173,13 @@ Acceptance:
 
 ### Milestone C: Correlation As Interpretation Workspace
 
-Status: foundation available; insight actions and saved observations are available, visual refinement continues.
+Status: foundation available; reference-borehole distance context, adjacent seam tie-lines, insight actions, and saved observations are available. Visual refinement continues.
 
 Acceptance:
 
 - Selected boreholes are clear.
 - Collar/spatial context is shown.
+- Adjacent seam tie-lines make continuity and offset review visible.
 - Seam continuity and missing seam insights are actionable.
 - RL mode is disabled or clearly labelled when RL/elevation is missing.
 - Geologist notes persist with author and timestamp.

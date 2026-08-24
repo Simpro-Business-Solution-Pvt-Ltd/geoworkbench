@@ -209,9 +209,11 @@ The display editor is launched from the topbar. It uses a draft copy of the save
 - Add widget from widget collection
 - Remove widget
 - Clone widget
+- Track add/remove/reorder/clone
 - Drag widgets directly to a grid location
 - Resize widgets directly from the lower-right resize handle
 - Right-click a widget to open widget settings
+- Unsaved-change detection and compact editor summary chips
 
 Widget-level concepts:
 
@@ -233,8 +235,11 @@ Log widget track config has:
 - `width`
 - optional curve configs
 - optional quantitative field config
+- optional interaction config for tooltip, context menu, and selectable behavior
 
 `DisplayEditorDialog.tsx` owns the edit session. `DisplayRuntime.tsx` renders the saved display grid during runtime and delegates each widget to a file under `display/runtime/`. `displayEditorModel.ts` owns catalog/default/normalization helpers. `LogWidget.tsx` uses the saved log widget settings to decide which track components to render.
+
+Correlation-specific display helpers should stay under `workbench/correlation/`. For example, seam tie-line construction is kept in `correlationTieLines.ts` and tested separately from the React workspace so future section/correlation rendering can change layout without losing the geological continuity rules.
 
 ## Adding A New Track
 

@@ -346,10 +346,13 @@ The Correlation workspace shows multiple boreholes together for review. It suppo
 - Depth/RL alignment discussion.
 - Seam and lithology comparison.
 - Curve comparison.
+- Seam tie-lines between adjacent boreholes where matching seam names are present.
 - AI/insight narrative for correlation scenarios.
 - Evidence summary for selected boreholes, common seam groups, gamma coverage, and depth/RL range.
 - Recommended action for each insight, such as confirming RL, reviewing missing markers, importing missing curve evidence, or recording a lithology-only decision.
 - Geologist observation notes from the insight dialog.
+
+The reference borehole selector controls the distance context in the collar/spatial table. Green tie-lines show matching adjacent seam markers; dashed red tie-lines show larger depth offsets that should be reviewed as possible structure, split/merge behavior, pinch-out, or interpretation inconsistency.
 
 Correlation insight notes are saved in the application database per selected borehole set for UAT continuity. Drafting a note from an insight includes the finding, evidence, and recommended action so the geologist can turn a rule/AI prompt into an interpretation record. These notes are useful for demo review and stakeholder discussion, but they are still lighter than a formal maker-checker geological interpretation workflow.
 
@@ -364,7 +367,10 @@ Current capabilities:
 - Select widgets shown in the display.
 - Configure log widget tracks.
 - Show/hide tracks.
+- Clone tuned widgets or tracks before experimenting.
 - Configure curve tracks, colors, units, visibility, and scale ranges.
+- Configure track interaction behavior such as tooltip, context menu, and selectable state.
+- See editor summary chips for widget, track, curve, grid-item, and unsaved-state awareness.
 - Reset to the default display.
 - Save a runtime layout per borehole.
 
