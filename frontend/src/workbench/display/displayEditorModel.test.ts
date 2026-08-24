@@ -33,18 +33,20 @@ describe("normalizeDisplayLayout", () => {
 
     const normalized = normalizeDisplayLayout(layout, [curve("ngamma")]);
 
-    expect(normalized.settings.schemaVersion).toBe(4);
+    expect(normalized.settings.schemaVersion).toBe(5);
     expect(normalized.settings.widgets?.["data-arrival"]).toBeUndefined();
     expect(normalized.settings.widgets?.["export-panel"]).toBeUndefined();
     expect(normalized.settings.grid?.items.map((item) => item.widgetId)).toEqual([
       "log-widget",
       "correction-progress",
       "interpretation-queue",
+      "evidence-coverage",
     ]);
     expect(normalized.settings.regions).toEqual({ left: [], center: ["log-widget"], right: [] });
     expect(normalized.settings.widgets?.["log-widget"].tracks?.some((track) => track.id === "core-images")).toBe(true);
     expect(normalized.settings.widgets?.["correction-progress"].metric).toBe("corrected_interval_percent");
     expect(normalized.settings.widgets?.["interpretation-queue"].type).toBe("interpretationQueue");
+    expect(normalized.settings.widgets?.["evidence-coverage"].type).toBe("evidenceCoverage");
   });
 
   it("adds current UAT default tracks to older saved log layouts once", () => {
@@ -85,7 +87,7 @@ describe("normalizeDisplayLayout", () => {
       name: "Current saved display",
       mode: "runtime",
       settings: {
-        schemaVersion: 4,
+        schemaVersion: 5,
         widgets: {
           "log-widget": {
             type: "logWidget",
@@ -105,6 +107,7 @@ describe("normalizeDisplayLayout", () => {
 
     expect(normalized.settings.widgets?.["log-widget"].tracks?.map((track) => track.id)).toEqual(["depth"]);
     expect(normalized.settings.widgets?.["interpretation-queue"]).toBeUndefined();
+    expect(normalized.settings.widgets?.["evidence-coverage"]).toBeUndefined();
   });
 });
 

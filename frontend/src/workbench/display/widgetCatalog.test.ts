@@ -29,6 +29,16 @@ describe("widgetCatalog", () => {
       settings: { maxItems: 10 },
     });
   });
+
+  it("creates evidence coverage as a compact review widget", () => {
+    const widget = createCatalogWidget("evidenceCoverage", []);
+
+    expect(widget).toMatchObject({
+      type: "evidenceCoverage",
+      title: "Evidence Coverage",
+      settings: { compact: true },
+    });
+  });
 });
 
 function curve(key: string): Curve {

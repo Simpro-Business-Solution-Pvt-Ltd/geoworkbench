@@ -69,6 +69,13 @@ export const WIDGET_CATALOG: WidgetCatalogItem[] = [
     description: "Prioritized geologist action queue from validation, AI, curves, seams, metadata, and core evidence.",
     create: () => ({ type: "interpretationQueue", title: "Interpretation Queue", settings: { maxItems: 10 } }),
   },
+  {
+    type: "evidenceCoverage",
+    label: "Evidence Coverage",
+    icon: "EV",
+    description: "Compact coverage map for lithology, curves, seams, core images, collar metadata, source audit, and correction state.",
+    create: () => ({ type: "evidenceCoverage", title: "Evidence Coverage", settings: { compact: true } }),
+  },
 ];
 
 export function createCatalogWidget(type: string, availableCurves: Curve[]) {

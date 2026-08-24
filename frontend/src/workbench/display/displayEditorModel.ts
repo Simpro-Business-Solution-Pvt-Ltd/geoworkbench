@@ -2,9 +2,10 @@ import type { Curve, DisplayGridItem, DisplayLayout, DisplayWidget } from "../..
 import { defaultTracks, syncTrackCurves } from "./trackCatalog";
 import { createCatalogWidget } from "./widgetCatalog";
 
-const CURRENT_DISPLAY_SCHEMA_VERSION = 4;
+const CURRENT_DISPLAY_SCHEMA_VERSION = 5;
 const V3_DEFAULT_TRACK_IDS = new Set(["core-images", "recovery", "rqd", "ai-suggestions"]);
 const V4_DEFAULT_WIDGET_IDS = new Set(["interpretation-queue"]);
+const V5_DEFAULT_WIDGET_IDS = new Set(["evidence-coverage"]);
 
 export function normalizeDisplayLayout(layout: DisplayLayout, availableCurves: Curve[]): DisplayLayout {
   const draft = structuredClone(layout);
@@ -78,6 +79,10 @@ function migrateDefaultWidgets(widgets: Record<string, DisplayWidget>, available
     if (widgets[widgetId]) continue;
     widgets[widgetId] = createCatalogWidget("interpretationQueue", availableCurves);
   }
+  for (const widgetId of V5_DEFAULT_WIDGET_IDS) {
+    if (widgets[widgetId]) continue;
+    widgets[widgetId] = createCatalogWidget("evidenceCoverage", availableCurves);
+  }
 }
 
 function migrateLogWidgetTracks(tracks: DisplayWidget["tracks"], availableCurves: Curve[]): NonNullable<DisplayWidget["tracks"]> {
@@ -126,6 +131,7 @@ export function defaultRuntimeWidgets(availableCurves: Curve[]): Record<string, 
     },
     "validation-panel": createCatalogWidget("validationPanel", availableCurves),
     "interpretation-queue": createCatalogWidget("interpretationQueue", availableCurves),
+    "evidence-coverage": createCatalogWidget("evidenceCoverage", availableCurves),
     "ai-workflow": createCatalogWidget("aiWorkflow", availableCurves),
     "log-widget": createCatalogWidget("logWidget", availableCurves),
     "interval-details": createCatalogWidget("intervalDetails", availableCurves),
@@ -147,6 +153,7 @@ export function defaultRuntimeGridItems(): DisplayGridItem[] {
     { widgetId: "log-widget", x: 2, y: 1, w: 7, h: 8 },
     { widgetId: "interval-details", x: 9, y: 1, w: 3, h: 6 },
     { widgetId: "curve-catalog", x: 9, y: 7, w: 3, h: 3 },
+    { widgetId: "evidence-coverage", x: 9, y: 10, w: 3, h: 3 },
   ];
 }
 
@@ -156,6 +163,9 @@ export function defaultGridItem(widgetId: string, index: number): DisplayGridIte
   }
   if (widgetId === "interpretation-queue") {
     return { widgetId, x: 0, y: 9, w: 9, h: 3 };
+  }
+  if (widgetId === "evidence-coverage") {
+    return { widgetId, x: 9, y: 10, w: 3, h: 3 };
   }
   return { widgetId, x: (index % 3) * 4, y: Math.floor(index / 3) * 3, w: 3, h: 2 };
 }

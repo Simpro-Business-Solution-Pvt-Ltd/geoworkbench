@@ -1,6 +1,6 @@
 def default_borehole_layout() -> dict:
     return {
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "mode": "runtime",
         "regions": {
             "left": ["validation-panel", "ai-workflow"],
@@ -23,6 +23,7 @@ def default_borehole_layout() -> dict:
                 {"widgetId": "log-widget", "x": 2, "y": 1, "w": 7, "h": 8},
                 {"widgetId": "interval-details", "x": 9, "y": 1, "w": 3, "h": 6},
                 {"widgetId": "curve-catalog", "x": 9, "y": 7, "w": 3, "h": 3},
+                {"widgetId": "evidence-coverage", "x": 9, "y": 10, "w": 3, "h": 3},
             ],
         },
         "widgets": {
@@ -61,6 +62,11 @@ def default_borehole_layout() -> dict:
                 "type": "curveCatalog",
                 "title": "Curve Catalog",
                 "settings": {"showCoverage": True},
+            },
+            "evidence-coverage": {
+                "type": "evidenceCoverage",
+                "title": "Evidence Coverage",
+                "settings": {"compact": True},
             },
             "log-widget": {
                 "type": "logWidget",
