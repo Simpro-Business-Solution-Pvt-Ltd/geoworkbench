@@ -31,7 +31,7 @@ The current build demonstrates an end-to-end workflow:
    The dashboard lets the user select a borehole and display. The selected context is persisted so the user can refresh and return to the same work.
 
 3. **Central review workspace**
-   The workbench shows configurable widgets. The log widget brings together depth, lithology, curves, seams, RQD/recovery, AI markers, remarks, and core image state. The interval panel shows metadata, provenance, source data, correction history, and editable interval fields.
+   The workbench shows configurable widgets. Evidence Coverage gives a quick map of available/missing data. The log widget brings together depth, lithology, curves, seams, RQD/recovery, AI markers, remarks, and core image state. The interval panel shows metadata, provenance, source data, correction history, and editable interval fields.
 
 4. **Import and merge**
    Import Center accepts uploaded or registered source files. It exposes templates, mapping preview, process/merge actions, and source audit facts such as adapter, template, row count, curves, depth range, file size, and merge mode.
@@ -57,7 +57,7 @@ The demo should make these points clear:
 
 | Stakeholder concern | What to show | Business value |
 | --- | --- | --- |
-| Data arrives from many places | Mobile capture, Excel/LAS upload, source queue, parsed imports | Reduces scattered file handling and re-entry |
+| Data arrives from many places | Evidence Coverage, mobile capture, Excel/LAS upload, source queue, parsed imports | Reduces scattered file handling and re-entry |
 | Templates change | Template registry and source-to-model/source-to-output mapping preview | Gives a controlled path for multiple Excel/LAS formats |
 | Corrections need traceability | Interpretation queue, interval edit, data stage, source metadata, correction history | Makes decisions reviewable later |
 | Geophysical logs must support interpretation | Curve tracks, curve catalog, curve coverage, AI summary evidence | Helps compare lithology against measured log response |
@@ -132,6 +132,7 @@ Say:
 Do:
 
 - Show lithology, curve, seam/RQD/recovery, AI, and core image state tracks where configured.
+- Show Evidence Coverage and explain which evidence is available, partial, or missing for the borehole.
 - Show the interpretation queue and explain raw/imported, partially corrected, and ready-for-review states.
 - Click a depth/lithology interval.
 - Show interval metadata, source evidence, and correction history.

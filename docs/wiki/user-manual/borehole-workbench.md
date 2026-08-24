@@ -1,6 +1,6 @@
 # Borehole Workbench User Manual
 
-Updated: 2026-07-06
+Updated: 2026-08-24
 
 This page describes the current GeoWorkbench UAT workflow for central geologists, data administrators, and reviewers. It covers the functionality implemented so far and calls out practical limits that should be understood before production deployment.
 
@@ -53,6 +53,21 @@ Typical workflow:
 6. Open **Edit correction** when a lithology interval needs correction.
 7. Run validation and generate AI review suggestions.
 8. Accept, reject, or manually apply corrections after geological review.
+
+### Evidence Coverage
+
+The **Evidence Coverage** widget summarizes whether the selected borehole has the minimum evidence needed for review:
+
+- lithology intervals.
+- seam markers.
+- LAS/geophysical curves and depth coverage.
+- core images or explicit missing-image state.
+- collar coordinates.
+- raw/imported versus corrected interval stage.
+- source-file/import audit evidence.
+- open validation findings.
+
+Use this widget at the start of a review to decide whether the borehole is ready for interpretation, needs source data import, or should be flagged as a data-availability discussion item.
 
 ### Depth Navigation
 
