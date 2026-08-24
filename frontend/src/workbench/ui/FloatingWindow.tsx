@@ -1,4 +1,4 @@
-import { GripHorizontal, X } from "lucide-react";
+import { GripHorizontal, Minus, Square, X } from "lucide-react";
 import { type PointerEvent, type ReactNode, useRef, useState } from "react";
 
 type Props = {
@@ -9,6 +9,8 @@ type Props = {
   onClose: () => void;
 };
 
+let floatingWindowZIndex = 90;
+
 export function FloatingWindow({
   title,
   className = "",
@@ -17,7 +19,14 @@ export function FloatingWindow({
   onClose,
 }: Props) {
   const [position, setPosition] = useState(defaultPosition);
+  const [collapsed, setCollapsed] = useState(false);
+  const [zIndex, setZIndex] = useState(() => floatingWindowZIndex);
   const dragOffset = useRef<{ x: number; y: number } | null>(null);
+
+  const bringToFront = () => {
+    floatingWindowZIndex += 1;
+    setZIndex(floatingWindowZIndex);
+  };
 
   const move = (event: PointerEvent<HTMLElement>) => {
     if (!dragOffset.current) return;
@@ -29,11 +38,12 @@ export function FloatingWindow({
 
   return (
     <section
-      className={`floating-window ${className}`}
-      style={{ left: position.x, top: position.y }}
+      className={`floating-window ${collapsed ? "collapsed" : ""} ${className}`}
+      style={{ left: position.x, top: position.y, zIndex }}
       role="dialog"
       aria-modal="false"
       aria-label={title}
+      onPointerDown={bringToFront}
     >
       <header
         className="floating-tool-header"
@@ -52,12 +62,19 @@ export function FloatingWindow({
         }}
       >
         <GripHorizontal size={15} strokeWidth={2.2} />
-        <strong>{title}</strong>
+        <strong onDoubleClick={() => setCollapsed((value) => !value)}>{title}</strong>
+        <button
+          type="button"
+          title={collapsed ? "Expand" : "Collapse"}
+          onClick={() => setCollapsed((value) => !value)}
+        >
+          {collapsed ? <Square size={13} strokeWidth={2.2} /> : <Minus size={15} strokeWidth={2.2} />}
+        </button>
         <button type="button" title="Close" onClick={onClose}>
           <X size={15} strokeWidth={2.2} />
         </button>
       </header>
-      {children}
+      {!collapsed && children}
     </section>
   );
 }

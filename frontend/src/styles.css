@@ -3247,7 +3247,6 @@ button.active {
 
 .floating-window {
   position: fixed;
-  z-index: 90;
   display: grid;
   overflow: hidden;
   border: 1px solid var(--gw-border);
@@ -3255,6 +3254,12 @@ button.active {
   background: var(--gw-surface);
   color: var(--gw-text);
   box-shadow: 0 24px 80px var(--gw-shadow);
+}
+
+.floating-window.collapsed {
+  grid-template-rows: 38px !important;
+  width: min(320px, calc(100vw - 24px));
+  height: auto !important;
 }
 
 .borehole-explorer-window {
@@ -3265,7 +3270,7 @@ button.active {
 
 .floating-tool-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
   border-bottom: 1px solid var(--gw-border);
@@ -3281,6 +3286,7 @@ button.active {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
+  cursor: default;
 }
 
 .floating-tool-header button {
