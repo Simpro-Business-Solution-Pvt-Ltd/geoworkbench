@@ -5599,10 +5599,12 @@ h2 {
 
 .correlation-insight-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .correlation-insight-actions button {
+  flex: 1 1 130px;
   padding: 5px 8px;
   font-size: 12px;
 }

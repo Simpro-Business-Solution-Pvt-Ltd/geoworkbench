@@ -4,6 +4,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/rea
 import { createCorrelationObservation, getWorkbench, listCorrelationObservations } from "../../api/client";
 import type { BoreholeListItem, BoreholeWorkbench, CorrelationObservation, Curve, LithologyInterval } from "../../api/types";
 import { lithologyPattern } from "../core/lithologyPatterns";
+import { correlationDecisionPrompt, correlationInsightObservationText } from "./correlationActionModel";
 import {
   buildCorrelationInsights,
   collarContextRows,
@@ -316,11 +317,17 @@ function CorrelationInsightsDialog({
                     </button>
                     <button
                       type="button"
-                      onClick={() =>
-                        setNote(
-                          `${insight.title}: ${insight.detail} Evidence: ${insight.evidence} Action: ${insight.action}`,
-                        )
-                      }
+                      disabled={savePending}
+                      onClick={() => {
+                        onSaveNote(correlationInsightObservationText(insight));
+                        onMarkReviewed(insight.id);
+                      }}
+                    >
+                      {savePending ? "Saving..." : correlationDecisionPrompt(insight)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNote(correlationInsightObservationText(insight))}
                     >
                       Draft note
                     </button>
