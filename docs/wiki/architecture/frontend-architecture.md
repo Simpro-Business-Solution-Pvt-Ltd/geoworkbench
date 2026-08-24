@@ -6,7 +6,7 @@ The frontend is a React/TypeScript workbench. It has three layers:
 API client/types -> App orchestration/state -> reusable workbench visualization components
 ```
 
-The most important UI is the borehole log widget. It is designed like a lightweight well-log visualization engine, with shared depth scaling, track renderers, typed hit testing, and centralized interaction behavior. Use [LogWidget Architecture](log-widget.md) as the primary reference for widget configuration, track/curve extensibility, settings, and renderer contracts.
+The most important UI is the borehole log widget. It is designed like a lightweight well-log visualization engine, with shared depth scaling, track renderers, typed hit testing, and centralized interaction behavior. Use [Workbench UI Management Architecture](workbench-ui-management.md) for the final-pass UI pattern, and [LogWidget Architecture](log-widget.md) as the primary reference for widget configuration, track/curve extensibility, settings, and renderer contracts.
 
 ## Entry Points
 
@@ -243,7 +243,7 @@ Log widget track config has:
 
 `DisplayEditorDialog.tsx` owns the edit session. `DisplayRuntime.tsx` renders the saved display grid during runtime and delegates each widget to a file under `display/runtime/`. `displayEditorModel.ts` owns catalog/default/normalization helpers. `widgets/logWidget/LogWidget.tsx` uses the saved log widget settings to decide which track components to render.
 
-For the complete widget architecture, use [LogWidget Architecture](log-widget.md). For the depth/scroll/zoom/click/ruler mathematics, use [Log Widget Control Plane](log-widget-control-plane.md).
+For the final-pass UI management pattern, use [Workbench UI Management Architecture](workbench-ui-management.md). For the complete LogWidget architecture, use [LogWidget Architecture](log-widget.md). For the depth/scroll/zoom/click/ruler mathematics, use [Log Widget Control Plane](log-widget-control-plane.md).
 
 Correlation-specific display helpers should stay under `workbench/correlation/`. For example, seam tie-line construction is kept in `correlationTieLines.ts` and tested separately from the React workspace so section/correlation rendering can change layout without losing the geological continuity rules.
 

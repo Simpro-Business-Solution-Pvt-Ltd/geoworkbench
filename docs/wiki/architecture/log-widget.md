@@ -4,6 +4,8 @@ Updated: 2026-08-24
 
 This page is the main architecture reference for the GeoWorkbench LogWidget. It covers the widget structure, dynamic track and curve configuration, data-source discovery, rendering rules, editing flow, and extension contracts.
 
+For the broader final-pass UI pattern across floating tools, widget library, display surfaces, and settings windows, use [Workbench UI Management Architecture](workbench-ui-management.md).
+
 For the detailed depth mathematics and interaction invariants, use [Log Widget Control Plane](log-widget-control-plane.md).
 
 ## Purpose
