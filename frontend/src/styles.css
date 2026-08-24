@@ -2689,6 +2689,41 @@ button.active {
   white-space: nowrap;
 }
 
+.workflow-row .source-next-step {
+  display: grid;
+  min-width: 150px;
+  max-width: 220px;
+  gap: 2px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  color: var(--gw-muted);
+  padding: 6px 8px;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.source-next-step b {
+  color: var(--gw-text);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.source-next-step.ready {
+  border-color: var(--gw-accent);
+  background: var(--gw-accent-soft);
+}
+
+.source-next-step.done {
+  border-color: #0f766e;
+  background: rgb(15 118 110 / 10%);
+}
+
+.source-next-step.blocked {
+  border-color: #d97706;
+  background: rgb(217 119 6 / 10%);
+}
+
 .export-audit-facts,
 .import-audit-facts {
   display: flex;

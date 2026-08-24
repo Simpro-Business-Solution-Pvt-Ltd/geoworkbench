@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import type { BoreholeWorkbench, ImportProfile, SourceFile } from "../../api/types";
 import { mappingRowsFromTemplate, safeMappingFromText } from "../templates/templateMappingSummary";
 import { sourceFileAuditFacts, sourceImportAuditFacts } from "./importAuditFacts";
+import { sourceFileWorkflow } from "./importWorkflowModel";
 
 type Props = {
   data: BoreholeWorkbench;
@@ -199,40 +200,46 @@ export function ImportCenter({
             <span>{data.source_files.length} files</span>
           </div>
           <div className="workflow-table">
-            {data.source_files.map((item) => (
-              <article key={item.id} className="workflow-row">
-                <div>
-                  <strong>{item.original_name}</strong>
-                  <span>
-                    {item.file_type} · {item.status}
-                  </span>
-                  <ImportAuditFacts facts={sourceFileAuditFacts(item)} />
-                </div>
-                <small>{sourceFileStatusText(item)}</small>
-                <div className="workflow-row-actions">
-                  <button
-                    type="button"
-                    disabled={processing || item.status === "parsed"}
-                    onClick={() => onProcessSourceFile(item.id)}
-                  >
-                    {item.status === "parsed" ? "Parsed" : "Process"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={merging || ["merged", "mapping_required"].includes(item.status)}
-                    onClick={() => setMergeSource(item)}
-                  >
-                    {item.status === "merged" ? "Merged" : "Merge"}
-                  </button>
-                  {item.file_type === "excel" && (
-                    <button type="button" disabled={importing} onClick={() => onImportBoreholeFile(item.id)}>
-                      Import borehole
+            {data.source_files.map((item) => {
+              const workflow = sourceFileWorkflow(item);
+              return (
+                <article key={item.id} className="workflow-row">
+                  <div>
+                    <strong>{item.original_name}</strong>
+                    <span>
+                      {item.file_type} · {item.status}
+                    </span>
+                    <ImportAuditFacts facts={sourceFileAuditFacts(item)} />
+                  </div>
+                  <small className={`source-next-step ${workflow.tone}`}>
+                    <b>{workflow.nextStep}</b>
+                    {workflow.detail}
+                  </small>
+                  <div className="workflow-row-actions">
+                    <button
+                      type="button"
+                      disabled={processing || !workflow.canProcess}
+                      onClick={() => onProcessSourceFile(item.id)}
+                    >
+                      {processing ? "Processing..." : workflow.canProcess ? "Process" : "Processed"}
                     </button>
-                  )}
-                </div>
-                <SourceFileDiagnostics item={item} />
-              </article>
-            ))}
+                    <button
+                      type="button"
+                      disabled={merging || !workflow.canMerge}
+                      onClick={() => setMergeSource(item)}
+                    >
+                      {item.status === "merged" ? "Merged" : merging ? "Merging..." : "Merge"}
+                    </button>
+                    {item.file_type === "excel" && (
+                      <button type="button" disabled={importing} onClick={() => onImportBoreholeFile(item.id)}>
+                        Import borehole
+                      </button>
+                    )}
+                  </div>
+                  <SourceFileDiagnostics item={item} />
+                </article>
+              );
+            })}
             {!data.source_files.length && <div className="empty">No source files received for this borehole.</div>}
           </div>
         </section>
@@ -584,12 +591,4 @@ function nestedValue(source: Record<string, unknown>, path: string[]) {
     current = (current as Record<string, unknown>)[item];
   }
   return current;
-}
-
-function sourceFileStatusText(item: SourceFile) {
-  if (item.status === "mapping_required") return "column mapping required";
-  if (item.status === "merge_pending_review") return "merge rules need review";
-  if (item.status === "linked_pending_depth_mapping") return "depth mapping required";
-  if (item.file_metadata?.parse_summary) return "profile available";
-  return item.file_metadata ? "metadata captured" : "awaiting template metadata";
 }
