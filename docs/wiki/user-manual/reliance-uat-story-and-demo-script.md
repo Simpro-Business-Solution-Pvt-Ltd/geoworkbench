@@ -4,7 +4,7 @@ Updated: 2026-08-24
 
 This is the canonical story for the current GeoWorkbench UAT build. Use it for stakeholder demos, partner testing, and internal walkthroughs. Older planning documents are still useful as background, but this page is the main narrative for what the application is trying to prove now.
 
-For milestone tracking around data meaning, corrected interpretation, correlation value, and the configurable widget/display platform, use [UAT Interpretation Platform Plan](uat-interpretation-platform-plan.md).
+For milestone tracking around data meaning, corrected interpretation, correlation value, and the configurable widget/display platform, use [UAT Interpretation Platform Plan](uat-interpretation-platform-plan.md). For the exact current build-versus-defer decision, use [UAT Execution Cut-Line](uat-execution-cutline.md).
 
 ## Product Story
 
