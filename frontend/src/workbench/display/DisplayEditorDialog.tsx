@@ -7,6 +7,12 @@ import { DisplayGridCanvas } from "./editor/DisplayGridCanvas";
 import { clampGridItem } from "./editor/displayGridUtils";
 import { WidgetInspector } from "./editor/WidgetInspector";
 import { WidgetSettingsDialog } from "./editor/WidgetSettingsDialog";
+import {
+  createWidgetLibraryDragPayload,
+  resolveWidgetLibraryDrop,
+  WIDGET_LIBRARY_DRAG_MIME_TYPE,
+  type WidgetDropPlacement,
+} from "./widgetLibraryDropResolver";
 import { createWidgetId, WIDGET_CATALOG } from "./widgetCatalog";
 
 type Props = {
@@ -59,7 +65,6 @@ export function DisplayEditorDialog({
   const gridItems = draft?.settings.grid?.items ?? [];
   const selectedWidget = selectedWidgetId ? widgets[selectedWidgetId] : null;
   const settingsWidget = settingsWidgetId ? widgets[settingsWidgetId] : null;
-  const existingWidgetIds = useMemo(() => new Set(Object.keys(widgets)), [widgets]);
   const normalizedSourceLayout = useMemo(
     () => (layout ? normalizeDisplayLayout(layout, availableCurves) : null),
     [availableCurves, layout],
@@ -93,15 +98,19 @@ export function DisplayEditorDialog({
     });
   };
 
-  const addWidget = (type: string) => {
-    const item = WIDGET_CATALOG.find((candidate) => candidate.type === type);
-    if (!item) return;
+  const addWidget = (type: string, placement?: WidgetDropPlacement) => {
     updateDraft((current) => {
       const next = normalizeDisplayLayout(current, availableCurves);
-      const id = createWidgetId(type, new Set(Object.keys(next.settings.widgets ?? {})));
-      next.settings.widgets![id] = item.create(availableCurves, existingWidgetIds);
-      next.settings.grid!.items.push(defaultGridItem(id, next.settings.grid!.items.length));
-      setSelectedWidgetId(id);
+      const result = resolveWidgetLibraryDrop(
+        next,
+        createWidgetLibraryDragPayload(type),
+        availableCurves,
+        placement,
+      );
+      if (result.status === "changed") {
+        setSelectedWidgetId(result.widgetId);
+        return result.layout;
+      }
       return next;
     });
   };
@@ -225,6 +234,11 @@ export function DisplayEditorDialog({
                   type="button"
                   title={item.label}
                   aria-label={`Add ${item.label}`}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData(WIDGET_LIBRARY_DRAG_MIME_TYPE, JSON.stringify(createWidgetLibraryDragPayload(item.type)));
+                    event.dataTransfer.effectAllowed = "copy";
+                  }}
                   onClick={() => addWidget(item.type)}
                 >
                   <strong>{item.icon}</strong>
@@ -243,6 +257,7 @@ export function DisplayEditorDialog({
             setDraft={setDraft}
             onSelectWidget={setSelectedWidgetId}
             onOpenWidgetSettings={setSettingsWidgetId}
+            onDropWidget={addWidget}
           />
 
           <aside className="widget-inspector">

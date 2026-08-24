@@ -4,6 +4,7 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 import type { DisplayGridItem, DisplayLayout, DisplayWidget } from "../../../api/types";
+import { WIDGET_LIBRARY_DRAG_MIME_TYPE, type WidgetDropPlacement } from "../widgetLibraryDropResolver";
 import { widgetLabel } from "../widgetCatalog";
 import { commitGridLayout, toReactGridLayout } from "./displayGridUtils";
 import { useElementWidth } from "./useElementWidth";
@@ -18,6 +19,7 @@ type Props = {
   setDraft: React.Dispatch<React.SetStateAction<DisplayLayout | null>>;
   onSelectWidget: (widgetId: string) => void;
   onOpenWidgetSettings: (widgetId: string) => void;
+  onDropWidget: (widgetType: string, placement: WidgetDropPlacement) => void;
 };
 
 export function DisplayGridCanvas({
@@ -30,13 +32,41 @@ export function DisplayGridCanvas({
   setDraft,
   onSelectWidget,
   onOpenWidgetSettings,
+  onDropWidget,
 }: Props) {
   const [layoutInteractionSnapshot, setLayoutInteractionSnapshot] = useState<DisplayLayout | null>(null);
   const canvasPanelRef = useRef<HTMLElement | null>(null);
   const canvasWidth = useElementWidth(canvasPanelRef, 960);
 
+  const resolveDropPlacement = (clientX: number, clientY: number): WidgetDropPlacement => {
+    const bounds = canvasPanelRef.current?.querySelector<HTMLElement>(".display-grid-canvas")?.getBoundingClientRect();
+    if (!bounds) return {};
+    const columns = draft.settings.grid?.columns ?? 12;
+    const rowHeight = draft.settings.grid?.rowHeight ?? 72;
+    const cellWidth = bounds.width / columns;
+    return {
+      x: Math.max(0, Math.min(columns - 1, Math.floor((clientX - bounds.left) / cellWidth))),
+      y: Math.max(0, Math.floor((clientY - bounds.top) / rowHeight)),
+    };
+  };
+
   return (
-    <section ref={canvasPanelRef} className="display-canvas-panel">
+    <section
+      ref={canvasPanelRef}
+      className="display-canvas-panel"
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes(WIDGET_LIBRARY_DRAG_MIME_TYPE)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      }}
+      onDrop={(event) => {
+        const rawPayload = event.dataTransfer.getData(WIDGET_LIBRARY_DRAG_MIME_TYPE);
+        if (!rawPayload) return;
+        event.preventDefault();
+        const payload = JSON.parse(rawPayload) as { widgetType?: string };
+        if (payload.widgetType) onDropWidget(payload.widgetType, resolveDropPlacement(event.clientX, event.clientY));
+      }}
+    >
       <GridLayout
         className="display-grid-canvas"
         cols={draft.settings.grid?.columns ?? 12}
