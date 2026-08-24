@@ -3245,19 +3245,22 @@ button.active {
   height: 100%;
 }
 
-.borehole-explorer-window {
+.floating-window {
   position: fixed;
   z-index: 90;
   display: grid;
-  grid-template-rows: 38px 42px minmax(0, 1fr);
-  width: min(560px, calc(100vw - 24px));
-  height: min(620px, calc(100vh - 82px));
   overflow: hidden;
   border: 1px solid var(--gw-border);
   border-radius: 8px;
   background: var(--gw-surface);
   color: var(--gw-text);
   box-shadow: 0 24px 80px var(--gw-shadow);
+}
+
+.borehole-explorer-window {
+  grid-template-rows: 38px 42px minmax(0, 1fr);
+  width: min(560px, calc(100vw - 24px));
+  height: min(620px, calc(100vh - 82px));
 }
 
 .floating-tool-header {
@@ -3822,18 +3825,9 @@ h2 {
 }
 
 .widget-settings-modal {
-  position: fixed;
-  right: 34px;
-  top: 86px;
-  bottom: 34px;
-  z-index: 80;
-  display: grid;
-  grid-template-rows: 48px 1fr;
+  grid-template-rows: 38px minmax(0, 1fr);
   width: min(520px, calc(100vw - 68px));
-  border: 1px solid var(--gw-border);
-  border-radius: 8px;
-  background: var(--gw-surface);
-  box-shadow: 0 24px 80px var(--gw-shadow);
+  height: min(720px, calc(100vh - 120px));
 }
 
 .widget-settings-body {

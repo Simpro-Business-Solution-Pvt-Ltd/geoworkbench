@@ -1,4 +1,5 @@
 import type { Curve, DisplayWidget } from "../../../api/types";
+import { FloatingWindow } from "../../ui/FloatingWindow";
 import { LogWidgetSettings } from "./LogWidgetSettings";
 
 type Props = {
@@ -11,13 +12,12 @@ type Props = {
 
 export function WidgetSettingsDialog({ widgetId, widget, availableCurves, onClose, onUpdateWidget }: Props) {
   return (
-    <div className="widget-settings-modal" role="dialog" aria-modal="true">
-      <div className="image-modal-header">
-        <strong>{widget.title} Settings</strong>
-        <button type="button" onClick={onClose}>
-          Close
-        </button>
-      </div>
+    <FloatingWindow
+      title={`${widget.title} Settings`}
+      className="widget-settings-modal"
+      defaultPosition={{ x: window.innerWidth - 560, y: 86 }}
+      onClose={onClose}
+    >
       <div className="widget-settings-body">
         <label>
           Widget title
@@ -31,6 +31,6 @@ export function WidgetSettingsDialog({ widgetId, widget, availableCurves, onClos
           </div>
         )}
       </div>
-    </div>
+    </FloatingWindow>
   );
 }

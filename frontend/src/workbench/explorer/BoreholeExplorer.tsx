@@ -1,7 +1,8 @@
-import { ChevronDown, ChevronRight, GripHorizontal, Search, X } from "lucide-react";
-import { type PointerEvent, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import type { BoreholeWorkbench } from "../../api/types";
+import { FloatingWindow } from "../ui/FloatingWindow";
 import {
   buildBoreholeExplorerTree,
   filterBoreholeExplorerTree,
@@ -20,19 +21,9 @@ export function BoreholeExplorer({ data, onClose }: Props) {
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(DEFAULT_EXPANDED));
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [position, setPosition] = useState({ x: 96, y: 108 });
-  const dragOffset = useRef<{ x: number; y: number } | null>(null);
   const root = useMemo(() => buildBoreholeExplorerTree(data), [data]);
   const visibleRoot = useMemo(() => filterBoreholeExplorerTree(root, query) ?? root, [query, root]);
   const selectedNode = useMemo(() => findNode(root, selectedNodeId), [root, selectedNodeId]);
-
-  const move = (event: PointerEvent<HTMLElement>) => {
-    if (!dragOffset.current) return;
-    setPosition({
-      x: Math.max(8, Math.min(window.innerWidth - 340, event.clientX - dragOffset.current.x)),
-      y: Math.max(62, Math.min(window.innerHeight - 180, event.clientY - dragOffset.current.y)),
-    });
-  };
 
   const toggle = (nodeId: string) => {
     setExpanded((items) => {
@@ -44,34 +35,7 @@ export function BoreholeExplorer({ data, onClose }: Props) {
   };
 
   return (
-    <section
-      className="borehole-explorer-window"
-      style={{ left: position.x, top: position.y }}
-      aria-label="Borehole explorer"
-    >
-      <header
-        className="floating-tool-header"
-        onPointerDown={(event) => {
-          const bounds = event.currentTarget.parentElement?.getBoundingClientRect();
-          dragOffset.current = {
-            x: event.clientX - (bounds?.left ?? position.x),
-            y: event.clientY - (bounds?.top ?? position.y),
-          };
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={move}
-        onPointerUp={(event) => {
-          dragOffset.current = null;
-          event.currentTarget.releasePointerCapture(event.pointerId);
-        }}
-      >
-        <GripHorizontal size={15} strokeWidth={2.2} />
-        <strong>Borehole Explorer</strong>
-        <button type="button" title="Close" onClick={onClose}>
-          <X size={15} strokeWidth={2.2} />
-        </button>
-      </header>
-
+    <FloatingWindow title="Borehole Explorer" className="borehole-explorer-window" onClose={onClose}>
       <div className="borehole-explorer-search">
         <Search size={14} strokeWidth={2.1} />
         <input value={query} placeholder="Search data" onChange={(event) => setQuery(event.target.value)} />
@@ -88,9 +52,9 @@ export function BoreholeExplorer({ data, onClose }: Props) {
             onSelect={setSelectedNodeId}
           />
         </div>
-        <NodePreview node={selectedNode} />
+          <NodePreview node={selectedNode} />
       </div>
-    </section>
+    </FloatingWindow>
   );
 }
 
