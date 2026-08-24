@@ -41,6 +41,7 @@ Developer and deployment documents remain under `docs/wiki/architecture/` and `d
 - [Development Architecture](architecture/development-architecture.md)
 - [Backend Architecture](architecture/backend-architecture.md)
 - [Frontend Architecture](architecture/frontend-architecture.md)
+- [LogWidget Architecture](architecture/log-widget.md)
 - [Workbench Interaction Architecture](architecture/workbench-interaction-architecture.md)
 - [System Workflows](architecture/system-workflows.md)
 - [Refinement Guide](architecture/refinement-guide.md)

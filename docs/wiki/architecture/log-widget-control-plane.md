@@ -2,7 +2,7 @@
 
 Updated: 2026-08-24
 
-This page is the single architecture reference for GeoWorkbench depth-based visualization. The LogWidget must stay accurate and consistent under zoom, scroll, click, drag, right-click, realtime refresh, and every registered track type.
+This page is the control-plane reference for GeoWorkbench depth-based visualization. Use [LogWidget Architecture](log-widget.md) as the main widget architecture page. The control plane keeps LogWidget accurate and consistent under zoom, scroll, click, drag, right-click, realtime refresh, and every registered track type.
 
 The design is inspired by mature geology log controls such as INT/GeoToolkit style separation:
 
