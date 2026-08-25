@@ -155,7 +155,7 @@ DEFAULT_QUALITY_SETTINGS: dict[str, Any] = {
         "max_rule_findings": 6,
         "max_tokens": 800,
         "temperature": 0.15,
-        "geologist_approval_note": "The assistant is using deterministic rules only; final interpretation remains with the geologist.",
+        "geologist_approval_note": "AI and rule-based findings are decision support only; final interpretation remains with the geologist.",
         "system_prompt": (
             "You are a cautious coal geology workflow assistant. "
             "Use only the provided JSON. Do not invent geology. "

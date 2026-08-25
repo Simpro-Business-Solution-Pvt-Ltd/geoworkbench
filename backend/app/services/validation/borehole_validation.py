@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field, replace
+from bisect import bisect_left, bisect_right
 
 from app.db.models import Borehole, Curve, LithologyInterval, ValidationIssue
 from app.services.quality_config import validation_rule_lookup
@@ -314,6 +315,26 @@ def _sample_average(curve: Curve | None, from_depth: float, to_depth: float) -> 
     return sum(values) / len(values)
 
 
+def _sample_averages_by_interval(
+    curve: Curve | None, intervals: list[LithologyInterval]
+) -> dict[str, float | None]:
+    if curve is None or not curve.samples:
+        return {interval.id: None for interval in intervals}
+    samples = sorted(curve.samples, key=lambda item: item.depth)
+    depths = [sample.depth for sample in samples]
+    prefix: list[float] = [0.0]
+    for sample in samples:
+        prefix.append(prefix[-1] + sample.value)
+
+    averages: dict[str, float | None] = {}
+    for interval in intervals:
+        start = bisect_left(depths, interval.from_depth)
+        end = bisect_right(depths, interval.to_depth)
+        count = end - start
+        averages[interval.id] = (prefix[end] - prefix[start]) / count if count else None
+    return averages
+
+
 def validate_curve_lithology_alignment(
     borehole: Borehole, intervals: list[LithologyInterval], curves: list[Curve]
 ) -> list[ValidationFinding]:
@@ -324,12 +345,15 @@ def validate_curve_lithology_alignment(
         return []
 
     findings: list[ValidationFinding] = []
+    gamma_averages = _sample_averages_by_interval(gamma, intervals)
+    resistivity_averages = _sample_averages_by_interval(resistivity, intervals)
+    density_averages = _sample_averages_by_interval(density, intervals)
     for interval in intervals:
         if interval.to_depth - interval.from_depth < 1:
             continue
-        gamma_avg = _sample_average(gamma, interval.from_depth, interval.to_depth)
-        resistivity_avg = _sample_average(resistivity, interval.from_depth, interval.to_depth)
-        density_avg = _sample_average(density, interval.from_depth, interval.to_depth)
+        gamma_avg = gamma_averages.get(interval.id)
+        resistivity_avg = resistivity_averages.get(interval.id)
+        density_avg = density_averages.get(interval.id)
         coal_like = (
             (gamma_avg is not None and gamma_avg < 55)
             and (resistivity_avg is None or resistivity_avg > 55)

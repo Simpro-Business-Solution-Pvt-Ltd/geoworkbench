@@ -25,6 +25,7 @@ type Props = {
   deleting: boolean;
   resetting: boolean;
   canDelete: boolean;
+  loading?: boolean;
   onSave: (layout: DisplayLayout) => void;
   onClone: (layout: DisplayLayout) => void;
   onDelete: (layout: DisplayLayout) => void;
@@ -42,6 +43,7 @@ export function DisplayEditorDialog({
   deleting,
   resetting,
   canDelete,
+  loading = false,
   onSave,
   onClone,
   onDelete,
@@ -92,7 +94,9 @@ export function DisplayEditorDialog({
               Close
             </button>
           </div>
-          <div className="display-editor-empty">No display layout is available for this borehole.</div>
+          <div className="display-editor-empty">
+            {loading ? "Loading display layout..." : "No display layout is available for this borehole."}
+          </div>
         </div>
       </section>
     );
@@ -208,42 +212,67 @@ export function DisplayEditorDialog({
             <span>{summary.logTrackCount} tracks</span>
             <span>{summary.configuredCurveCount} curves</span>
             <span>{summary.gridItemCount} grid items</span>
-            {isDirty && <b>Unsaved</b>}
+            <b className={isDirty ? "dirty" : "clean"}>{isDirty ? "Unsaved changes" : "Saved draft"}</b>
+            {history.length > 0 && <span>{history.length} undo step{history.length === 1 ? "" : "s"}</span>}
           </div>
-          <div className="display-editor-actions">
-            <button type="button" disabled={!history.length || saving} onClick={undo}>
-              Undo
-            </button>
-            <button type="button" onClick={() => setWidgetLibraryOpen((open) => !open)}>
-              Widget library
-            </button>
-            <button type="button" onClick={() => setInspectorOpen((open) => !open)}>
-              Inspector
-            </button>
-            <button type="button" disabled={!data} onClick={() => setBoreholeExplorerOpen((open) => !open)}>
-              Borehole explorer
-            </button>
-            <button type="button" disabled={cloning || saving} onClick={() => onClone(draft)}>
-              {cloning ? "Cloning..." : "Clone display"}
-            </button>
-            <button
-              type="button"
-              disabled={!canDelete || deleting || saving}
-              onClick={() => {
-                if (window.confirm(`Delete display "${draft.name}"?`)) onDelete(draft);
-              }}
-            >
-              {deleting ? "Deleting..." : "Delete display"}
-            </button>
-            <button type="button" disabled={resetting || saving} onClick={onReset}>
-              {resetting ? "Resetting..." : "Reset default"}
-            </button>
-            <button type="button" disabled={saving} onClick={cancel}>
-              Cancel
-            </button>
-            <button type="button" disabled={saving || !isDirty} onClick={() => onSave(draft)}>
-              {saving ? "Saving..." : "Save display"}
-            </button>
+          <div className="display-editor-controller">
+            <div className="editor-panel-controller" aria-label="Display editor panels">
+              <span>Panels</span>
+              <button
+                className={widgetLibraryOpen ? "editor-action-tool active" : "editor-action-tool"}
+                type="button"
+                onClick={() => setWidgetLibraryOpen((open) => !open)}
+              >
+                Library
+              </button>
+              <button
+                className={inspectorOpen ? "editor-action-tool active" : "editor-action-tool"}
+                type="button"
+                onClick={() => setInspectorOpen((open) => !open)}
+              >
+                Inspector
+              </button>
+              <button
+                className={boreholeExplorerOpen ? "editor-action-tool active" : "editor-action-tool"}
+                type="button"
+                disabled={!data}
+                onClick={() => setBoreholeExplorerOpen((open) => !open)}
+              >
+                Explorer
+              </button>
+            </div>
+            <div className="editor-draft-actions">
+              <button className="editor-action-secondary" type="button" disabled={!history.length || saving} onClick={undo}>
+                Undo
+              </button>
+              <button className="editor-action-secondary" type="button" disabled={saving} onClick={cancel}>
+                Cancel
+              </button>
+              <button className="editor-action-primary" type="button" disabled={saving || !isDirty} onClick={() => onSave(draft)}>
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
+            <details className="editor-display-actions">
+              <summary>Display actions</summary>
+              <div>
+                <button className="editor-action-secondary" type="button" disabled={cloning || saving} onClick={() => onClone(draft)}>
+                  {cloning ? "Cloning..." : "Clone display"}
+                </button>
+                <button className="editor-action-secondary" type="button" disabled={resetting || saving} onClick={onReset}>
+                  {resetting ? "Resetting..." : "Reset default"}
+                </button>
+                <button
+                  className="editor-action-danger"
+                  type="button"
+                  disabled={!canDelete || deleting || saving}
+                  onClick={() => {
+                    if (window.confirm(`Delete display "${draft.name}"?`)) onDelete(draft);
+                  }}
+                >
+                  {deleting ? "Deleting..." : "Delete display"}
+                </button>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -267,40 +296,51 @@ export function DisplayEditorDialog({
           <FloatingWindow
             title="Display Inspector"
             className="display-inspector-window"
-            defaultPosition={{ x: window.innerWidth - 360, y: 118 }}
+            defaultPlacement="center-right"
             onClose={() => setInspectorOpen(false)}
           >
             <aside className="widget-inspector floating-inspector-body">
-              <h2>Display Settings</h2>
-              <label>
-                Display name
-                <input
-                  value={draft.name}
-                  onChange={(event) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      name: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                Columns
-                <input
-                  type="number"
-                  min="4"
-                  max="24"
-                  value={draft.settings.grid?.columns ?? 12}
-                  onChange={(event) =>
-                    updateDraft((current) => {
-                      current.settings.grid!.columns = Number(event.target.value);
-                      return current;
-                    })
-                  }
-                />
-              </label>
+              <section className="inspector-section">
+                <div className="inspector-section-title">
+                  <h2>Display Settings</h2>
+                  <span>{isDirty ? "Draft not saved" : "Current layout"}</span>
+                </div>
+                <div className="display-settings-grid">
+                  <label className="display-name-field">
+                    Display name
+                    <input
+                      value={draft.name}
+                      onChange={(event) =>
+                        updateDraft((current) => ({
+                          ...current,
+                          name: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    Columns
+                    <input
+                      type="number"
+                      min="4"
+                      max="24"
+                      value={draft.settings.grid?.columns ?? 12}
+                      onChange={(event) =>
+                        updateDraft((current) => {
+                          current.settings.grid!.columns = Number(event.target.value);
+                          return current;
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              </section>
 
-              <h2>Selected Widget</h2>
+              <section className="inspector-section">
+                <div className="inspector-section-title">
+                  <h2>Selected Widget</h2>
+                  {selectedWidget && <span>{selectedWidget.type}</span>}
+                </div>
               {selectedWidget ? (
                 <WidgetInspector
                   widgetId={selectedWidgetId}
@@ -316,6 +356,7 @@ export function DisplayEditorDialog({
               ) : (
                 <div className="empty">Select a widget on the display canvas.</div>
               )}
+              </section>
             </aside>
           </FloatingWindow>
         )}

@@ -4,7 +4,13 @@ from sqlalchemy.orm import Session
 from app.core.realtime import publish_workbench_event
 from app.db.session import get_db
 from app.domains.ai import service
-from app.domains.ai.schemas import AiSuggestionOut, AiSuggestionStatusPatch, BoreholeSummaryOut
+from app.domains.ai.schemas import (
+    AiSuggestionOut,
+    AiSuggestionStatusPatch,
+    BoreholeSummaryOut,
+    CorrelationSummaryOut,
+    CorrelationSummaryRequest,
+)
 
 router = APIRouter()
 
@@ -63,6 +69,21 @@ def accept_suggestion(suggestion_id: int, db: Session = Depends(get_db)) -> AiSu
 def summarize_borehole(borehole_id: int, db: Session = Depends(get_db)) -> BoreholeSummaryOut:
     try:
         return service.summarize_borehole(db, borehole_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/correlation/summary", response_model=CorrelationSummaryOut)
+def summarize_correlation(
+    payload: CorrelationSummaryRequest, db: Session = Depends(get_db)
+) -> CorrelationSummaryOut:
+    try:
+        return service.summarize_correlation(
+            db,
+            payload.borehole_ids,
+            focus_seam=payload.focus_seam,
+            align_mode=payload.align_mode,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

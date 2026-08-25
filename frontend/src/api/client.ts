@@ -7,6 +7,7 @@ import type {
   DisplayLayout,
   ExportJob,
   ExportProfile,
+  CorrelationAiSummary,
   CorrelationObservation,
   ExportReadiness,
   ImportProfile,
@@ -249,6 +250,17 @@ export function getBoreholeAiSummary(boreholeId: number): Promise<BoreholeAiSumm
 
 export function getAiProviderStatus(): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>("/ai/provider-status");
+}
+
+export function getCorrelationAiSummary(payload: {
+  borehole_ids: number[];
+  focus_seam?: string | null;
+  align_mode?: "depth" | "rl" | string;
+}): Promise<CorrelationAiSummary> {
+  return request<CorrelationAiSummary>("/ai/correlation/summary", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function getQualitySettings(): Promise<QualitySettings> {

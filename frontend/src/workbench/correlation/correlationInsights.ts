@@ -65,10 +65,11 @@ export function seamCorrelationRows(items: BoreholeWorkbench[]): SeamCorrelation
     .map(([seamName, groupItems]) => {
       const tops = groupItems.map((item) => item.top);
       const thicknesses = groupItems.map((item) => item.thickness);
+      const boreholeCount = new Set(groupItems.map((item) => item.borehole)).size;
       return {
         seamName,
-        presentCount: groupItems.length,
-        missingCount: Math.max(0, items.length - groupItems.length),
+        presentCount: boreholeCount,
+        missingCount: Math.max(0, items.length - boreholeCount),
         minTop: Math.min(...tops),
         maxTop: Math.max(...tops),
         minThickness: Math.min(...thicknesses),

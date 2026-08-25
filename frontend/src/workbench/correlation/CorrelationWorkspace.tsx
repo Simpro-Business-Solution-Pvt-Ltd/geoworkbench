@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createCorrelationObservation, getWorkbench, listCorrelationObservations } from "../../api/client";
-import type { BoreholeListItem, BoreholeWorkbench, CorrelationObservation, Curve, LithologyInterval } from "../../api/types";
+import { createCorrelationObservation, getCorrelationAiSummary, getWorkbench, listCorrelationObservations } from "../../api/client";
+import type { BoreholeListItem, BoreholeWorkbench, CorrelationAiSummary, CorrelationObservation, Curve, LithologyInterval } from "../../api/types";
 import { lithologyPattern } from "../core/lithologyPatterns";
 import { correlationDecisionPrompt, correlationInsightObservationText } from "./correlationActionModel";
 import {
@@ -28,23 +28,17 @@ type Props = {
 };
 
 type AlignMode = CorrelationAlignMode;
-type CorrelationDatasetMode = "synthetic" | "received" | "custom";
-
 export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }: Props) {
-  const syntheticIds = useMemo(
-    () => boreholes.filter((item) => item.project_code === "DEMO-COAL-BLOCK").slice(0, 5).map((item) => item.id),
-    [boreholes],
-  );
   const receivedIds = useMemo(
-    () => boreholes.filter((item) => item.project_code !== "DEMO-COAL-BLOCK").slice(0, 6).map((item) => item.id),
+    () => boreholes.filter((item) => item.project_code !== "DEMO-COAL-BLOCK").map((item) => item.id),
     [boreholes],
   );
-  const defaultIds = syntheticIds.length ? syntheticIds : initialIds;
-  const [datasetMode, setDatasetMode] = useState<CorrelationDatasetMode>(syntheticIds.length ? "synthetic" : "received");
+  const defaultIds = receivedIds.length ? receivedIds : initialIds;
   const [selectedIds, setSelectedIds] = useState<number[]>(defaultIds);
   const [referenceId, setReferenceId] = useState<number | null>(defaultIds[0] ?? null);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [alignMode, setAlignMode] = useState<AlignMode>("depth");
+  const [selectedSeamName, setSelectedSeamName] = useState<string>("");
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [reviewedInsightIds, setReviewedInsightIds] = useState<Set<string>>(() => new Set());
   const queryClient = useQueryClient();
@@ -62,6 +56,12 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   const seamRows = useMemo(() => seamCorrelationRows(loaded), [loaded]);
   const collarRows = useMemo(() => collarContextRows(loaded, referenceId), [loaded, referenceId]);
   const tieLines = useMemo(() => buildSeamTieLines(loaded, domain, alignMode), [alignMode, domain, loaded]);
+  const focusSeamRows = useMemo(() => seamRows.filter((row) => row.presentCount >= 2), [seamRows]);
+  const selectedSeamRow = focusSeamRows.find((row) => row.seamName === selectedSeamName) ?? focusSeamRows[0] ?? null;
+  const drawableTieLines = useMemo(
+    () => tieLines.filter((line) => selectedSeamRow && line.seamName === selectedSeamRow.seamName),
+    [selectedSeamRow, tieLines],
+  );
   const insights = useMemo(() => buildCorrelationInsights(loaded, seamRows), [loaded, seamRows]);
   const stats = useMemo(
     () => correlationStats(loaded, seamRows, collarRows, domain, alignMode),
@@ -72,6 +72,22 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
     queryKey: ["correlation-observations", correlationKey],
     queryFn: () => listCorrelationObservations(selectedIds),
     enabled: selectedIds.length > 0,
+  });
+  const correlationAiSummary = useQuery({
+    queryKey: ["correlation-ai-summary", correlationKey, selectedSeamRow?.seamName ?? "", alignMode],
+    queryFn: () =>
+      getCorrelationAiSummary({
+        borehole_ids: selectedIds,
+        focus_seam: selectedSeamRow?.seamName ?? null,
+        align_mode: alignMode,
+      }),
+    enabled: insightsOpen && selectedIds.length > 0,
+    staleTime: Infinity,
+    gcTime: 10 * 60_000,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    retry: false,
   });
   const saveObservation = useMutation({
     mutationFn: (text: string) =>
@@ -87,10 +103,9 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
 
   useEffect(() => {
     if (selectedIds.length || !boreholes.length) return;
-    if (datasetMode === "synthetic" && syntheticIds.length) setSelectedIds(syntheticIds);
-    else if (datasetMode === "received" && receivedIds.length) setSelectedIds(receivedIds);
+    if (receivedIds.length) setSelectedIds(receivedIds);
     else if (initialIds.length) setSelectedIds(initialIds);
-  }, [boreholes.length, datasetMode, initialIds, receivedIds, selectedIds.length, syntheticIds]);
+  }, [boreholes.length, initialIds, receivedIds, selectedIds.length]);
 
   useEffect(() => {
     if (!selectedIds.length) {
@@ -102,25 +117,20 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
     }
   }, [referenceId, selectedIds]);
 
+  useEffect(() => {
+    if (!focusSeamRows.length) {
+      setSelectedSeamName("");
+      return;
+    }
+    if (!selectedSeamName || !focusSeamRows.some((row) => row.seamName === selectedSeamName)) {
+      setSelectedSeamName(defaultFocusSeam(focusSeamRows).seamName);
+    }
+  }, [focusSeamRows, selectedSeamName]);
+
   const toggleBorehole = (id: number) => {
-    setDatasetMode("custom");
     setSelectedIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id].slice(-7),
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
     );
-  };
-  const applyPreset = (mode: CorrelationDatasetMode) => {
-    setDatasetMode(mode);
-    if (mode === "synthetic") {
-      const ids = syntheticIds.length ? syntheticIds : initialIds;
-      setSelectedIds(ids);
-      setReferenceId(ids[0] ?? null);
-    }
-    if (mode === "received") {
-      const ids = receivedIds.length ? receivedIds : initialIds;
-      setSelectedIds(ids);
-      setReferenceId(ids[0] ?? null);
-    }
-    if (mode !== "custom") setSelectorOpen(false);
   };
   const selectedBoreholes = boreholes.filter((item) => selectedIds.includes(item.id));
 
@@ -168,8 +178,19 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
           <b>Evidence</b> {stats.boreholes} boreholes · {stats.commonSeams} common seam groups · {stats.gammaCoverage}
         </span>
         <span>
-          <b>Seam links</b> {tieLines.length} adjacent ties · {tieLines.filter((line) => line.status === "review").length} review
+          <b>Seam links</b> {drawableTieLines.length} shown for {selectedSeamRow?.seamName ?? "selected seam"} · {tieLines.length} available
         </span>
+        {selectedSeamRow && (
+          <span>
+            <b>Focus seam</b> {selectedSeamRow.seamName} present in {selectedSeamRow.presentCount}/{loaded.length} boreholes ·{" "}
+            {selectedSeamRow.items.length} picks
+          </span>
+        )}
+        {selectedSeamRow && (
+          <span>
+            <b>Top spread</b> {selectedSeamRow.minTop.toFixed(1)}-{selectedSeamRow.maxTop.toFixed(1)}m
+          </span>
+        )}
         <span>
           <b>Range</b> {stats.rangeLabel}
         </span>
@@ -185,34 +206,32 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         <div className="correlation-preset-controls">
           <button
             type="button"
-            className={datasetMode === "synthetic" ? "active" : ""}
-            disabled={!syntheticIds.length}
-            onClick={() => applyPreset("synthetic")}
-          >
-            Synthetic Coal Block
-          </button>
-          <button
-            type="button"
-            className={datasetMode === "received" ? "active" : ""}
-            disabled={!receivedIds.length}
-            onClick={() => applyPreset("received")}
-          >
-            Received Data Comparison
-          </button>
-          <button
-            type="button"
-            className={datasetMode === "custom" ? "active" : ""}
-            onClick={() => {
-              setDatasetMode("custom");
-              setSelectorOpen((open) => !open);
-            }}
+            className={selectorOpen ? "active" : ""}
+            onClick={() => setSelectorOpen((open) => !open)}
           >
             Choose Boreholes
           </button>
         </div>
+        <div className="correlation-focus-control">
+          <span>Focus seam</span>
+          <select
+            value={selectedSeamRow?.seamName ?? ""}
+            disabled={!focusSeamRows.length}
+            onChange={(event) => setSelectedSeamName(event.target.value)}
+          >
+            {focusSeamRows.map((row) => (
+              <option key={row.seamName} value={row.seamName}>
+                {row.seamName} · {row.presentCount}/{loaded.length} boreholes · {row.items.length} picks
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="selected-correlation-summary">
-          <strong>{selectedIds.length} selected</strong>
-          <span>{selectedBoreholes.map((item) => item.code).join(", ") || "No boreholes selected"}</span>
+          <span>Selection</span>
+          <div>
+            <strong>{selectedIds.length} selected</strong>
+            <small>{selectedBoreholes.map((item) => item.code).join(", ") || "No boreholes selected"}</small>
+          </div>
         </div>
         <div className="correlation-reference-control">
           <span>Reference</span>
@@ -257,22 +276,37 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
           </div>
         </div>
         <div className="correlation-columns">
-          <SeamTieLineOverlay lines={tieLines} columnCount={loaded.length} />
-          {loaded.map((data) => (
-            <CorrelationColumn
-              key={data.id}
-              data={data}
-              domain={domain}
-              alignMode={alignMode}
-              onOpenWorkbench={onOpenWorkbench}
-            />
-          ))}
+          <div
+            className="correlation-column-grid"
+            style={
+              {
+                "--corr-column-count": Math.max(loaded.length, 1),
+                "--corr-min-grid-width": `${correlationGridMinWidth(loaded.length)}px`,
+              } as CSSProperties
+            }
+          >
+            <SeamTieLineOverlay lines={drawableTieLines} columnCount={loaded.length} />
+            {loaded.map((data) => (
+              <CorrelationColumn
+                key={data.id}
+                data={data}
+                domain={domain}
+                alignMode={alignMode}
+                focusSeamName={selectedSeamRow?.seamName ?? ""}
+                onOpenWorkbench={onOpenWorkbench}
+              />
+            ))}
+          </div>
           {!loaded.length && <div className="empty">Select boreholes to build a correlation display.</div>}
         </div>
       </div>
       {insightsOpen && (
         <CorrelationInsightsDialog
           insights={insights}
+          aiSummary={correlationAiSummary.data}
+          aiLoading={correlationAiSummary.isLoading || correlationAiSummary.isFetching}
+          aiError={correlationAiSummary.error instanceof Error ? correlationAiSummary.error.message : null}
+          onRefreshAi={() => void correlationAiSummary.refetch()}
           seamRows={seamRows}
           collarRows={collarRows}
           boreholeCount={loaded.length}
@@ -294,6 +328,34 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
       )}
     </section>
   );
+}
+
+function defaultFocusSeam(rows: SeamCorrelationRow[]): SeamCorrelationRow {
+  return (
+    rows.find((row) => !isGenericCorrelationMarker(row.seamName)) ??
+    rows[0]
+  );
+}
+
+function providerStatusText(summary: CorrelationAiSummary): string {
+  const provider = summary.metrics.ai_provider;
+  if (typeof provider !== "object" || provider === null) return "Assistant narrative ready";
+  const details = provider as Record<string, unknown>;
+  return details.used_for_summary ? "Generated by local model" : "Rule narrative fallback";
+}
+
+function isGenericCorrelationMarker(name: string): boolean {
+  const normalized = name.trim().toUpperCase();
+  return normalized === "BAND" || normalized === "UNNAMED" || normalized.length <= 2;
+}
+
+function seamMarkerName(name: string | null | undefined): string {
+  return (name || "Unnamed seam").trim().toUpperCase();
+}
+
+function correlationGridMinWidth(columnCount: number): number {
+  const count = Math.max(1, columnCount);
+  return count * 150 + Math.max(0, count - 1) * 12;
 }
 
 function SeamTieLineOverlay({ lines, columnCount }: { lines: CorrelationTieLine[]; columnCount: number }) {
@@ -321,6 +383,10 @@ function SeamTieLineOverlay({ lines, columnCount }: { lines: CorrelationTieLine[
 
 function CorrelationInsightsDialog({
   insights,
+  aiSummary,
+  aiLoading,
+  aiError,
+  onRefreshAi,
   seamRows,
   collarRows,
   boreholeCount,
@@ -334,6 +400,10 @@ function CorrelationInsightsDialog({
   onSaveNote,
 }: {
   insights: CorrelationInsight[];
+  aiSummary: CorrelationAiSummary | undefined;
+  aiLoading: boolean;
+  aiError: string | null;
+  onRefreshAi: () => void;
   seamRows: SeamCorrelationRow[];
   collarRows: CollarContextRow[];
   boreholeCount: number;
@@ -353,7 +423,7 @@ function CorrelationInsightsDialog({
         <header>
           <div>
             <strong>AI Correlation Insights</strong>
-            <span>Rule generated · ready for local model narrative</span>
+            <span>{aiSummary ? providerStatusText(aiSummary) : aiLoading ? "Local model is preparing the narrative" : "Rules plus local model narrative"}</span>
           </div>
           <button type="button" onClick={onClose}>
             Close
@@ -361,6 +431,21 @@ function CorrelationInsightsDialog({
         </header>
         <div className="correlation-dialog-grid">
           <section className="correlation-insights">
+            <div className="correlation-ai-narrative">
+              <div className="correlation-section-title">
+                <strong>Assistant Narrative</strong>
+                <span>{aiLoading ? "Generating..." : aiSummary ? "Ready" : "Not generated"}</span>
+              </div>
+              <div className="correlation-ai-actions">
+                <small>Generated from computed seam continuity, marker, curve, coordinate, and RL metrics.</small>
+                <button type="button" onClick={onRefreshAi} disabled={aiLoading}>
+                  {aiLoading ? "Generating..." : "Refresh narrative"}
+                </button>
+              </div>
+              {aiLoading && <p>Preparing correlation guidance from selected boreholes...</p>}
+              {aiError && <p className="correlation-warning-text">{aiError}</p>}
+              {!aiLoading && !aiError && <p>{aiSummary?.summary ?? "Open this panel with selected boreholes to generate a local AI narrative."}</p>}
+            </div>
             <div className="correlation-section-title">
               <strong>Review Queue</strong>
               <span>{reviewedInsightIds.size}/{insights.length} reviewed</span>
@@ -505,11 +590,13 @@ function CorrelationColumn({
   data,
   domain,
   alignMode,
+  focusSeamName,
   onOpenWorkbench,
 }: {
   data: BoreholeWorkbench;
   domain: { min: number; max: number };
   alignMode: AlignMode;
+  focusSeamName: string;
   onOpenWorkbench: (id: number, focusDepth?: number | null) => void;
 }) {
   const meta = metadataFor(data);
@@ -556,9 +643,10 @@ function CorrelationColumn({
         <div className="correlation-markers">
           {data.seam_intervals.map((seam) => {
             const y = depthY((seam.from_depth + seam.to_depth) / 2, data, domain, alignMode, meta);
+            const focused = seamMarkerName(seam.name) === focusSeamName;
             return (
-              <span key={seam.id} style={{ top: `${y}%` }}>
-                <b>{seam.name}</b>
+              <span key={seam.id} className={focused ? "focus" : "context"} style={{ top: `${y}%` }}>
+                {focused && <b>{seam.name}</b>}
               </span>
             );
           })}

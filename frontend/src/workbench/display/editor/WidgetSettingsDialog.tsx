@@ -15,7 +15,7 @@ export function WidgetSettingsDialog({ widgetId, widget, availableCurves, onClos
     <FloatingWindow
       title={`${widget.title} Settings`}
       className="widget-settings-modal"
-      defaultPosition={{ x: window.innerWidth - 560, y: 86 }}
+      defaultPlacement="center"
       onClose={onClose}
     >
       <div className="widget-settings-body">

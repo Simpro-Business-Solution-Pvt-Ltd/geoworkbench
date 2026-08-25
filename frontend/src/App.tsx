@@ -370,7 +370,7 @@ export function App() {
   const activeId = boreholeId ?? boreholes.data?.[0]?.id;
   const selectedDisplayLayoutId = activeId ? selectedDisplayLayoutIds[String(activeId)] ?? null : null;
   const selectedBorehole = boreholes.data?.find((item) => item.id === activeId) ?? boreholes.data?.[0];
-  const correlationIds = useMemo(() => (boreholes.data ?? []).slice(0, 5).map((item) => item.id), [boreholes.data]);
+  const correlationIds = useMemo(() => (boreholes.data ?? []).map((item) => item.id), [boreholes.data]);
   const workbench = useQuery({
     queryKey: ["workbench", activeId, displayChoice === "saved" ? selectedDisplayLayoutId : null],
     queryFn: () => getWorkbench(activeId as number, displayChoice === "saved" ? selectedDisplayLayoutId : null),
@@ -1215,6 +1215,7 @@ export function App() {
           deleting={deleteCurrentLayout.isPending}
           resetting={resetCurrentLayout.isPending}
           canDelete={(workbench.data?.display_layouts ?? []).length > 1}
+          loading={workbench.isLoading || workbench.isFetching}
           onSave={(layout) =>
             saveDisplayLayout.mutate(layout, {
               onSuccess: () => {

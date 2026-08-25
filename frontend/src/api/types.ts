@@ -260,6 +260,12 @@ export type BoreholeAiSummary = {
   metrics: Record<string, unknown>;
 };
 
+export type CorrelationAiSummary = {
+  title: string;
+  summary: string;
+  metrics: Record<string, unknown>;
+};
+
 export type ValidationRuleConfig = {
   code: string;
   label: string;

@@ -11,6 +11,8 @@ from app.services.ai_provider import AiProviderUnavailable, ai_provider_status, 
 from app.services.quality_config import ai_summary_settings, ai_suggestion_settings
 from app.services.validation.borehole_validation import replace_validation_issues, validate_borehole
 
+MAX_DETAILED_SUGGESTIONS_PER_TYPE = 25
+
 
 def _load_borehole(db: Session, borehole_id: int) -> Borehole:
     borehole = db.scalar(
@@ -30,6 +32,47 @@ def _load_borehole(db: Session, borehole_id: int) -> Borehole:
     if borehole is None:
         raise ValueError("Borehole not found")
     return borehole
+
+
+def _load_borehole_for_suggestions(db: Session, borehole_id: int, *, include_curve_samples: bool = False) -> Borehole:
+    curve_loader = selectinload(Borehole.curves)
+    if include_curve_samples:
+        curve_loader = curve_loader.selectinload(Curve.samples)
+    borehole = db.scalar(
+        select(Borehole)
+        .where(Borehole.id == borehole_id)
+        .options(
+            selectinload(Borehole.lithology_intervals),
+            selectinload(Borehole.seam_intervals),
+            curve_loader,
+            selectinload(Borehole.core_images),
+            selectinload(Borehole.validation_issues),
+            selectinload(Borehole.ai_suggestions),
+        )
+    )
+    if borehole is None:
+        raise ValueError("Borehole not found")
+    return borehole
+
+
+def _load_boreholes_for_correlation(db: Session, borehole_ids: list[int]) -> list[Borehole]:
+    requested = list(dict.fromkeys(borehole_ids))
+    if not requested:
+        return []
+    boreholes = db.scalars(
+        select(Borehole)
+        .where(Borehole.id.in_(requested))
+        .options(
+            selectinload(Borehole.lithology_intervals),
+            selectinload(Borehole.seam_intervals),
+            selectinload(Borehole.curves),
+            selectinload(Borehole.source_imports),
+            selectinload(Borehole.source_files),
+            selectinload(Borehole.core_images),
+        )
+    ).all()
+    by_id = {item.id: item for item in boreholes}
+    return [by_id[item] for item in requested if item in by_id]
 
 
 def _interval_by_id(borehole: Borehole, interval_id: str | None) -> LithologyInterval | None:
@@ -209,11 +252,12 @@ def _suggestion_for_issue(
 
 
 def generate_suggestions(db: Session, borehole_id: int) -> list[AiSuggestion]:
-    borehole = _load_borehole(db, borehole_id)
+    borehole = _load_borehole_for_suggestions(db, borehole_id, include_curve_samples=False)
     quality_settings = get_quality_settings_payload(db)
     suggestion_config = ai_suggestion_settings(quality_settings)
     for suggestion in list(borehole.ai_suggestions):
         if suggestion.provider == "rule_based" and suggestion.status == "open":
+            borehole.ai_suggestions.remove(suggestion)
             db.delete(suggestion)
     db.flush()
 
@@ -229,10 +273,14 @@ def generate_suggestions(db: Session, borehole_id: int) -> list[AiSuggestion]:
             ),
         )
 
-    if suggestion_config["refresh_validation_before_suggestions"]:
+    # Large LAS-backed boreholes can contain hundreds of thousands of samples.
+    # Use the current validation snapshot when it exists; users can run validation
+    # explicitly before generating a fresh review.
+    if suggestion_config["refresh_validation_before_suggestions"] and not borehole.validation_issues:
+        borehole = _load_borehole_for_suggestions(db, borehole_id, include_curve_samples=True)
         replace_validation_issues(borehole, validate_borehole(borehole, quality_settings))
         db.flush()
-        db.refresh(borehole)
+        db.expire(borehole, ["validation_issues", "ai_suggestions"])
 
     existing_issue_ids = {
         item.validation_issue_id for item in borehole.ai_suggestions if item.validation_issue_id is not None
@@ -277,13 +325,53 @@ def generate_suggestions(db: Session, borehole_id: int) -> list[AiSuggestion]:
             )
         )
         existing_issue_ids.update(issue.id for issue in curve_coverage_issues)
+    emitted_by_code: dict[str, int] = {}
+    skipped_by_code: dict[str, list[ValidationIssue]] = {}
     for issue in borehole.validation_issues:
         if issue.id in existing_issue_ids:
             continue
         payload = _suggestion_for_issue(borehole, issue, quality_settings)
         if payload is None:
             continue
+        emitted = emitted_by_code.get(issue.code, 0)
+        if emitted >= MAX_DETAILED_SUGGESTIONS_PER_TYPE:
+            skipped_by_code.setdefault(issue.code, []).append(issue)
+            continue
+        emitted_by_code[issue.code] = emitted + 1
         borehole.ai_suggestions.append(AiSuggestion(borehole_id=borehole.id, provider="rule_based", **payload))
+
+    for code, issues in skipped_by_code.items():
+        first_issue = issues[0]
+        title = first_issue.code.replace("_", " ").title()
+        borehole.ai_suggestions.append(
+            AiSuggestion(
+                borehole_id=borehole.id,
+                provider="rule_based",
+                validation_issue_id=None,
+                suggestion_type=code,
+                title=f"{len(issues)} additional {title} finding(s)",
+                rationale=(
+                    f"{len(issues)} more {code.replace('_', ' ')} validation finding(s) exist after the first "
+                    f"{MAX_DETAILED_SUGGESTIONS_PER_TYPE} detailed suggestions."
+                ),
+                recommended_action=(
+                    "Use the validation layer and depth filters to review the remaining occurrences in batches. "
+                    "Do not bulk-apply corrections without source verification."
+                ),
+                confidence=0.6,
+                from_depth=min((item.from_depth for item in issues if item.from_depth is not None), default=None),
+                to_depth=max((item.to_depth for item in issues if item.to_depth is not None), default=None),
+                entity_type="borehole",
+                entity_id=None,
+                patch=None,
+                evidence={
+                    "validation_code": code,
+                    "severity": first_issue.severity,
+                    "grouped_count": len(issues),
+                    "provider_note": "Grouped deterministic validation assistant finding.",
+                },
+            )
+        )
 
     db.add(borehole)
     db.commit()
@@ -457,7 +545,7 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
                 temperature=summary_config["temperature"],
             )
             if ai_text:
-                summary = ai_text
+                summary = _guardrail_correlation_summary(ai_text)
                 provider["used_for_summary"] = True
             else:
                 provider["used_for_summary"] = False
@@ -492,6 +580,132 @@ def summarize_borehole(db: Session, borehole_id: int) -> dict:
     }
 
 
+def summarize_correlation(db: Session, borehole_ids: list[int], focus_seam: str | None = None, align_mode: str = "depth") -> dict:
+    boreholes = _load_boreholes_for_correlation(db, borehole_ids)
+    if not boreholes:
+        raise ValueError("No boreholes found for correlation")
+
+    summary_config = ai_summary_settings(get_quality_settings_payload(db))
+    seam_rows = _correlation_seam_rows(boreholes)
+    focus = _find_focus_seam(seam_rows, focus_seam)
+    interpretable_seams = [row for row in seam_rows if not _is_generic_seam_name(row["seam_name"])]
+    common = [
+        row for row in interpretable_seams if row["present_count"] >= max(2, round(len(boreholes) * 0.6))
+    ]
+    missing = [row for row in interpretable_seams if row["missing_count"] > 0 and row["present_count"] >= 2]
+    top_spread = [
+        row
+        for row in interpretable_seams
+        if row["present_count"] >= 2 and (row["max_top"] - row["min_top"]) >= 10
+    ]
+    thickness_spread = [
+        row
+        for row in interpretable_seams
+        if row["present_count"] >= 2 and (row["max_thickness"] - row["min_thickness"]) >= 1
+    ]
+    borehole_facts = [_correlation_borehole_fact(item) for item in boreholes]
+    missing_coordinates = [item["code"] for item in borehole_facts if not item["has_coordinates"]]
+    default_rl = [item["code"] for item in borehole_facts if item["rl_source"] == "default"]
+    gamma_ready = [item["code"] for item in borehole_facts if item["has_gamma"]]
+    core_ready = [item["code"] for item in borehole_facts if item["core_images"]]
+
+    deterministic_summary = _correlation_rule_summary(
+        boreholes,
+        focus,
+        missing,
+        top_spread,
+        thickness_spread,
+        gamma_ready,
+        missing_coordinates,
+        default_rl,
+        summary_config["geologist_approval_note"],
+    )
+    summary = deterministic_summary
+    provider = ai_provider_status()
+
+    prompt = {
+        "selected_boreholes": [
+            {
+                "code": item["code"],
+                "total_depth": item["total_depth"],
+                "seam_intervals": item["seam_intervals"],
+                "has_gamma": item["has_gamma"],
+                "rl_source": item["rl_source"],
+                "has_coordinates": item["has_coordinates"],
+            }
+            for item in borehole_facts
+        ],
+        "align_mode": align_mode if align_mode in {"depth", "rl"} else "depth",
+        "focus_seam": _thin_seam_row(focus) if focus else None,
+        "top_common_seams": [_thin_seam_row(row) for row in common[:3]],
+        "missing_marker_reviews": [_thin_seam_row(row) for row in _rank_missing_seams(missing)[:3]],
+        "top_depth_spread_reviews": [_thin_seam_row(row) for row in _rank_top_spread_seams(top_spread)[:3]],
+        "thickness_variation_reviews": [_thin_seam_row(row) for row in _rank_thickness_spread_seams(thickness_spread)[:3]],
+        "evidence_readiness": {
+            "gamma_ready_count": len(gamma_ready),
+            "corebox_images_available_count": len(core_ready),
+            "missing_coordinates": missing_coordinates,
+            "estimated_rl": default_rl,
+        },
+    }
+    if summary_config["use_local_llm_when_available"] and provider.get("enabled") and provider.get("reachable"):
+        try:
+            ai_text = local_chat_completion(
+                [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a cautious coal geology correlation assistant. Use only the provided JSON. "
+                            "Do not invent missing seams, coordinates, faults, resources, or predictions. "
+                            "Do not diagnose or mention fault, structural displacement, reserve, or prediction. "
+                            "If evidence varies, say only that the seam/depth/label needs geologist review. "
+                            "Write only the final answer as 4-6 concise bullets. Include practical geologist actions, "
+                            "what evidence supports them, and what must be confirmed manually."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            "Create actionable correlation insights for central geologist review from this JSON:\n"
+                            f"{json.dumps(prompt, ensure_ascii=True)}"
+                        ),
+                    },
+                ],
+                max_tokens=min(650, summary_config["max_tokens"]),
+                temperature=summary_config["temperature"],
+            )
+            if ai_text:
+                summary = _guardrail_correlation_summary(ai_text)
+                provider["used_for_summary"] = True
+            else:
+                provider["used_for_summary"] = False
+                provider["summary_error"] = "AI provider returned an empty final response."
+        except AiProviderUnavailable as exc:
+            provider["used_for_summary"] = False
+            provider["summary_error"] = str(exc)
+
+    return {
+        "title": "Correlation AI insights",
+        "summary": summary,
+        "metrics": {
+            "borehole_count": len(boreholes),
+            "boreholes": [item.code for item in boreholes],
+            "align_mode": align_mode,
+            "focus_seam": focus,
+            "common_seam_count": len(common),
+            "missing_marker_review_count": len(missing),
+            "top_depth_spread_review_count": len(top_spread),
+            "thickness_variation_review_count": len(thickness_spread),
+            "gamma_ready_count": len(gamma_ready),
+            "corebox_ready_count": len(core_ready),
+            "missing_coordinates": missing_coordinates,
+            "estimated_rl": default_rl,
+            "ai_provider": provider,
+            "deterministic_summary": deterministic_summary,
+        },
+    }
+
+
 def _curve_coverage_summary(curve: Curve) -> dict:
     depths = [sample.depth for sample in curve.samples]
     if not depths:
@@ -518,6 +732,270 @@ def _curve_coverage_sentence(curve_coverage: list[dict]) -> str:
     labels = ", ".join(str(item["label"]) for item in available[:4])
     sample_count = sum(int(item["sample_count"]) for item in available)
     return f"{len(available)} curve(s) are available ({labels}) with {sample_count} sample point(s). "
+
+
+def _correlation_borehole_fact(borehole: Borehole) -> dict:
+    metadata = _metadata_for_borehole(borehole)
+    curve_labels = [curve.label for curve in borehole.curves]
+    return {
+        "id": borehole.id,
+        "code": borehole.code,
+        "total_depth": borehole.total_depth,
+        "lithology_intervals": len(borehole.lithology_intervals),
+        "seam_intervals": len(borehole.seam_intervals),
+        "curve_count": len(curve_labels),
+        "curves": curve_labels[:8],
+        "has_gamma": any(_is_gamma_curve(curve) for curve in borehole.curves),
+        "core_images": len(borehole.core_images),
+        "source_files": len(borehole.source_files),
+        "rl": metadata["rl"],
+        "rl_source": metadata["rl_source"],
+        "has_coordinates": metadata["x"] is not None and metadata["y"] is not None,
+        "water_level": metadata["water_level"],
+    }
+
+
+def _correlation_seam_rows(boreholes: list[Borehole]) -> list[dict]:
+    groups: dict[str, list[dict]] = {}
+    for borehole in boreholes:
+        for seam in borehole.seam_intervals:
+            name = (seam.name or "Unnamed seam").strip().upper()
+            top = float(seam.from_depth)
+            bottom = float(seam.to_depth)
+            groups.setdefault(name, []).append(
+                {
+                    "borehole": borehole.code,
+                    "top": round(top, 3),
+                    "bottom": round(bottom, 3),
+                    "thickness": round(max(0.0, bottom - top), 3),
+                }
+            )
+    rows = []
+    for seam_name, items in groups.items():
+        tops = [item["top"] for item in items]
+        thicknesses = [item["thickness"] for item in items]
+        present_count = len({item["borehole"] for item in items})
+        rows.append(
+            {
+                "seam_name": seam_name,
+                "present_count": present_count,
+                "missing_count": max(0, len(boreholes) - present_count),
+                "min_top": min(tops),
+                "max_top": max(tops),
+                "min_thickness": min(thicknesses),
+                "max_thickness": max(thicknesses),
+                "items": items[:20],
+            }
+        )
+    return sorted(rows, key=lambda item: (-item["present_count"], item["min_top"], item["seam_name"]))
+
+
+def _find_focus_seam(seam_rows: list[dict], focus_seam: str | None) -> dict | None:
+    if not seam_rows:
+        return None
+    if focus_seam:
+        normalized = focus_seam.strip().upper()
+        for row in seam_rows:
+            if row["seam_name"] == normalized:
+                return row
+    return next((row for row in seam_rows if not _is_generic_seam_name(row["seam_name"])), seam_rows[0])
+
+
+def _is_generic_seam_name(name: str) -> bool:
+    normalized = name.strip().upper()
+    return normalized in {"BAND", "UNNAMED"} or len(normalized) <= 2
+
+
+def _correlation_rule_summary(
+    boreholes: list[Borehole],
+    focus: dict | None,
+    missing: list[dict],
+    top_spread: list[dict],
+    thickness_spread: list[dict],
+    gamma_ready: list[str],
+    missing_coordinates: list[str],
+    default_rl: list[str],
+    approval_note: str,
+) -> str:
+    bullets = [
+        (
+            f"* **Correlation set:** {len(boreholes)} boreholes selected "
+            f"({', '.join(item.code for item in boreholes)}); gamma evidence is available in "
+            f"{len(gamma_ready)}/{len(boreholes)} boreholes."
+        )
+    ]
+    if focus:
+        bullets.append(
+            f"* **Focus seam {focus['seam_name']}:** present in {focus['present_count']}/{len(boreholes)} boreholes; "
+            f"top range {focus['min_top']:.2f}-{focus['max_top']:.2f}m and thickness range "
+            f"{focus['min_thickness']:.2f}-{focus['max_thickness']:.2f}m need manual continuity confirmation."
+        )
+    for row in _rank_top_spread_seams(top_spread)[:2]:
+        bullets.append(
+            f"* **Depth spread review:** {row['seam_name']} top varies by "
+            f"{row['max_top'] - row['min_top']:.2f}m; compare lithology and gamma response before accepting the marker correlation."
+        )
+    if missing:
+        names = ", ".join(row["seam_name"] for row in _rank_missing_seams(missing)[:4])
+        bullets.append(
+            f"* **Missing marker review:** {names} are absent in at least one selected borehole; confirm true absence versus naming or logging gap."
+        )
+    for row in _rank_thickness_spread_seams(thickness_spread)[:1]:
+        bullets.append(
+            f"* **Thickness review:** {row['seam_name']} thickness range is "
+            f"{row['min_thickness']:.2f}-{row['max_thickness']:.2f}m; inspect whether partings or merged intervals explain the variation."
+        )
+    if missing_coordinates or default_rl:
+        bullets.append(
+            f"* **Datum readiness:** coordinates missing for {len(missing_coordinates)} borehole(s), "
+            f"RL estimated for {len(default_rl)} borehole(s); confirm survey/collar metadata before RL-based interpretation."
+        )
+    bullets.append(f"* **Approval:** {approval_note}")
+    return "\n".join(bullets[:6])
+
+
+def _rank_top_spread_seams(rows: list[dict]) -> list[dict]:
+    return sorted(rows, key=lambda row: row["max_top"] - row["min_top"], reverse=True)
+
+
+def _rank_thickness_spread_seams(rows: list[dict]) -> list[dict]:
+    return sorted(rows, key=lambda row: row["max_thickness"] - row["min_thickness"], reverse=True)
+
+
+def _rank_missing_seams(rows: list[dict]) -> list[dict]:
+    return sorted(rows, key=lambda row: (-row["present_count"], row["min_top"], row["seam_name"]))
+
+
+def _thin_seam_row(row: dict | None) -> dict | None:
+    if not row:
+        return None
+    return {
+        "seam_name": row["seam_name"],
+        "present_count": row["present_count"],
+        "missing_count": row["missing_count"],
+        "top_range_m": [round(row["min_top"], 2), round(row["max_top"], 2)],
+        "top_spread_m": round(row["max_top"] - row["min_top"], 2),
+        "thickness_range_m": [round(row["min_thickness"], 2), round(row["max_thickness"], 2)],
+        "thickness_spread_m": round(row["max_thickness"] - row["min_thickness"], 2),
+        "boreholes": [item["borehole"] for item in row.get("items", [])[:8]],
+    }
+
+
+def _compact_seam_row(row: dict | None) -> dict | None:
+    if not row:
+        return None
+    items = row.get("items") if isinstance(row.get("items"), list) else []
+    return {
+        "seam_name": row["seam_name"],
+        "present_count": row["present_count"],
+        "missing_count": row["missing_count"],
+        "top_range_m": [row["min_top"], row["max_top"]],
+        "top_spread_m": round(row["max_top"] - row["min_top"], 3),
+        "thickness_range_m": [row["min_thickness"], row["max_thickness"]],
+        "thickness_spread_m": round(row["max_thickness"] - row["min_thickness"], 3),
+        "sample_picks": [
+            {
+                "borehole": item["borehole"],
+                "top": item["top"],
+                "bottom": item["bottom"],
+                "thickness": item["thickness"],
+            }
+            for item in items[:8]
+        ],
+    }
+
+
+def _guardrail_correlation_summary(summary: str) -> str:
+    replacements = {
+        "major structural displacement": "large depth variation requiring review",
+        "structural displacement": "depth variation requiring review",
+        "structural dipping or geological complexity": "depth variation, naming differences, or data gaps",
+        "structural dipping": "depth variation",
+        "fault": "depth offset requiring review",
+        "3D structural models": "correlation sections",
+        "3D correlation model": "correlation section",
+        "prediction": "review note",
+        "predictions": "review notes",
+        "reserve": "resource review",
+        "reserves": "resource reviews",
+    }
+    guarded = summary
+    for source, target in replacements.items():
+        guarded = guarded.replace(source, target).replace(source.title(), target)
+    return guarded
+
+
+def _is_gamma_curve(curve: Curve) -> bool:
+    key = "".join(ch for ch in curve.key.lower() if ch.isalnum())
+    label = curve.label.lower()
+    return key in {"gamma", "ngam", "ngamma", "gr"} or "gamma" in label
+
+
+def _metadata_for_borehole(borehole: Borehole) -> dict:
+    attributes = _object_value(borehole.attributes)
+    collar = _object_value(attributes.get("collar"))
+    import_metadata: dict = {}
+    legacy_summary: dict = {}
+    for source_import in borehole.source_imports:
+        summary = _object_value(source_import.summary)
+        import_metadata.update(_object_value(summary.get("metadata")))
+        import_metadata.update(_object_value(summary.get("collar")))
+        if summary.get("rl_m") is not None:
+            legacy_summary = summary
+    collar_rl = _first_number(collar, ["reduced_level", "rl", "rl_m"])
+    import_rl = _first_number(import_metadata, ["reduced_level", "rl", "rl_m"])
+    legacy_rl = _number_value(legacy_summary.get("rl_m"))
+    rl = collar_rl if collar_rl is not None else import_rl if import_rl is not None else legacy_rl if legacy_rl is not None else 220
+    rl_source = "collar" if collar_rl is not None else "import" if import_rl is not None or legacy_rl is not None else "default"
+    return {
+        "rl": rl,
+        "rl_source": rl_source,
+        "x": _first_available_number(
+            _first_number(collar, ["coalgrid_easting", "utm_easting", "collar_x"]),
+            _first_number(import_metadata, ["coalgrid_easting", "utm_easting", "collar_x"]),
+            _number_value(legacy_summary.get("collar_x")),
+        ),
+        "y": _first_available_number(
+            _first_number(collar, ["coalgrid_northing", "utm_northing", "collar_y"]),
+            _first_number(import_metadata, ["coalgrid_northing", "utm_northing", "collar_y"]),
+            _number_value(legacy_summary.get("collar_y")),
+        ),
+        "water_level": _first_available_number(
+            _first_number(collar, ["water_level", "water_level_m"]),
+            _first_number(import_metadata, ["water_level", "water_level_m"]),
+            _number_value(legacy_summary.get("water_level_m")),
+        ),
+    }
+
+
+def _object_value(value) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _first_number(source: dict, keys: list[str]) -> float | None:
+    for key in keys:
+        value = _number_value(source.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _first_available_number(*values: float | None) -> float | None:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def _number_value(value) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
 
 
 def provider_status() -> dict:

@@ -35,7 +35,7 @@ export function WidgetLibrary({ open, onClose, onAddWidget }: Props) {
     <FloatingWindow
       title="Widget Library"
       className="widget-library-window"
-      defaultPosition={{ x: 96, y: 118 }}
+      defaultPlacement="center-left"
       onClose={onClose}
     >
       <div className="widget-library-search">

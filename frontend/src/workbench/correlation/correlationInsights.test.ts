@@ -25,6 +25,19 @@ describe("correlation insights", () => {
     expect(rows[0].maxThickness).toBe(3);
   });
 
+  it("counts repeated seam picks separately from borehole presence", () => {
+    const rows = seamCorrelationRows([
+      borehole("BH-1", { seams: [seam("A", 100, 102), seam("A", 120, 121)] }),
+      borehole("BH-2", { seams: [seam("A", 101, 104)] }),
+      borehole("BH-3", { seams: [] }),
+    ]);
+
+    expect(rows[0].presentCount).toBe(2);
+    expect(rows[0].missingCount).toBe(1);
+    expect(rows[0].items).toHaveLength(3);
+  });
+
+
   it("builds actionable review insights from seam and metadata gaps", () => {
     const items = [
       borehole("BH-1", {

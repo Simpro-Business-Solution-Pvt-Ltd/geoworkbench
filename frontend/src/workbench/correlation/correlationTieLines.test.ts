@@ -36,6 +36,22 @@ describe("correlation tie lines", () => {
 
     expect(lines[0]).toMatchObject({ status: "review", offset: 22 });
   });
+
+  it("pairs repeated seam names by depth order instead of fanning every duplicate", () => {
+    const lines = buildSeamTieLines(
+      [
+        borehole("BH-1", [seam("BAND", 20, 21), seam("BAND", 80, 81), seam("BAND", 140, 141)]),
+        borehole("BH-2", [seam("BAND", 23, 24), seam("BAND", 84, 85)]),
+      ],
+      { min: 0, max: 200 },
+      "depth",
+    );
+
+    expect(lines).toHaveLength(2);
+    expect(lines.map((line) => line.id)).toEqual(["1:2:BAND:0", "1:2:BAND:1"]);
+    expect(lines[0].fromY).toBeCloseTo(10.25);
+    expect(lines[0].toY).toBeCloseTo(11.75);
+  });
 });
 
 function borehole(code: string, seams: SeamInterval[]): BoreholeWorkbench {

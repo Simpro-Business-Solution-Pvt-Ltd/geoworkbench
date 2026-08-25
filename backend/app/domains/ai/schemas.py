@@ -31,3 +31,15 @@ class BoreholeSummaryOut(BaseModel):
     title: str
     summary: str
     metrics: dict
+
+
+class CorrelationSummaryRequest(BaseModel):
+    borehole_ids: list[int]
+    focus_seam: str | None = None
+    align_mode: str = "depth"
+
+
+class CorrelationSummaryOut(BaseModel):
+    title: str
+    summary: str
+    metrics: dict

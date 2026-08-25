@@ -1,166 +1,73 @@
-import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import type { Curve, DisplayTrack } from "../../../api/types";
 import { curveFamilyLabel, curveMappingStatus, curveMnemonic } from "../../data/curveDictionary";
-import { createCurveDisplayConfig, defaultScaleForCurve } from "../trackCatalog";
+import { defaultScaleForCurve } from "../trackCatalog";
 import { moveItem } from "./displayGridUtils";
 
 type Props = {
   track: DisplayTrack;
   availableCurves: Curve[];
+  selectedCurveKey: string | null;
   patchTrack: (patch: Partial<DisplayTrack>) => void;
+  onSelectCurve: (curveKey: string | null) => void;
+  onOpenCurveDictionary: () => void;
 };
 
-export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props) {
-  const [curveSearch, setCurveSearch] = useState("");
-  const [selectedCurveKey, setSelectedCurveKey] = useState<string | null>(null);
+export function CurveTrackSettings({
+  track,
+  availableCurves,
+  selectedCurveKey,
+  patchTrack,
+  onSelectCurve,
+  onOpenCurveDictionary,
+}: Props) {
   const configuredCurves = track.curves ?? [];
-  const selectedCurve = configuredCurves.find((curve) => curve.curveKey === selectedCurveKey) ?? configuredCurves[0] ?? null;
+  const selectedCurve = configuredCurves.find((curve) => curve.curveKey === selectedCurveKey) ?? null;
   const selectedCurveIndex = selectedCurve ? configuredCurves.findIndex((curve) => curve.curveKey === selectedCurve.curveKey) : -1;
-  const missingCurves = availableCurves.filter((curve) => !track.curves?.some((item) => item.curveKey === curve.key));
-  const filteredMissingCurves = useMemo(() => {
-    const query = curveSearch.trim().toLowerCase();
-    if (!query) return missingCurves;
-    return missingCurves.filter((curve) =>
-      [curve.key, curve.label, curve.unit, curveFamilyLabel(curve), curveMappingStatus(curve)]
-        .join(" ")
-        .toLowerCase()
-        .includes(query),
-    );
-  }, [curveSearch, missingCurves]);
-  const groupedMissingCurves = useMemo(
-    () =>
-      filteredMissingCurves.reduce<Record<string, Curve[]>>((groups, curve) => {
-        const group = curveFamilyLabel(curve);
-        groups[group] = [...(groups[group] ?? []), curve];
-        return groups;
-      }, {}),
-    [filteredMissingCurves],
-  );
-  const sampleSource = track.renderer?.sampleSource === "visible-window" ? "visible-window" : "workbench";
-  const maxWindowSamples = typeof track.renderer?.maxWindowSamples === "number" ? track.renderer.maxWindowSamples : "";
-  const configuredCurveCount = configuredCurves.length;
-
-  useEffect(() => {
-    if (!configuredCurves.length) {
-      setSelectedCurveKey(null);
-      return;
-    }
-    if (!selectedCurveKey || !configuredCurves.some((curve) => curve.curveKey === selectedCurveKey)) {
-      setSelectedCurveKey(configuredCurves[0].curveKey);
-    }
-  }, [configuredCurves, selectedCurveKey]);
+  const missingCurves = availableCurves.filter((curve) => !configuredCurves.some((item) => item.curveKey === curve.key));
 
   return (
     <div className="curve-settings-list">
-      <strong>Curve Track</strong>
-      <div className="curve-scale-grid">
-        <label>
-          Data source
-          <select
-            value={sampleSource}
-            onChange={(event) =>
-              patchTrack({
-                renderer: {
-                  ...(track.renderer ?? {}),
-                  sampleSource: event.target.value === "visible-window" ? "visible-window" : "workbench",
-                },
-              })
-            }
-          >
-            <option value="workbench">Workbench payload</option>
-            <option value="visible-window">Visible depth window</option>
-          </select>
-        </label>
-        <label>
-          Max window samples
-          <input
-            type="number"
-            min="50"
-            step="50"
-            value={maxWindowSamples}
-            placeholder="All"
-            disabled={sampleSource !== "visible-window"}
-            onChange={(event) =>
-              patchTrack({
-                renderer: {
-                  ...(track.renderer ?? {}),
-                  maxWindowSamples: event.target.value ? Number(event.target.value) : undefined,
-                },
-              })
-            }
-          />
-        </label>
+      <div className="curve-settings-header">
+        <div>
+          <strong>Curve Track</strong>
+          <span>
+            {configuredCurves.length} configured · {missingCurves.length} available
+          </span>
+        </div>
+        <button type="button" className="log-action-button" onClick={onOpenCurveDictionary}>
+          <Plus size={14} />
+          Add curve
+        </button>
       </div>
-      <div className="configured-curve-manager">
-        <div className="curve-picker-head">
-          <span>{configuredCurveCount} configured on this track</span>
-        </div>
-        <div className="configured-curve-list">
-          {configuredCurves.map((curve) => (
-            <button
-              key={curve.curveKey}
-              type="button"
-              className={selectedCurve?.curveKey === curve.curveKey ? "selected" : ""}
-              onClick={() => setSelectedCurveKey(curve.curveKey)}
-            >
-              <i style={{ backgroundColor: curve.color }} />
-              <span>{curve.label}</span>
-              <small>{curve.unit || "-"}</small>
-              {!curve.visible && <b>Hidden</b>}
-            </button>
-          ))}
-          {!configuredCurves.length && <div className="empty">No curves configured on this track. Add curves from the borehole source list below.</div>}
-        </div>
 
-        {selectedCurve && (
+      <div className="selected-curve-settings">
+        <div className="selected-curve-head">
+          <span>{selectedCurve ? "Selected curve settings" : "Select a curve from the Log Structure tree"}</span>
+          {!selectedCurve && (
+            <button type="button" className="log-action-button" onClick={onOpenCurveDictionary}>
+              <Plus size={14} />
+              Add curve
+            </button>
+          )}
+        </div>
+        {selectedCurve ? (
           <CurveEditor
             curve={selectedCurve}
             index={selectedCurveIndex}
             curves={configuredCurves}
             availableCurves={availableCurves}
             patchTrack={patchTrack}
-            onSelectCurve={setSelectedCurveKey}
+            onSelectCurve={onSelectCurve}
           />
+        ) : (
+          <div className="empty">
+            No curve selected. Use the tree on the left to edit a configured curve, or add a new curve from the dictionary.
+          </div>
         )}
       </div>
-      <div className="curve-picker">
-        <div className="curve-picker-head">
-          <span>
-            {missingCurves.length} available to add from geophysical logs
-          </span>
-          <input
-            value={curveSearch}
-            placeholder="Find curve"
-            onChange={(event) => setCurveSearch(event.target.value)}
-          />
-        </div>
-        {Object.entries(groupedMissingCurves).map(([family, curves]) => (
-          <section key={family} className="curve-picker-group">
-            <strong>{family}</strong>
-            <div className="curve-picker-items">
-              {curves.map((curve) => (
-                <button
-                  key={curve.key}
-                  type="button"
-                  title={`${curve.key} · ${curve.unit || "unitless"} · ${curveMappingStatus(curve)}`}
-                  onClick={() =>
-                    patchTrack({
-                      curves: [...(track.curves ?? []), createCurveDisplayConfig(curve)],
-                    })
-                  }
-                >
-                  <i style={{ backgroundColor: curve.color }} />
-                  <span>{curveMnemonic(curve)}</span>
-                  <small>{curve.unit || "-"}</small>
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
       {!missingCurves.length && <small>All available curves are already configured on this track.</small>}
-      {Boolean(missingCurves.length) && !filteredMissingCurves.length && <small>No curves match the current filter.</small>}
     </div>
   );
 }
@@ -189,21 +96,24 @@ function CurveEditor({
 
   return (
     <div className="curve-editor">
-      {sourceCurve ? (
-        <small>
-          {curveMnemonic(sourceCurve)} · {curveFamilyLabel(sourceCurve)} · {curveMappingStatus(sourceCurve)}
-        </small>
-      ) : (
-        <small>{curve.curveKey} · source curve missing from current borehole payload</small>
-      )}
-      <label>
-        <input
-          type="checkbox"
-          checked={curve.visible}
-          onChange={(event) => patchCurve((item) => ({ ...item, visible: event.target.checked }))}
-        />
-        <span style={{ color: curve.color }}>{curve.label}</span>
-      </label>
+      <div className="curve-editor-titlebar">
+        <div>
+          <small>
+            {sourceCurve
+              ? `${curveMnemonic(sourceCurve)} · ${curveFamilyLabel(sourceCurve)} · ${curveMappingStatus(sourceCurve)}`
+              : `${curve.curveKey} · source curve missing from current borehole payload`}
+          </small>
+          <strong style={{ color: curve.color }}>{curve.label}</strong>
+        </div>
+        <label className="curve-visible-toggle">
+          <input
+            type="checkbox"
+            checked={curve.visible}
+            onChange={(event) => patchCurve((item) => ({ ...item, visible: event.target.checked }))}
+          />
+          Visible
+        </label>
+      </div>
       <div className="curve-scale-grid">
         <label className="checkbox-field">
           <input
@@ -246,29 +156,35 @@ function CurveEditor({
         </label>
         <label>
           Color
-          <input
-            type="color"
-            value={curve.color}
-            onChange={(event) => patchCurve((item) => ({ ...item, color: event.target.value }))}
-          />
+          <span className="curve-color-field">
+            <input
+              type="color"
+              value={curve.color}
+              onChange={(event) => patchCurve((item) => ({ ...item, color: event.target.value }))}
+            />
+            <span>{curve.color.toUpperCase()}</span>
+          </span>
         </label>
       </div>
-      <button
-        type="button"
-        onClick={() => {
-          const fallbackCurve = curves[index + 1] ?? curves[index - 1] ?? null;
-          patchTrack({ curves: curves.filter((item) => item.curveKey !== curve.curveKey) });
-          onSelectCurve(fallbackCurve?.curveKey ?? null);
-        }}
-      >
-        Delete curve
-      </button>
-      <div className="curve-action-row">
+      <div className="curve-editor-actions">
+        <button
+          type="button"
+          className="danger-action"
+          onClick={() => {
+            const fallbackCurve = curves[index + 1] ?? curves[index - 1] ?? null;
+            patchTrack({ curves: curves.filter((item) => item.curveKey !== curve.curveKey) });
+            onSelectCurve(fallbackCurve?.curveKey ?? null);
+          }}
+        >
+          <Trash2 size={13} />
+          Delete curve
+        </button>
         <button
           type="button"
           disabled={index === 0}
           onClick={() => patchTrack({ curves: moveItem(curves, index, index - 1) })}
         >
+          <ArrowUp size={13} />
           Move up
         </button>
         <button
@@ -276,6 +192,7 @@ function CurveEditor({
           disabled={index === curves.length - 1}
           onClick={() => patchTrack({ curves: moveItem(curves, index, index + 1) })}
         >
+          <ArrowDown size={13} />
           Move down
         </button>
         <button
@@ -286,6 +203,7 @@ function CurveEditor({
             patchCurve((item) => ({ ...item, scale: defaultScaleForCurve(sourceCurve) }));
           }}
         >
+          <RotateCcw size={13} />
           Reset scale
         </button>
       </div>
