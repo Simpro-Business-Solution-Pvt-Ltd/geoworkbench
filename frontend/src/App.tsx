@@ -261,7 +261,7 @@ export function App() {
   );
   const [session, setSession] = useState<AuthSession | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
-  const { selectedInterval, setSelectedInterval, selectedDepth, selectedImage, setSelectedImage } =
+  const { selectedInterval, setSelectedInterval, selectedDepth, setSelectedDepth, selectedImage, setSelectedImage } =
     useWorkbenchStore();
   const { selectedRemarkGroup, setSelectedRemarkGroup } = useWorkbenchStore();
   const updatePreferencesMutation = useMutation({
@@ -749,9 +749,13 @@ export function App() {
       ? "Default correction display"
       : workbench.data?.layout?.name ?? "Saved borehole display";
 
-  const openWorkbench = (id = activeId) => {
+  const openWorkbench = (id = activeId, focusDepth?: number | null) => {
     if (id) {
       setPersistedBorehole(id);
+      if (typeof focusDepth === "number") {
+        setSelectedDepth(focusDepth);
+        setSelectedInterval(null);
+      }
       setView("workbench");
     }
   };
@@ -1035,10 +1039,7 @@ export function App() {
         <CorrelationWorkspace
           boreholes={boreholes.data ?? []}
           initialIds={correlationIds}
-          onOpenWorkbench={(id) => {
-            setPersistedBorehole(id);
-            setView("workbench");
-          }}
+          onOpenWorkbench={(id, focusDepth) => openWorkbench(id, focusDepth)}
         />
       )}
 

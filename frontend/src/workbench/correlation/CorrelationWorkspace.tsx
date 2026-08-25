@@ -24,7 +24,7 @@ import { buildSeamTieLines, type CorrelationTieLine } from "./correlationTieLine
 type Props = {
   boreholes: BoreholeListItem[];
   initialIds: number[];
-  onOpenWorkbench: (id: number) => void;
+  onOpenWorkbench: (id: number, focusDepth?: number | null) => void;
 };
 
 type AlignMode = CorrelationAlignMode;
@@ -288,6 +288,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
               return next;
             })
           }
+          onOpenWorkbench={onOpenWorkbench}
           onSaveNote={(text) => saveObservation.mutate(text)}
         />
       )}
@@ -329,6 +330,7 @@ function CorrelationInsightsDialog({
   savePending,
   onClose,
   onMarkReviewed,
+  onOpenWorkbench,
   onSaveNote,
 }: {
   insights: CorrelationInsight[];
@@ -341,6 +343,7 @@ function CorrelationInsightsDialog({
   savePending: boolean;
   onClose: () => void;
   onMarkReviewed: (insightId: string) => void;
+  onOpenWorkbench: (id: number, focusDepth?: number | null) => void;
   onSaveNote: (text: string) => void;
 }) {
   const [note, setNote] = useState("");
@@ -393,6 +396,17 @@ function CorrelationInsightsDialog({
                     >
                       Draft note
                     </button>
+                    {insight.target && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onOpenWorkbench(insight.target!.boreholeId, insight.target!.depth);
+                          onClose();
+                        }}
+                      >
+                        Open {insight.target.boreholeCode} at {insight.target.depth.toFixed(1)}m
+                      </button>
+                    )}
                   </div>
                 </article>
               ))}
@@ -496,7 +510,7 @@ function CorrelationColumn({
   data: BoreholeWorkbench;
   domain: { min: number; max: number };
   alignMode: AlignMode;
-  onOpenWorkbench: (id: number) => void;
+  onOpenWorkbench: (id: number, focusDepth?: number | null) => void;
 }) {
   const meta = metadataFor(data);
   const gamma = data.curves.find(isGammaCurve);

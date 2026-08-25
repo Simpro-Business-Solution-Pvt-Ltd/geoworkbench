@@ -102,6 +102,24 @@ describe("correlation insights", () => {
     expect(insights.map((item) => item.id)).toContain("top-spread:A");
     expect(insights.find((item) => item.id === "top-spread:A")?.action).toContain("depth and RL modes");
   });
+
+  it("adds workbench investigation targets for actionable seam insights", () => {
+    const items = [
+      borehole("BH-1", { seams: [seam("A", 100, 102)], curves: [curve("gamma")] }),
+      borehole("BH-2", { seams: [seam("A", 104, 108)], curves: [curve("gamma")] }),
+      borehole("BH-3", { seams: [], curves: [curve("gamma")] }),
+    ];
+    const insights = buildCorrelationInsights(items, seamCorrelationRows(items));
+
+    expect(insights.find((item) => item.id === "missing:A")?.target).toMatchObject({
+      boreholeCode: "BH-3",
+      depth: 102,
+    });
+    expect(insights.find((item) => item.id === "thickness:A")?.target).toMatchObject({
+      boreholeCode: "BH-2",
+      depth: 104,
+    });
+  });
 });
 
 function borehole(

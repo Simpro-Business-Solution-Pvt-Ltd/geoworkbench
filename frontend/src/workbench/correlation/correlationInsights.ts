@@ -10,6 +10,14 @@ export type CorrelationInsight = {
   detail: string;
   evidence: string;
   action: string;
+  target?: CorrelationInvestigationTarget;
+};
+
+export type CorrelationInvestigationTarget = {
+  boreholeId: number;
+  boreholeCode: string;
+  depth: number;
+  reason: string;
 };
 
 export type SeamCorrelationRow = {
@@ -179,6 +187,11 @@ export function buildCorrelationInsights(
 
   if (missingSeams.length) {
     const seam = missingSeams[0];
+    const missingItem = items.find(
+      (item) =>
+        !seam.items.some((seamItem) => seamItem.borehole === item.code),
+    );
+    const expectedDepth = average(seam.items.map((item) => item.top));
     insights.push({
       id: `missing:${seam.seamName}`,
       severity: "review",
@@ -186,11 +199,21 @@ export function buildCorrelationInsights(
       detail: `${seam.seamName} is present in ${seam.presentCount} borehole(s) but missing in ${seam.missingCount}. Check whether the seam pinches out, is unlogged, or needs relabelling.`,
       evidence: seam.items.map((item) => `${item.borehole} ${item.top.toFixed(1)}-${item.bottom.toFixed(1)}m`).join(" · "),
       action: "Compare the missing borehole at the expected depth against lithology and gamma response, then add or reject the marker.",
+      target:
+        missingItem && expectedDepth !== null
+          ? {
+              boreholeId: missingItem.id,
+              boreholeCode: missingItem.code,
+              depth: expectedDepth,
+              reason: `${seam.seamName} expected from nearby correlated tops`,
+            }
+          : undefined,
     });
   }
 
   if (variableSeams.length) {
     const seam = variableSeams[0];
+    const thickest = maxBy(seam.items, (item) => item.thickness);
     insights.push({
       id: `thickness:${seam.seamName}`,
       severity: "watch",
@@ -198,11 +221,20 @@ export function buildCorrelationInsights(
       detail: `Thickness changes from ${seam.minThickness.toFixed(2)}m to ${seam.maxThickness.toFixed(2)}m. Confirm whether this is expected seam geometry or a logging/correlation issue.`,
       evidence: seam.items.map((item) => `${item.borehole}: ${item.thickness.toFixed(2)}m`).join(" · "),
       action: "Check whether the thicker interval includes partings or merged bands before accepting the correlated seam thickness.",
+      target: thickest
+        ? {
+            boreholeId: boreholeIdForCode(items, thickest.borehole),
+            boreholeCode: thickest.borehole,
+            depth: thickest.top,
+            reason: `${seam.seamName} thickest picked interval`,
+          }
+        : undefined,
     });
   }
 
   if (topSpreadSeams.length) {
     const seam = topSpreadSeams[0];
+    const deepestTop = maxBy(seam.items, (item) => item.top);
     insights.push({
       id: `top-spread:${seam.seamName}`,
       severity: "review",
@@ -210,6 +242,14 @@ export function buildCorrelationInsights(
       detail: `${seam.seamName} top depth varies by ${(seam.maxTop - seam.minTop).toFixed(1)}m across selected boreholes. This may indicate dip, fault offset, naming mismatch, or local seam behavior.`,
       evidence: seam.items.map((item) => `${item.borehole}: top ${item.top.toFixed(1)}m`).join(" · "),
       action: "Review this seam in depth and RL modes, compare nearby collar positions, and save a correlation note for accepted continuity or uncertainty.",
+      target: deepestTop
+        ? {
+            boreholeId: boreholeIdForCode(items, deepestTop.borehole),
+            boreholeCode: deepestTop.borehole,
+            depth: deepestTop.top,
+            reason: `${seam.seamName} deepest top in selected section`,
+          }
+        : undefined,
     });
   }
 
@@ -244,6 +284,20 @@ export function buildCorrelationInsights(
   }
 
   return insights.slice(0, 6);
+}
+
+function average(values: number[]): number | null {
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function maxBy<T>(items: T[], valueOf: (item: T) => number): T | null {
+  if (!items.length) return null;
+  return items.reduce((best, item) => (valueOf(item) > valueOf(best) ? item : best));
+}
+
+function boreholeIdForCode(items: BoreholeWorkbench[], code: string): number {
+  return items.find((item) => item.code === code)?.id ?? 0;
 }
 
 export function correlationStats(
