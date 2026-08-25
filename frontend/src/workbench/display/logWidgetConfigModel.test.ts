@@ -18,6 +18,14 @@ describe("logWidgetConfigModel", () => {
     expect(result.widget.tracks?.map((track) => track.id)).toEqual(["lithology", "lithology-2"]);
   });
 
+  it("adds a manually created curve track as an empty container", () => {
+    const result = addCatalogTrackToLogWidget(logWidget([]), "curves", [curve("NGAM"), curve("RES")]);
+
+    expect(result.status).toBe("changed");
+    expect(result.widget.tracks?.[0]).toMatchObject({ type: "curve", title: "Curves" });
+    expect(result.widget.tracks?.[0].curves).toEqual([]);
+  });
+
   it("reveals an existing semantic track instead of adding a duplicate", () => {
     const result = ensureCatalogTrackOnLogWidget(
       logWidget([{ id: "my-rqd", type: "quantitativeBar", title: "RQD", visible: false, width: 100, valueField: "rqd" }]),

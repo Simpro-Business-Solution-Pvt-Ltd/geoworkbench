@@ -15,6 +15,7 @@ export function FloatingIntervalEditor({ interval, intervalSaving, onClose, onSa
   const dragOffset = useRef<{ x: number; y: number } | null>(null);
 
   const startDrag = (event: PointerEvent<HTMLElement>) => {
+    if (event.target instanceof HTMLElement && event.target.closest("button,input,select,textarea,a")) return;
     dragOffset.current = {
       x: event.clientX - position.x,
       y: event.clientY - position.y,
@@ -31,7 +32,9 @@ export function FloatingIntervalEditor({ interval, intervalSaving, onClose, onSa
 
   const stopDrag = (event: PointerEvent<HTMLElement>) => {
     dragOffset.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
 
   return (
@@ -49,7 +52,12 @@ export function FloatingIntervalEditor({ interval, intervalSaving, onClose, onSa
             {interval.from_depth} m - {interval.to_depth} m · {interval.lithology_code ?? "interval"}
           </span>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close correction editor">
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={onClose}
+          aria-label="Close correction editor"
+        >
           x
         </button>
       </header>

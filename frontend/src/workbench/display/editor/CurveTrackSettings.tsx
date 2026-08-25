@@ -53,7 +53,7 @@ export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props
 
   return (
     <div className="curve-settings-list">
-      <strong>Curves From Geophysical Logs</strong>
+      <strong>Curve Track</strong>
       <div className="curve-scale-grid">
         <label>
           Data source
@@ -92,10 +92,42 @@ export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props
           />
         </label>
       </div>
+      <div className="configured-curve-manager">
+        <div className="curve-picker-head">
+          <span>{configuredCurveCount} configured on this track</span>
+        </div>
+        <div className="configured-curve-list">
+          {configuredCurves.map((curve) => (
+            <button
+              key={curve.curveKey}
+              type="button"
+              className={selectedCurve?.curveKey === curve.curveKey ? "selected" : ""}
+              onClick={() => setSelectedCurveKey(curve.curveKey)}
+            >
+              <i style={{ backgroundColor: curve.color }} />
+              <span>{curve.label}</span>
+              <small>{curve.unit || "-"}</small>
+              {!curve.visible && <b>Hidden</b>}
+            </button>
+          ))}
+          {!configuredCurves.length && <div className="empty">No curves configured on this track. Add curves from the borehole source list below.</div>}
+        </div>
+
+        {selectedCurve && (
+          <CurveEditor
+            curve={selectedCurve}
+            index={selectedCurveIndex}
+            curves={configuredCurves}
+            availableCurves={availableCurves}
+            patchTrack={patchTrack}
+            onSelectCurve={setSelectedCurveKey}
+          />
+        )}
+      </div>
       <div className="curve-picker">
         <div className="curve-picker-head">
           <span>
-            {configuredCurveCount} configured · {missingCurves.length} available to add
+            {missingCurves.length} available to add from geophysical logs
           </span>
           <input
             value={curveSearch}
@@ -129,35 +161,6 @@ export function CurveTrackSettings({ track, availableCurves, patchTrack }: Props
       </div>
       {!missingCurves.length && <small>All available curves are already configured on this track.</small>}
       {Boolean(missingCurves.length) && !filteredMissingCurves.length && <small>No curves match the current filter.</small>}
-      <div className="configured-curve-manager">
-        <div className="configured-curve-list">
-          {configuredCurves.map((curve) => (
-            <button
-              key={curve.curveKey}
-              type="button"
-              className={selectedCurve?.curveKey === curve.curveKey ? "selected" : ""}
-              onClick={() => setSelectedCurveKey(curve.curveKey)}
-            >
-              <i style={{ backgroundColor: curve.color }} />
-              <span>{curve.label}</span>
-              <small>{curve.unit || "-"}</small>
-              {!curve.visible && <b>Hidden</b>}
-            </button>
-          ))}
-          {!configuredCurves.length && <div className="empty">No curves configured on this track.</div>}
-        </div>
-
-        {selectedCurve && (
-          <CurveEditor
-            curve={selectedCurve}
-            index={selectedCurveIndex}
-            curves={configuredCurves}
-            availableCurves={availableCurves}
-            patchTrack={patchTrack}
-            onSelectCurve={setSelectedCurveKey}
-          />
-        )}
-      </div>
     </div>
   );
 }
@@ -258,7 +261,7 @@ function CurveEditor({
           onSelectCurve(fallbackCurve?.curveKey ?? null);
         }}
       >
-        Remove curve
+        Delete curve
       </button>
       <div className="curve-action-row">
         <button

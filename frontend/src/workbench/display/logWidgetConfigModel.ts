@@ -15,7 +15,8 @@ export function addCatalogTrackToLogWidget(
     return { status: "ignored", widget, message: `No track catalog item exists for ${catalogId}.` };
   }
   const tracks = widget.tracks ?? [];
-  const nextTrack = withUniqueTrackId(catalogItem.create(availableCurves, new Set(tracks.map((track) => track.id))), tracks);
+  const sourceCurves = catalogId === "curves" ? [] : availableCurves;
+  const nextTrack = withUniqueTrackId(catalogItem.create(sourceCurves, new Set(tracks.map((track) => track.id))), tracks);
   return {
     status: "changed",
     widget: { ...widget, tracks: [...tracks, nextTrack] },

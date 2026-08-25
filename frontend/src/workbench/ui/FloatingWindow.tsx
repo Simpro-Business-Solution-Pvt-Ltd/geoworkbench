@@ -36,6 +36,9 @@ export function FloatingWindow({
     });
   };
 
+  const isInteractiveTarget = (target: EventTarget | null) =>
+    target instanceof HTMLElement && Boolean(target.closest("button,input,select,textarea,a"));
+
   return (
     <section
       className={`floating-window ${collapsed ? "collapsed" : ""} ${className}`}
@@ -48,6 +51,7 @@ export function FloatingWindow({
       <header
         className="floating-tool-header"
         onPointerDown={(event) => {
+          if (isInteractiveTarget(event.target)) return;
           const bounds = event.currentTarget.parentElement?.getBoundingClientRect();
           dragOffset.current = {
             x: event.clientX - (bounds?.left ?? position.x),
@@ -58,7 +62,9 @@ export function FloatingWindow({
         onPointerMove={move}
         onPointerUp={(event) => {
           dragOffset.current = null;
-          event.currentTarget.releasePointerCapture(event.pointerId);
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
         }}
       >
         <GripHorizontal size={15} strokeWidth={2.2} />
@@ -66,11 +72,12 @@ export function FloatingWindow({
         <button
           type="button"
           title={collapsed ? "Expand" : "Collapse"}
+          onPointerDown={(event) => event.stopPropagation()}
           onClick={() => setCollapsed((value) => !value)}
         >
           {collapsed ? <Square size={13} strokeWidth={2.2} /> : <Minus size={15} strokeWidth={2.2} />}
         </button>
-        <button type="button" title="Close" onClick={onClose}>
+        <button type="button" title="Close" onPointerDown={(event) => event.stopPropagation()} onClick={onClose}>
           <X size={15} strokeWidth={2.2} />
         </button>
       </header>

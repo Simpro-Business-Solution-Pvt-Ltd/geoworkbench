@@ -198,7 +198,7 @@ function TrackSettings({
               onSelectTrack(fallbackTrack?.id ?? null);
             }}
           >
-            Remove
+            Delete track
           </button>
         </div>
       </div>
