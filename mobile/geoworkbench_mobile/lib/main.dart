@@ -11,6 +11,8 @@ const _entraAuthority = 'https://login.microsoftonline.com/$_entraTenantId';
 const _androidRedirectUri =
     'msauth://com.example.geoworkbench_mobile/tJiJE8rvGkwLupt0szXiUw8Sndg%3D';
 const _entraScopes = <String>['https://graph.microsoft.com/user.read'];
+const _mobileAppTitle = 'Reliance GeoWorkbench Field';
+const _mobileAppSubtitle = 'Coal borehole field capture';
 
 void main() {
   runApp(const GeoWorkbenchMobileApp());
@@ -30,7 +32,7 @@ class _GeoWorkbenchMobileAppState extends State<GeoWorkbenchMobileApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'GeoWorkbench Field',
+      title: _mobileAppTitle,
       themeMode: _themeMode,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
@@ -514,18 +516,11 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
         titleSpacing: 12,
         title: Row(
           children: [
-            SizedBox(
-              height: 32,
-              width: 118,
-              child: Image.asset(
-                'assets/branding/simpro-logo.png',
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(width: 8),
+            const _RelianceBrandMark(size: 34),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'GeoWorkbench Field',
+                _mobileAppTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -677,6 +672,8 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
                       ? 'Signing in...'
                       : 'Sign in to sync'),
                 ),
+                const SizedBox(height: 16),
+                const Center(child: _PoweredBySimpro()),
               ],
             ),
           ),
@@ -1203,22 +1200,14 @@ class _LoginHeroCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(Icons.terrain, color: Colors.white),
-                ),
+                const _RelianceBrandMark(size: 48, inverse: true),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'GeoWorkbench Field',
+                        _mobileAppTitle,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
@@ -1226,7 +1215,7 @@ class _LoginHeroCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Secure mobile capture for borehole logging',
+                        _mobileAppSubtitle,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.white.withValues(alpha: 0.82),
                             ),
@@ -1281,6 +1270,111 @@ class _LoginHeroCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RelianceBrandMark extends StatelessWidget {
+  const _RelianceBrandMark({
+    this.size = 40,
+    this.inverse = false,
+  });
+
+  final double size;
+  final bool inverse;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = inverse
+        ? Colors.white.withValues(alpha: 0.14)
+        : Theme.of(context).colorScheme.surface;
+    final border = inverse
+        ? Colors.white.withValues(alpha: 0.24)
+        : Theme.of(context).dividerColor;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(size * 0.28),
+        border: Border.all(color: border),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: size * 0.52,
+          height: size * 0.62,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _BrandBar(
+                height: size * 0.5,
+                color: const Color(0xffc8102e),
+              ),
+              _BrandBar(
+                height: size * 0.38,
+                color: const Color(0xfff5a623),
+              ),
+              _BrandBar(
+                height: size * 0.62,
+                color: const Color(0xff1d4ed8),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BrandBar extends StatelessWidget {
+  const _BrandBar({
+    required this.height,
+    required this.color,
+  });
+
+  final double height;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 5,
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(999),
+      ),
+    );
+  }
+}
+
+class _PoweredBySimpro extends StatelessWidget {
+  const _PoweredBySimpro();
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: 0.76,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Powered by',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(width: 8),
+          Image.asset(
+            'assets/branding/simpro-logo.png',
+            width: 78,
+            height: 24,
+            fit: BoxFit.contain,
+          ),
+        ],
       ),
     );
   }

@@ -266,7 +266,7 @@ textarea {
 .login-panel {
   position: relative;
   display: grid;
-  gap: 18px;
+  gap: 16px;
   width: min(100%, 500px);
   border: 1px solid #edf0f4;
   border-top: 5px solid var(--gw-accent);
@@ -297,7 +297,7 @@ textarea {
 }
 
 .login-brand img {
-  width: 158px;
+  width: 188px;
   max-height: 54px;
   object-fit: contain;
 }
@@ -476,6 +476,22 @@ textarea {
   font-size: 12px;
 }
 
+.login-powered-by {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--gw-muted);
+  font-size: 11px;
+}
+
+.login-powered-by img {
+  width: 72px;
+  max-height: 22px;
+  object-fit: contain;
+  opacity: 0.82;
+}
+
 .login-theme-switch {
   position: absolute;
   right: 0;
@@ -543,7 +559,7 @@ textarea {
 }
 
 .brand-logo-full {
-  width: 132px;
+  width: 150px;
 }
 
 .brand-logo-mark {
@@ -684,7 +700,20 @@ small {
 }
 
 .sidebar-footer {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
   min-height: 0;
+  color: var(--gw-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.sidebar-footer img {
+  width: 82px;
+  max-height: 26px;
+  object-fit: contain;
+  opacity: 0.78;
 }
 
 .sidebar-collapsed .topbar {
@@ -716,7 +745,12 @@ small {
 }
 
 .sidebar-collapsed .sidebar-footer {
-  text-align: center;
+  justify-items: center;
+}
+
+.sidebar-collapsed .sidebar-footer span,
+.sidebar-collapsed .sidebar-footer img {
+  display: none;
 }
 
 .profile-menu-wrap {
@@ -978,6 +1012,44 @@ small {
   display: grid;
   grid-template-columns: repeat(4, minmax(88px, 1fr));
   gap: 7px;
+}
+
+.pwa-action-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pwa-action-strip button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 42px;
+  border-color: var(--gw-border);
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
+  font-weight: 800;
+}
+
+.pwa-action-strip button:hover:not(:disabled),
+.pwa-action-strip button:focus-visible {
+  border-color: var(--gw-accent);
+  background: var(--gw-accent-soft);
+  color: var(--gw-accent);
+}
+
+.pwa-action-strip button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.pwa-action-strip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-kpi {
@@ -2325,36 +2397,113 @@ small {
 @media (max-width: 900px) {
   .app-shell,
   .app-shell.sidebar-collapsed {
-    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-columns: 1fr;
+    grid-template-rows: 58px minmax(0, 1fr) 68px;
+    height: 100dvh;
   }
 
   .topbar {
-    padding: 10px;
+    grid-row: 3;
+    grid-column: 1;
+    display: block;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-top: 1px solid var(--gw-border);
+    border-right: 0;
+    padding: 6px 8px;
+    box-shadow: 0 -8px 22px var(--gw-shadow);
+  }
+
+  .app-shell > :not(.topbar) {
+    grid-column: 1;
   }
 
   .brand-logo-full,
   .brand-lockup span,
-  .app-nav button b {
+  .sidebar-brand,
+  .sidebar-footer {
     display: none;
   }
 
-  .brand-logo-mark {
-    display: block;
-  }
-
-  .sidebar-brand {
-    display: grid;
-    justify-items: center;
-  }
-
-  .app-nav button {
-    justify-content: center;
-    border-radius: 6px;
-    padding-inline: 6px;
-  }
-
   .page-topbar {
-    padding-inline: 12px;
+    grid-row: 1;
+    min-height: 58px;
+    padding-inline: 10px;
+  }
+
+  .app-nav {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: max-content;
+    height: 56px;
+  }
+
+  .app-nav button,
+  .sidebar-collapsed .app-nav button {
+    display: grid;
+    grid-template-rows: 28px 16px;
+    justify-items: center;
+    justify-content: center;
+    align-content: center;
+    gap: 2px;
+    min-width: 74px;
+    height: 54px;
+    border-left: 0;
+    border-top: 3px solid transparent;
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+
+  .app-nav button b {
+    display: block;
+    max-width: 68px;
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  .app-nav button span {
+    width: 28px;
+    height: 28px;
+  }
+
+  .app-nav button:hover:not(:disabled),
+  .app-nav button.active {
+    border-top-color: var(--gw-accent);
+    border-left-color: transparent;
+  }
+
+  .nav-group {
+    display: contents;
+  }
+
+  .app-subnav {
+    position: fixed;
+    right: 8px;
+    bottom: 74px;
+    left: 8px;
+    z-index: 40;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    margin: 0;
+    border: 1px solid var(--gw-border);
+    border-radius: 8px;
+    background: var(--gw-surface);
+    padding: 8px;
+    box-shadow: 0 14px 34px var(--gw-shadow);
+  }
+
+  .app-subnav button {
+    width: auto;
+    min-width: max-content;
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+
+  .landing-page {
+    height: calc(100dvh - 126px);
   }
 
   .selected-context {
@@ -2376,6 +2525,10 @@ small {
 
   .landing-workflow-card {
     grid-template-columns: 1fr;
+  }
+
+  .pwa-action-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .landing-hero h1 {
@@ -2429,6 +2582,27 @@ small {
 }
 
 @media (max-width: 520px) {
+  .login-shell {
+    padding: 18px;
+  }
+
+  .login-panel {
+    width: 100%;
+    padding: 26px 20px 22px;
+  }
+
+  .login-brand img {
+    width: 168px;
+  }
+
+  .login-heading {
+    justify-content: space-between;
+  }
+
+  .login-theme-switch {
+    position: static;
+  }
+
   .topbar {
     padding: 8px;
   }
@@ -2441,6 +2615,26 @@ small {
     display: none;
   }
 
+  .page-actions {
+    gap: 4px;
+  }
+
+  .utility-button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .selected-borehole-stack {
+    padding-left: 8px;
+  }
+
+  .selected-borehole-stack .selected-code {
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .landing-page {
     padding: 10px;
   }
@@ -2451,6 +2645,14 @@ small {
 
   .dashboard-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pwa-action-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .pwa-action-strip button {
+    justify-content: flex-start;
   }
 
   .landing-hero h1 {

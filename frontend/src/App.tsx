@@ -91,6 +91,7 @@ import {
 } from "./preferences/userPreferences";
 import { PreferencesSettingsPanel } from "./settings/PreferencesSettingsPanel";
 import { useWorkbenchRealtime } from "./realtime/useWorkbenchRealtime";
+import { appBranding } from "./branding/appBranding";
 
 const WIKI_MARKDOWN = {
   ...import.meta.glob("../../docs/wiki/**/*.md", { query: "?raw", import: "default", eager: true }),
@@ -118,6 +119,7 @@ const WIKI_MARKDOWN = {
 
 const WIKI_PAGES = [
   { key: "../../docs/wiki/user-manual/reliance-uat-story-and-demo-script.md", title: "Reliance UAT Story", group: "User Guidance", audience: "user" },
+  { key: "../../docs/wiki/user-manual/uat-test-cases.md", title: "UAT Test Cases", group: "User Guidance", audience: "user" },
   { key: "../../docs/wiki/user-manual/uat-interpretation-platform-plan.md", title: "UAT Interpretation Plan", group: "User Guidance", audience: "user" },
   { key: "../../docs/wiki/uat-demo-readiness.md", title: "UAT Demo Readiness", group: "User Guidance", audience: "user" },
   { key: "../../docs/import-export-template-user-manual.md", title: "Import, Merge, And Export", group: "User Guidance", audience: "user" },
@@ -783,8 +785,8 @@ export function App() {
       <header className="topbar">
         <div className="sidebar-brand">
           <button type="button" className="brand-lockup" onClick={() => setView("landing")}>
-            <img className="brand-logo-full" src="/branding/simpro-logo.png" alt="Simpro" />
-            <img className="brand-logo-mark" src="/branding/simpro-favicon.png" alt="Simpro" />
+            <img className="brand-logo-full" src={appBranding.customerLogoSrc} alt={appBranding.customerName} />
+            <img className="brand-logo-mark" src={appBranding.customerMarkSrc} alt={appBranding.customerName} />
           </button>
           <button
             type="button"
@@ -893,7 +895,10 @@ export function App() {
             <span><BookOpenText size={17} strokeWidth={2.1} /></span><b>Wiki</b>
           </button>
         </nav>
-        <div className="sidebar-footer" aria-hidden="true" />
+        <div className="sidebar-footer">
+          <span>{appBranding.poweredByLabel}</span>
+          <img src={appBranding.poweredByLogoSrc} alt={appBranding.poweredByName} />
+        </div>
       </header>
       <section className="page-topbar">
         <div className="page-selection">
@@ -1027,6 +1032,7 @@ export function App() {
           displayChoice={displayChoice}
           onSelect={(id) => setPersistedBorehole(id)}
           onDisplayChoice={(choice) => setPersistedDisplayChoice(choice)}
+          onNavigate={navigateTo}
           onOpen={(id) => openWorkbench(id)}
           onManageDisplay={(id) => {
             setPersistedBorehole(id);
@@ -1291,6 +1297,7 @@ type LandingPageProps = {
   displayChoice: DisplayChoice;
   onSelect: (id: number) => void;
   onDisplayChoice: (choice: DisplayChoice) => void;
+  onNavigate: (view: AppView) => void;
   onOpen: (id: number) => void;
   onManageDisplay: (id: number) => void;
 };
@@ -1320,10 +1327,10 @@ function LoginScreen({
     <main className="login-shell">
       <section className="login-panel">
         <div className="login-brand">
-          <img src="/branding/simpro-logo.png" alt="Simpro" />
+          <img src={appBranding.customerLogoSrc} alt={appBranding.customerName} />
           <span>
-            <strong>GeoWorkbench</strong>
-            <small>Borehole correction workspace</small>
+            <strong>{appBranding.productName}</strong>
+            <small>{appBranding.productSubtitle}</small>
           </span>
         </div>
         <div className="login-heading">
@@ -1359,7 +1366,7 @@ function LoginScreen({
         <form className="login-form" onSubmit={submit}>
           <label>
             Username
-            <input name="username" defaultValue="geologist" placeholder="e.g. geologist" autoComplete="username" />
+            <input name="username" placeholder="Username" autoComplete="username" />
           </label>
           <label>
             Password
@@ -1367,8 +1374,7 @@ function LoginScreen({
               <input
                 name="password"
                 type={showPassword ? "text" : "password"}
-                defaultValue="geologist123"
-                placeholder="Use alphanumeric characters"
+                placeholder="Password"
                 autoComplete="current-password"
               />
               <button
@@ -1383,9 +1389,13 @@ function LoginScreen({
           </label>
           {error && <div className="auth-error">{error}</div>}
           <button type="submit" disabled={busy}>
-            {busy ? "Signing in..." : "Secure Sign-in"}
+            {busy ? "Signing in..." : "Secure Sign in"}
           </button>
         </form>
+        <div className="login-powered-by">
+          <span>{appBranding.poweredByLabel}</span>
+          <img src={appBranding.poweredByLogoSrc} alt={appBranding.poweredByName} />
+        </div>
       </section>
     </main>
   );
@@ -2351,6 +2361,7 @@ function LandingPage({
   displayChoice,
   onSelect,
   onDisplayChoice,
+  onNavigate,
   onOpen,
   onManageDisplay,
 }: LandingPageProps) {
@@ -2372,6 +2383,24 @@ function LandingPage({
             <DashboardKpi label="Total depth" value={`${Math.round(totalDepth).toLocaleString()} m`} />
             <DashboardKpi label="Selected" value={selectedBorehole?.code ?? "-"} />
           </div>
+        </div>
+        <div className="pwa-action-strip dashboard-widget" aria-label="UAT quick actions">
+          <button type="button" onClick={() => onNavigate("import")}>
+            <Upload size={18} strokeWidth={2.1} />
+            <span>Capture / Upload</span>
+          </button>
+          <button type="button" disabled={!selectedBorehole} onClick={() => selectedBorehole && onOpen(selectedBorehole.id)}>
+            <PanelTop size={18} strokeWidth={2.1} />
+            <span>Review Log</span>
+          </button>
+          <button type="button" disabled={!boreholes.length} onClick={() => onNavigate("correlation")}>
+            <GitCompareArrows size={18} strokeWidth={2.1} />
+            <span>Correlate</span>
+          </button>
+          <button type="button" disabled={!selectedBorehole} onClick={() => onNavigate("export")}>
+            <Download size={18} strokeWidth={2.1} />
+            <span>Export</span>
+          </button>
         </div>
         {!loading && (
           <BoreholeMapWidget

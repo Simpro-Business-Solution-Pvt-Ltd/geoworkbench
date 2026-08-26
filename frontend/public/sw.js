@@ -1,7 +1,11 @@
-const CACHE_NAME = "geoworkbench-shell-v1";
+const CACHE_NAME = "geoworkbench-shell-v2";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
+  "/branding/reliance-logo.svg",
+  "/branding/reliance-mark.svg",
+  "/branding/reliance-icon-192.png",
+  "/branding/reliance-icon-512.png",
   "/branding/simpro-favicon.png",
   "/branding/simpro-logo.png",
   "/branding/geoworkbench-icon-192.png",
