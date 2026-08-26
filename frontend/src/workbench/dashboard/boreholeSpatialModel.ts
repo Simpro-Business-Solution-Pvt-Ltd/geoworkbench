@@ -1,4 +1,13 @@
 import type { BoreholeListItem } from "../../api/types";
+import proj4 from "proj4";
+
+const WGS84 = "EPSG:4326";
+const UTM_44N = "EPSG:32644";
+
+proj4.defs(
+  UTM_44N,
+  "+proj=utm +zone=44 +datum=WGS84 +units=m +no_defs +type=crs",
+);
 
 export type BoreholeMapPoint = {
   id: number;
@@ -6,6 +15,9 @@ export type BoreholeMapPoint = {
   title: string;
   x: number;
   y: number;
+  latitude: number | null;
+  longitude: number | null;
+  crs: string | null;
   system: string;
   xLabel: string;
   yLabel: string;
@@ -36,6 +48,7 @@ export function buildBoreholeMapModel(boreholes: BoreholeListItem[]): BoreholeMa
       title: borehole.title,
       x: coordinates.x,
       y: coordinates.y,
+      ...toGeographicCoordinates(coordinates.system, coordinates.x, coordinates.y),
       system: coordinates.system,
       xLabel: coordinates.x_label,
       yLabel: coordinates.y_label,
@@ -62,6 +75,22 @@ export function buildBoreholeMapModel(boreholes: BoreholeListItem[]): BoreholeMa
     },
     coordinateSystem,
   };
+}
+
+export function toGeographicCoordinates(system: string, x: number, y: number): {
+  latitude: number | null;
+  longitude: number | null;
+  crs: string | null;
+} {
+  const normalized = system.trim().toLowerCase();
+  if (normalized === "geographic" || normalized === "wgs84" || normalized === "latlon") {
+    return { latitude: y, longitude: x, crs: WGS84 };
+  }
+  if (normalized === "utm") {
+    const [longitude, latitude] = proj4(UTM_44N, WGS84, [x, y]);
+    return { latitude, longitude, crs: UTM_44N };
+  }
+  return { latitude: null, longitude: null, crs: null };
 }
 
 export function projectBoreholePoint(

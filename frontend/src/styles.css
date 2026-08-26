@@ -1040,52 +1040,89 @@ small {
   overflow: hidden;
 }
 
-.borehole-map-stage svg {
-  display: block;
+.borehole-map-stage .leaflet-container {
   width: 100%;
   height: 214px;
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
 }
 
-.borehole-map-bg {
-  fill: var(--gw-surface-alt);
+.borehole-basemap-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 170px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface-alt);
+  color: var(--gw-muted);
+  padding: 4px 6px;
 }
 
-.borehole-map-axis {
-  stroke: var(--gw-border-strong);
-  stroke-width: 1;
-  stroke-dasharray: 3 4;
-}
-
-.borehole-map-point {
-  cursor: pointer;
+.borehole-basemap-select select {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--gw-text);
+  font-size: 12px;
+  font-weight: 700;
   outline: none;
 }
 
-.borehole-map-point circle {
-  fill: color-mix(in srgb, var(--gw-accent) 82%, white 18%);
-  stroke: var(--gw-surface);
-  stroke-width: 2;
-  filter: drop-shadow(0 3px 5px rgb(15 23 42 / 18%));
+.borehole-leaflet-marker {
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
 }
 
-.borehole-map-point text {
-  fill: var(--gw-text);
-  font-size: 11px;
-  font-weight: 800;
-  paint-order: stroke;
-  stroke: var(--gw-surface-alt);
-  stroke-width: 3px;
+.borehole-leaflet-marker span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: color-mix(in srgb, var(--gw-accent) 86%, #ffffff 14%);
+  filter: drop-shadow(0 6px 8px rgb(15 23 42 / 28%));
 }
 
-.borehole-map-point.selected circle {
-  fill: var(--gw-danger);
-  stroke: var(--gw-accent-soft);
-  stroke-width: 3;
+.borehole-leaflet-marker.selected span {
+  width: 34px;
+  height: 34px;
+  color: var(--gw-danger);
 }
 
-.borehole-map-point:focus-visible circle {
-  stroke: var(--gw-focus);
-  stroke-width: 4;
+.borehole-leaflet-marker svg {
+  width: 100%;
+  height: 100%;
+}
+
+.borehole-leaflet-marker path {
+  fill: currentColor;
+  stroke: #ffffff;
+  stroke-width: 1.4;
+}
+
+.borehole-leaflet-marker circle {
+  fill: #ffffff;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.borehole-map-stage .leaflet-popup-content {
+  display: grid;
+  gap: 2px;
+  margin: 10px 12px;
+  color: #172033;
+  font-size: 12px;
+}
+
+.borehole-map-stage .leaflet-popup-content strong {
+  font-size: 13px;
+}
+
+.borehole-map-stage .leaflet-control-attribution {
+  font-size: 10px;
 }
 
 .borehole-map-empty {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildBoreholeMapModel, projectBoreholePoint } from "./boreholeSpatialModel";
+import { buildBoreholeMapModel, projectBoreholePoint, toGeographicCoordinates } from "./boreholeSpatialModel";
 import type { BoreholeListItem } from "../../api/types";
 
 describe("boreholeSpatialModel", () => {
@@ -22,6 +22,16 @@ describe("boreholeSpatialModel", () => {
     const point = projectBoreholePoint(model.points[1], model.bounds!, 200, 120, 20);
 
     expect(point).toEqual({ x: 180, y: 20 });
+  });
+
+  it("converts WGS84 UTM zone 44N coordinates to geographic map coordinates", () => {
+    const converted = toGeographicCoordinates("utm", 498162.19, 1893053.37);
+
+    expect(converted.crs).toBe("EPSG:32644");
+    expect(converted.longitude).toBeGreaterThan(80);
+    expect(converted.longitude).toBeLessThan(81);
+    expect(converted.latitude).toBeGreaterThan(17);
+    expect(converted.latitude).toBeLessThan(18);
   });
 });
 
