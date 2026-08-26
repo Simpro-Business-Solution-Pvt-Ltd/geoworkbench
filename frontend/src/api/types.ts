@@ -6,6 +6,13 @@ export type BoreholeListItem = {
   workflow_status: string;
   site_code: string;
   project_code: string;
+  coordinates?: {
+    system: string;
+    x: number;
+    y: number;
+    x_label: string;
+    y_label: string;
+  } | null;
 };
 
 export type User = {

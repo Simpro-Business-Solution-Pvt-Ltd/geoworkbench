@@ -77,6 +77,7 @@ import type {
   User,
 } from "./api/types";
 import { CorrelationWorkspace } from "./workbench/correlation/CorrelationWorkspace";
+import { BoreholeMapWidget } from "./workbench/dashboard/BoreholeMapWidget";
 import { DisplayEditorDialog } from "./workbench/display/DisplayEditorDialog";
 import { DisplayRuntime } from "./workbench/display/DisplayRuntime";
 import { useWorkbenchStore } from "./workbench/display/workbenchStore";
@@ -2372,6 +2373,14 @@ function LandingPage({
             <DashboardKpi label="Selected" value={selectedBorehole?.code ?? "-"} />
           </div>
         </div>
+        {!loading && (
+          <BoreholeMapWidget
+            boreholes={boreholes}
+            activeId={activeId}
+            onSelect={onSelect}
+            onOpen={onOpen}
+          />
+        )}
         {loading && <div className="empty">Loading boreholes...</div>}
         {!loading && (
           <BoreholeGroup
