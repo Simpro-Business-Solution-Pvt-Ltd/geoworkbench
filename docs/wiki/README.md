@@ -48,3 +48,4 @@ Developer and deployment documents remain under `docs/wiki/architecture/` and `d
 - [Workbench Interaction Architecture](architecture/workbench-interaction-architecture.md)
 - [System Workflows](architecture/system-workflows.md)
 - [Refinement Guide](architecture/refinement-guide.md)
+- [Reliance UAT Server Package](deployment/uat-server-package.md)
