@@ -148,6 +148,32 @@ Startup directory: D:\GeoWorkbench\current\backend
 
 ## Import Reliance Data
 
+Before importing Reliance data into an existing UAT database, remove old demo/test geology data.
+This keeps PBH/CTSJ/SPNG/synthetic boreholes out of the customer review environment while preserving users, roles, import templates, export templates, and settings.
+
+Preview the cleanup first:
+
+```powershell
+cd D:\GeoWorkbench\current\backend
+.\.venv\Scripts\Activate.ps1
+python scripts\cleanup_uat_data.py
+```
+
+Apply the cleanup:
+
+```powershell
+python scripts\cleanup_uat_data.py --apply
+```
+
+Default cleanup targets:
+
+- `DEMO-COAL`
+- `DEMO-COAL-BLOCK`
+- `RAHAM-COAL`
+- standalone boreholes starting with `PBH-`, `CTSJ-`, `IMPORT-DEMO-`, or `SPNG-`
+
+It does not delete local users or Entra-created users.
+
 Copy the customer data package to:
 
 ```text
