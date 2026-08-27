@@ -516,7 +516,15 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
         titleSpacing: 12,
         title: Row(
           children: [
-            const _RelianceBrandMark(size: 34),
+            SizedBox(
+              height: 34,
+              width: 134,
+              child: Image.asset(
+                'assets/branding/reliance-logo.png',
+                fit: BoxFit.contain,
+                alignment: Alignment.centerLeft,
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -1200,7 +1208,19 @@ class _LoginHeroCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const _RelianceBrandMark(size: 48, inverse: true),
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: const EdgeInsets.all(7),
+                  child: Image.asset(
+                    'assets/branding/reliance-roundel.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -1270,81 +1290,6 @@ class _LoginHeroCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _RelianceBrandMark extends StatelessWidget {
-  const _RelianceBrandMark({
-    this.size = 40,
-    this.inverse = false,
-  });
-
-  final double size;
-  final bool inverse;
-
-  @override
-  Widget build(BuildContext context) {
-    final surface = inverse
-        ? Colors.white.withValues(alpha: 0.14)
-        : Theme.of(context).colorScheme.surface;
-    final border = inverse
-        ? Colors.white.withValues(alpha: 0.24)
-        : Theme.of(context).dividerColor;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(size * 0.28),
-        border: Border.all(color: border),
-      ),
-      child: Center(
-        child: SizedBox(
-          width: size * 0.52,
-          height: size * 0.62,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _BrandBar(
-                height: size * 0.5,
-                color: const Color(0xffc8102e),
-              ),
-              _BrandBar(
-                height: size * 0.38,
-                color: const Color(0xfff5a623),
-              ),
-              _BrandBar(
-                height: size * 0.62,
-                color: const Color(0xff1d4ed8),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BrandBar extends StatelessWidget {
-  const _BrandBar({
-    required this.height,
-    required this.color,
-  });
-
-  final double height;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 5,
-      height: height,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(999),
       ),
     );
   }

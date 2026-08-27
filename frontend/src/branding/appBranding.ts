@@ -1,7 +1,7 @@
 export const appBranding = {
   customerName: "Reliance",
-  customerLogoSrc: "/branding/reliance-logo.svg",
-  customerMarkSrc: "/branding/reliance-mark.svg",
+  customerLogoSrc: "/branding/reliance-logo.png",
+  customerMarkSrc: "/branding/reliance-roundel.png",
   productName: "GeoWorkbench",
   productSubtitle: "Coal borehole interpretation workspace",
   poweredByLabel: "Powered by",
