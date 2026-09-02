@@ -22,5 +22,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/branding/reliance-logo.png
+    - assets/branding/reliance-roundel.png
     - assets/branding/simpro-logo.png
     - assets/msal_config.json

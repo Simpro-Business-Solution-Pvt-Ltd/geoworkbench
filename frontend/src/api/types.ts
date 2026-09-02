@@ -6,6 +6,13 @@ export type BoreholeListItem = {
   workflow_status: string;
   site_code: string;
   project_code: string;
+  coordinates?: {
+    system: string;
+    x: number;
+    y: number;
+    x_label: string;
+    y_label: string;
+  } | null;
 };
 
 export type User = {
@@ -386,6 +393,64 @@ export type CorrelationObservation = {
   created_by: string;
   created_at: string;
   observation_metadata: Record<string, unknown> | null;
+};
+
+export type MobileRuntimeParameter = {
+  name: string;
+  value: string;
+  unit?: string | null;
+};
+
+export type MobileLithologyInterval = {
+  from_depth: number;
+  to_depth: number;
+  lithology_code?: string | null;
+  lithology_label?: string | null;
+  logged_color?: string | null;
+  seam_name?: string | null;
+  recovery?: number | null;
+  recovery_percent?: number | null;
+  rqd?: number | null;
+  structural_features?: string | null;
+  remark?: string | null;
+};
+
+export type MobileBoreholeCreate = {
+  project_code: string;
+  project_name: string;
+  site_code: string;
+  site_name?: string | null;
+  borehole_code: string;
+  title?: string | null;
+  total_depth: number;
+  state?: string | null;
+  current_depth?: number | null;
+  coalgrid_easting?: number | null;
+  coalgrid_northing?: number | null;
+  utm_easting?: number | null;
+  utm_northing?: number | null;
+  reduced_level?: number | null;
+  water_level?: number | null;
+  coordinate_system?: string | null;
+};
+
+export type MobileFieldSubmissionCreate = {
+  borehole_id: number;
+  submission_type?: string;
+  submitted_by?: string | null;
+  status?: string;
+  current_depth?: number | null;
+  lithology_intervals: MobileLithologyInterval[];
+  runtime_parameters: MobileRuntimeParameter[];
+  remarks?: string | null;
+  payload?: Record<string, unknown> | null;
+  apply_to_log?: boolean;
+};
+
+export type MobileSubmissionOut = {
+  borehole: BoreholeListItem;
+  field_submission_id: number | null;
+  message: string;
 };
 
 export type BoreholeWorkbench = {

@@ -12,6 +12,7 @@ class BoreholeListItem(BaseModel):
     workflow_status: str
     site_code: str
     project_code: str
+    coordinates: dict | None = None
 
 
 class BoreholeStatusOut(BaseModel):

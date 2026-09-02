@@ -64,6 +64,29 @@ def numeric_metadata_value(metadata: dict | None, key: str) -> float | None:
     return value if isinstance(value, (int, float)) else None
 
 
+def borehole_coordinates(borehole: Borehole) -> dict | None:
+    attributes = borehole.attributes if isinstance(borehole.attributes, dict) else {}
+    collar = attributes.get("collar") if isinstance(attributes.get("collar"), dict) else {}
+    pairs = [
+        ("utm", "utm_easting", "utm_northing"),
+        ("coalgrid", "coalgrid_easting", "coalgrid_northing"),
+        ("collar", "collar_x", "collar_y"),
+        ("geographic", "longitude", "latitude"),
+    ]
+    for system, x_key, y_key in pairs:
+        x = numeric_metadata_value(collar, x_key)
+        y = numeric_metadata_value(collar, y_key)
+        if x is not None and y is not None:
+            return {
+                "system": system,
+                "x": x,
+                "y": y,
+                "x_label": x_key,
+                "y_label": y_key,
+            }
+    return None
+
+
 def list_boreholes(db: Session) -> list[BoreholeListItem]:
     rows = db.execute(
         select(Borehole, Site, Project)
@@ -80,6 +103,7 @@ def list_boreholes(db: Session) -> list[BoreholeListItem]:
             workflow_status=borehole.workflow_status,
             site_code=site.code,
             project_code=project.code,
+            coordinates=borehole_coordinates(borehole),
         )
         for borehole, site, project in rows
     ]

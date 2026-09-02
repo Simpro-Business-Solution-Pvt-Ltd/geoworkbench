@@ -35,7 +35,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/assets/corebox", StaticFiles(directory=settings.repo_root / "MTSE-65(PBH 62)"), name="corebox")
+corebox_asset_root = settings.repo_root / "MTSE-65(PBH 62)"
+if corebox_asset_root.exists():
+    app.mount("/assets/corebox", StaticFiles(directory=corebox_asset_root), name="corebox")
+else:
+    logger.warning("optional corebox asset folder not found: %s", corebox_asset_root)
 app.include_router(borehole_router, prefix=f"{settings.api_prefix}/boreholes", tags=["boreholes"])
 app.include_router(ai_router, prefix=f"{settings.api_prefix}/ai", tags=["ai"])
 app.include_router(auth_router, prefix=f"{settings.api_prefix}/auth", tags=["auth"])
