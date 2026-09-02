@@ -119,6 +119,7 @@ const WIKI_MARKDOWN = {
 
 const WIKI_PAGES = [
   { key: "../../docs/wiki/user-manual/reliance-uat-story-and-demo-script.md", title: "Reliance UAT Story", group: "User Guidance", audience: "user" },
+  { key: "../../docs/wiki/user-manual/field-pwa.md", title: "Field PWA", group: "User Guidance", audience: "user" },
   { key: "../../docs/wiki/user-manual/uat-test-cases.md", title: "UAT Test Cases", group: "User Guidance", audience: "user" },
   { key: "../../docs/wiki/user-manual/uat-interpretation-platform-plan.md", title: "UAT Interpretation Plan", group: "User Guidance", audience: "user" },
   { key: "../../docs/wiki/uat-demo-readiness.md", title: "UAT Demo Readiness", group: "User Guidance", audience: "user" },

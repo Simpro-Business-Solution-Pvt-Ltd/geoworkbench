@@ -305,12 +305,15 @@ def _state_signature(payload: str) -> str:
     return hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def create_entra_state() -> str:
-    payload = _b64encode_json({"nonce": secrets.token_urlsafe(16), "iat": int(time.time())})
+def create_entra_state(return_to: str | None = None) -> str:
+    values = {"nonce": secrets.token_urlsafe(16), "iat": int(time.time())}
+    if return_to and return_to.startswith("/") and not return_to.startswith("//"):
+        values["return_to"] = return_to[:200]
+    payload = _b64encode_json(values)
     return f"{payload}.{_state_signature(payload)}"
 
 
-def verify_entra_state(state: str) -> None:
+def verify_entra_state(state: str) -> dict:
     try:
         payload, signature = state.split(".", 1)
         values = _b64decode_json(payload)
@@ -320,9 +323,23 @@ def verify_entra_state(state: str) -> None:
         raise ValueError("Invalid Entra state signature")
     if int(time.time()) - int(values.get("iat", 0)) > 600:
         raise ValueError("Expired Entra state")
+    return values
 
 
-def entra_authorization_url() -> str:
+def entra_state_return_to(state: str | None) -> str:
+    if not state:
+        return "/"
+    try:
+        values = verify_entra_state(state)
+    except ValueError:
+        return "/"
+    return_to = values.get("return_to")
+    if isinstance(return_to, str) and return_to.startswith("/") and not return_to.startswith("//"):
+        return return_to
+    return "/"
+
+
+def entra_authorization_url(return_to: str | None = None) -> str:
     settings = get_settings()
     if not settings.entra_tenant_id or not settings.entra_client_id:
         raise ValueError("Entra ID is not configured")
@@ -332,7 +349,7 @@ def entra_authorization_url() -> str:
         "redirect_uri": settings.entra_redirect_uri,
         "response_mode": "query",
         "scope": "openid profile email User.Read",
-        "state": create_entra_state(),
+        "state": create_entra_state(return_to),
         "prompt": "select_account",
     }
     return (

@@ -124,13 +124,28 @@ alembic upgrade head
 D:\GeoWorkbench\current\frontend-dist
 ```
 
+If the IIS site is already configured to a fixed web root such as `C:\inetpub\geoworkbench`, copy the contents of the release frontend build into that folder instead:
+
+```powershell
+Stop-WebSite -Name GeoWorkbench
+Remove-Item C:\inetpub\geoworkbench\* -Recurse -Force
+Copy-Item D:\GeoWorkbench\current\frontend-dist\* C:\inetpub\geoworkbench -Recurse -Force
+Start-WebSite -Name GeoWorkbench
+```
+
+The live IIS web root must contain `index.html`, `assets\`, `branding\`, `manifest.webmanifest`, `sw.js`, and `web.config`.
+The PWA manifest starts at `/field`, so the same IIS site serves both the central web app at `/` and the no-app-store field app at `/field`.
+
 8. Configure IIS reverse proxy:
 
 ```text
 /api/*   -> http://127.0.0.1:8081/api/*
 /health  -> http://127.0.0.1:8081/health
-/assets/* -> http://127.0.0.1:8081/assets/*
+/assets/corebox/* -> http://127.0.0.1:8081/assets/corebox/*
 ```
+
+The frontend package includes `frontend-dist\web.config` for SPA fallback and static MIME mappings, including `.webmanifest`.
+If `https://geowb.simproapps.in/manifest.webmanifest` returns 404, confirm IIS URL Rewrite is installed and the site is serving from `frontend-dist`.
 
 9. Start the FastAPI service.
 
@@ -177,24 +192,24 @@ It does not delete local users or Entra-created users.
 Copy the customer data package to:
 
 ```text
-D:\GeoWorkbench\data\reliance
+C:\GeoWorkbench\data
 ```
 
-If the original zips are used, extract them so the folders match:
+If the original zips are used, extract them below that folder. The import script can now accept the outer folder and will find the nested workbook/LAS folder automatically.
 
 ```text
-D:\GeoWorkbench\data\reliance\Data_10BH\Data_10BH
-D:\GeoWorkbench\data\reliance\LAS\LAS
+C:\GeoWorkbench\data\Data_10BH
+C:\GeoWorkbench\data\LAS
 ```
 
 Then run:
 
 ```powershell
-cd D:\GeoWorkbench\current\backend
+cd C:\GeoWorkbench\current\backend
 .\.venv\Scripts\Activate.ps1
 python scripts\import_reliance_data.py `
-  --data-root D:\GeoWorkbench\data\reliance\Data_10BH\Data_10BH `
-  --las-root D:\GeoWorkbench\data\reliance\LAS\LAS
+  --data-root C:\GeoWorkbench\data\Data_10BH `
+  --las-root C:\GeoWorkbench\data\LAS
 ```
 
 This path imports through the backend model and keeps the server database independent from local developer backups.
@@ -210,6 +225,9 @@ Run from the repository/package root:
 Minimum manual checks:
 
 - Open the web URL.
+- Open `https://geowb.simproapps.in/field` on a mobile browser.
+- Confirm `https://geowb.simproapps.in/manifest.webmanifest` returns JSON.
+- Confirm `https://geowb.simproapps.in/health` returns `{"status":"ok"}`.
 - Login with a local user or Entra ID.
 - Confirm Reliance boreholes are listed.
 - Open dashboard map and switch basemaps.

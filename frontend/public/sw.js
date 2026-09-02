@@ -1,6 +1,7 @@
-const CACHE_NAME = "geoworkbench-shell-v2";
+const CACHE_NAME = "geoworkbench-shell-v3";
 const APP_SHELL = [
   "/",
+  "/field",
   "/manifest.webmanifest",
   "/branding/reliance-logo.png",
   "/branding/reliance-roundel.png",
@@ -13,7 +14,17 @@ const APP_SHELL = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(
+        APP_SHELL.map((url) =>
+          cache.add(url).catch((error) => {
+            console.warn("GeoWorkbench shell asset was not cached", url, error);
+          }),
+        ),
+      ),
+    ),
+  );
   self.skipWaiting();
 });
 

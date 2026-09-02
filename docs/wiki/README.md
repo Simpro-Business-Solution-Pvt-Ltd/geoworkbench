@@ -20,6 +20,7 @@ Every milestone should update this wiki as part of delivery. The system should b
 ## User Manuals
 
 - [Reliance UAT Story And Demo Script](user-manual/reliance-uat-story-and-demo-script.md)
+- [Field PWA](user-manual/field-pwa.md)
 - [Reliance UAT Test Cases](user-manual/uat-test-cases.md)
 - [Workbench User Manual](user-manual/borehole-workbench.md)
 - [Import, Merge, And Export Templates](../import-export-template-user-manual.md)
@@ -30,6 +31,7 @@ Every milestone should update this wiki as part of delivery. The system should b
 The repository also contains earlier planning documents under `docs/`. Treat those as background material unless they are linked from this wiki. The current UAT-facing docs are:
 
 - `docs/wiki/user-manual/reliance-uat-story-and-demo-script.md`
+- `docs/wiki/user-manual/field-pwa.md`
 - `docs/wiki/user-manual/uat-test-cases.md`
 - `docs/wiki/user-manual/borehole-workbench.md`
 - `docs/import-export-template-user-manual.md`

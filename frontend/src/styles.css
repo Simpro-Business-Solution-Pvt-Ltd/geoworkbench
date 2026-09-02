@@ -55,11 +55,427 @@ body {
   font-size: 13px;
 }
 
+body:has(.field-shell) {
+  overflow-x: hidden;
+}
+
 button,
 input,
 select,
 textarea {
   font: inherit;
+}
+
+.field-shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, var(--gw-accent-soft), transparent 210px),
+    var(--gw-page);
+  color: var(--gw-text);
+  padding: 12px;
+}
+
+.field-login-shell {
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.field-login-card,
+.field-card {
+  width: min(100%, 560px);
+  margin: 0 auto;
+  border: 1px solid var(--gw-border);
+  border-radius: 16px;
+  background: var(--gw-surface);
+  box-shadow: 0 16px 38px var(--gw-shadow);
+}
+
+.field-login-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.field-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--gw-text);
+  font-weight: 900;
+}
+
+.field-brand img {
+  width: 116px;
+  max-height: 38px;
+  object-fit: contain;
+}
+
+.field-brand.compact img {
+  width: 92px;
+  max-height: 30px;
+}
+
+.field-login-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.field-login-title svg {
+  color: var(--gw-accent);
+}
+
+.field-login-title h1,
+.field-card-heading h2 {
+  margin: 0;
+  color: var(--gw-text);
+  letter-spacing: 0;
+}
+
+.field-login-title h1 {
+  font-size: 24px;
+}
+
+.field-login-title p {
+  margin: 4px 0 0;
+  color: var(--gw-muted);
+}
+
+.field-form,
+.field-card {
+  display: grid;
+  gap: 14px;
+}
+
+.field-form label,
+.field-card label {
+  display: grid;
+  gap: 6px;
+  color: var(--gw-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.field-form input,
+.field-card input,
+.field-card select,
+.field-card textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--gw-border);
+  border-radius: 10px;
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
+  padding: 10px 12px;
+  outline: none;
+  text-transform: none;
+}
+
+.field-card textarea {
+  resize: vertical;
+}
+
+.field-form input:focus,
+.field-card input:focus,
+.field-card select:focus,
+.field-card textarea:focus {
+  border-color: var(--gw-accent);
+  box-shadow: 0 0 0 3px var(--gw-accent-soft);
+}
+
+.field-primary,
+.field-secondary,
+.field-small-button,
+.field-icon-toggle,
+.field-icon-button,
+.field-upload-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--gw-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.field-primary {
+  min-height: 46px;
+  border-color: var(--gw-accent);
+  background: var(--gw-accent);
+  color: #fff;
+  font-weight: 900;
+}
+
+.field-primary:disabled {
+  cursor: not-allowed;
+  border-color: var(--gw-border);
+  background: var(--gw-surface-alt);
+  color: var(--gw-muted);
+}
+
+.field-secondary,
+.field-icon-toggle,
+.field-small-button {
+  min-height: 42px;
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
+  font-weight: 800;
+}
+
+.field-icon-toggle {
+  justify-self: start;
+  padding: 0 12px;
+}
+
+.field-error {
+  margin: 0;
+  border: 1px solid rgb(220 38 38 / 35%);
+  border-radius: 10px;
+  background: rgb(220 38 38 / 10%);
+  color: #dc2626;
+  padding: 10px;
+  font-weight: 800;
+}
+
+.field-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(100%, 760px);
+  margin: 0 auto 10px;
+  border: 1px solid var(--gw-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--gw-surface) 94%, transparent);
+  box-shadow: 0 10px 24px var(--gw-shadow);
+  padding: 10px 12px;
+  backdrop-filter: blur(10px);
+}
+
+.field-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-icon-button {
+  width: 38px;
+  height: 38px;
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
+}
+
+.field-status,
+.field-steps {
+  width: min(100%, 760px);
+  margin: 0 auto 10px;
+}
+
+.field-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--gw-border);
+  border-radius: 14px;
+  background: var(--gw-surface);
+  padding: 10px 12px;
+}
+
+.field-status svg {
+  color: var(--gw-teal);
+}
+
+.field-status div {
+  display: grid;
+  gap: 1px;
+}
+
+.field-status strong {
+  font-size: 13px;
+}
+
+.field-status span {
+  color: var(--gw-muted);
+  font-size: 12px;
+}
+
+.field-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.field-steps button {
+  min-height: 40px;
+  border: 1px solid var(--gw-border);
+  border-radius: 10px;
+  background: var(--gw-surface);
+  color: var(--gw-muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: capitalize;
+}
+
+.field-steps button.active {
+  border-color: var(--gw-accent);
+  background: var(--gw-accent-soft);
+  color: var(--gw-accent);
+}
+
+.field-card {
+  padding: 16px;
+}
+
+.field-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.field-card-heading.inline {
+  margin-top: 4px;
+}
+
+.field-card-heading h2 {
+  font-size: 16px;
+}
+
+.field-card-heading span {
+  color: var(--gw-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.field-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.field-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-divider {
+  height: 1px;
+  background: var(--gw-border);
+}
+
+.field-borehole-card {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--gw-border);
+  border-left: 4px solid var(--gw-accent);
+  border-radius: 12px;
+  background: var(--gw-surface-alt);
+  padding: 12px;
+}
+
+.field-borehole-card strong {
+  color: var(--gw-accent);
+  font-size: 16px;
+}
+
+.field-borehole-card span,
+.field-borehole-card small {
+  color: var(--gw-muted);
+}
+
+.field-runtime-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 76px;
+  gap: 8px;
+}
+
+.field-small-button {
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.field-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.field-upload-button {
+  min-height: 82px;
+  background: var(--gw-surface-alt);
+  color: var(--gw-text);
+  font-weight: 900;
+  flex-direction: column;
+}
+
+.field-upload-button svg {
+  color: var(--gw-accent);
+}
+
+.field-upload-button input {
+  display: none;
+}
+
+.field-upload-list {
+  display: grid;
+  gap: 8px;
+}
+
+.field-upload-list p {
+  margin: 0;
+  color: var(--gw-muted);
+}
+
+.field-upload-list div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--gw-border);
+  border-radius: 10px;
+  background: var(--gw-surface-alt);
+  padding: 9px;
+}
+
+.field-upload-list span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-upload-list b,
+.field-upload-list em {
+  color: var(--gw-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+@media (max-width: 520px) {
+  .field-shell {
+    padding: 10px;
+  }
+
+  .field-login-card,
+  .field-card {
+    border-radius: 14px;
+  }
+
+  .field-grid.two,
+  .field-upload-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-runtime-row {
+    grid-template-columns: 1fr;
+  }
+
+  .field-topbar {
+    border-radius: 12px;
+  }
 }
 
 .app-shell {
