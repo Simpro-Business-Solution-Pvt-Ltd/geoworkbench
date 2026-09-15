@@ -67,6 +67,16 @@ export type DiagnosticsHealth = {
   service: string;
   checked_at: string;
   database: { status: string; detail: string };
+  cache?: {
+    status: "ok" | "disabled" | "degraded" | string;
+    enabled: boolean;
+    hits: number;
+    misses: number;
+    errors: number;
+    writes: number;
+    invalidations: number;
+    detail?: string;
+  };
   ai: { provider: string; model: string };
   uploads: string;
   exports: string;

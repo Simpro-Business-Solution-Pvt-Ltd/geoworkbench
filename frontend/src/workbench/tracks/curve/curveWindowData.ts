@@ -1,6 +1,7 @@
 import type { Curve, CurveSampleWindow, DisplayTrack } from "../../../api/types";
 import type { DepthSpan } from "../../core/depthDomain";
 import { stringRendererSetting } from "../../core/rendererSettings";
+import { queryKeys } from "../../../api/queryKeys";
 
 export type CurveWithWindowSamples = {
   config: NonNullable<DisplayTrack["curves"]>[number];
@@ -41,8 +42,7 @@ export function curveWindowQueryIdentity(
 
 export function curveWindowQueryKey(identity: CurveWindowQueryIdentity) {
   return [
-    "curveSamples",
-    identity.boreholeId,
+    ...queryKeys.curveSamplesRoot(identity.boreholeId),
     identity.curveKey,
     identity.fromDepth,
     identity.toDepth,

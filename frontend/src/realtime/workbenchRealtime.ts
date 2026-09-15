@@ -21,29 +21,48 @@ export function queryKeysForWorkbenchEvent(event: WorkbenchRealtimeEvent): Realt
   const keys: RealtimeQueryKey[] = [];
 
   if (boreholeId !== null) {
-    keys.push(["workbench", boreholeId]);
-    keys.push(["aiSummary", boreholeId]);
-    keys.push(["exportReadiness", boreholeId]);
-    keys.push(["exportJobs", boreholeId]);
+    keys.push(queryKeys.workbench(boreholeId).slice(0, 2));
+    keys.push(queryKeys.aiSummary(boreholeId));
+    keys.push(queryKeys.exportReadiness(boreholeId));
+    keys.push(queryKeys.exportJobs(boreholeId));
+    keys.push(queryKeys.correlationAiRoot);
     if (eventTouchesCurveSamples(event)) {
-      keys.push(["curveSamples", boreholeId]);
+      keys.push(queryKeys.curveSamplesRoot(boreholeId));
     }
   }
 
   if (event.entity === "borehole" || event.type.includes("borehole") || event.type.includes("mobile")) {
-    keys.push(["boreholes"]);
+    keys.push(queryKeys.boreholes);
   }
 
   if (event.entity === "source_file" || event.type.includes("source_file")) {
-    keys.push(["boreholes"]);
+    keys.push(queryKeys.boreholes);
   }
 
   if (event.entity === "import_profile" || event.type.includes("import_profile")) {
-    keys.push(["importProfiles"]);
+    keys.push(queryKeys.importProfiles);
   }
 
   if (event.entity === "export_profile" || event.type.includes("export_profile")) {
-    keys.push(["exportProfiles"]);
+    keys.push(queryKeys.exportProfiles);
+  }
+
+  if (event.entity === "quality_settings" || event.type.includes("quality_settings")) {
+    keys.push(queryKeys.qualitySettings);
+    keys.push(queryKeys.workbenchRoot);
+    keys.push(queryKeys.aiSummaryRoot);
+    keys.push(queryKeys.exportReadinessRoot);
+    keys.push(queryKeys.correlationAiRoot);
+  }
+
+  if (event.entity === "correlation_observation") {
+    const boreholeIds = Array.isArray(event.payload.borehole_ids)
+      ? event.payload.borehole_ids.filter((id): id is number => typeof id === "number")
+      : [];
+    if (boreholeIds.length) {
+      keys.push(queryKeys.correlationObservations(boreholeIds.slice().sort((a, b) => a - b).join(":")));
+    }
+    keys.push(queryKeys.correlationAiRoot);
   }
 
   return dedupeQueryKeys(keys);
@@ -71,3 +90,4 @@ function dedupeQueryKeys(keys: RealtimeQueryKey[]): RealtimeQueryKey[] {
   }
   return unique;
 }
+import { queryKeys } from "../api/queryKeys";

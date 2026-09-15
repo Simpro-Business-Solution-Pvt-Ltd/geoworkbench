@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from sqlalchemy.orm import Session
 
+from app.core.cache import get_cache_store
+from app.core.config import get_settings
 from app.core.realtime import publish_workbench_event
 from app.db.session import get_db
 from app.domains.auth.router import current_user
@@ -18,21 +20,64 @@ from app.domains.boreholes.schemas import (
 )
 
 router = APIRouter()
+settings = get_settings()
 
 
 @router.get("", response_model=list[BoreholeListItem])
-def list_boreholes(db: Session = Depends(get_db)) -> list[BoreholeListItem]:
-    return service.list_boreholes(db)
+def list_boreholes(
+    response: Response,
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> list[BoreholeListItem]:
+    cache = get_cache_store()
+    version = cache.get_version("borehole-list")
+    key = cache.key("borehole-list", cache.access_scope(authorization), version)
+    lookup = cache.get_json_text(key)
+    if lookup.value is not None:
+        return Response(
+            content=lookup.value,
+            media_type="application/json",
+            headers={"X-GeoWorkbench-Cache": "HIT"},
+        )
+    result = service.list_boreholes(db)
+    cache.set_json(
+        key,
+        [item.model_dump(mode="json") for item in result],
+        settings.cache_borehole_list_ttl_seconds,
+    )
+    response.headers["X-GeoWorkbench-Cache"] = lookup.status
+    return result
 
 
 @router.get("/{borehole_id}/workbench", response_model=BoreholeWorkbenchOut)
 def get_workbench(
     borehole_id: int,
+    response: Response,
     display_layout_id: int | None = None,
+    authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> BoreholeWorkbenchOut:
+    cache = get_cache_store()
+    version = cache.get_version(f"borehole:{borehole_id}:data")
+    key = cache.key(
+        "workbench",
+        cache.access_scope(authorization),
+        borehole_id,
+        display_layout_id or "default",
+        version,
+    )
+    lookup = cache.get_json_text(key)
+    if lookup.value is not None:
+        return Response(
+            content=lookup.value,
+            media_type="application/json",
+            headers={"X-GeoWorkbench-Cache": "HIT"},
+        )
     try:
-        return service.get_workbench(db, borehole_id, display_layout_id)
+        result = service.get_workbench(db, borehole_id, display_layout_id)
+        cache.set_json(key, result.model_dump(mode="json"), settings.cache_workbench_ttl_seconds)
+        response.headers["X-GeoWorkbench-Cache"] = lookup.status
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -41,13 +86,35 @@ def get_workbench(
 def get_curve_sample_window(
     borehole_id: int,
     curve_key: str,
+    response: Response,
     from_depth: float,
     to_depth: float,
     max_samples: int | None = None,
+    authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> CurveSampleWindowOut:
+    cache = get_cache_store()
+    version = cache.get_version(f"borehole:{borehole_id}:curves")
+    window_from, window_to = sorted((round(float(from_depth), 3), round(float(to_depth), 3)))
+    key = cache.key(
+        "curve-window",
+        cache.access_scope(authorization),
+        borehole_id,
+        curve_key,
+        f"{window_from:.3f}",
+        f"{window_to:.3f}",
+        max_samples if max_samples is not None else "all",
+        version,
+    )
+    lookup = cache.get_json_text(key)
+    if lookup.value is not None:
+        return Response(
+            content=lookup.value,
+            media_type="application/json",
+            headers={"X-GeoWorkbench-Cache": "HIT"},
+        )
     try:
-        return service.curve_sample_window(
+        result = service.curve_sample_window(
             db,
             borehole_id,
             curve_key,
@@ -55,6 +122,9 @@ def get_curve_sample_window(
             to_depth,
             max_samples,
         )
+        cache.set_json(key, result.model_dump(mode="json"), settings.cache_curve_window_ttl_seconds)
+        response.headers["X-GeoWorkbench-Cache"] = lookup.status
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
