@@ -27,6 +27,7 @@ import {
   uploadMobileFile,
 } from "../api/client";
 import type { AuthSession, BoreholeListItem, MobileRuntimeParameter } from "../api/types";
+import { queryKeys } from "../api/queryKeys";
 import { appBranding } from "../branding/appBranding";
 
 type FieldTheme = "light" | "dark";
@@ -213,27 +214,38 @@ export function FieldPwaApp() {
     onSuccess: (result) => {
       setStatus(result.message);
       setActiveStep("attachments");
-      queryClient.invalidateQueries({ queryKey: ["boreholes"] });
-      if (selectedBoreholeId) queryClient.invalidateQueries({ queryKey: ["workbench", selectedBoreholeId] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
+      if (selectedBoreholeId) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.workbench(selectedBoreholeId).slice(0, 2) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.aiSummary(selectedBoreholeId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.exportReadiness(selectedBoreholeId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.correlationAiRoot });
+      }
     },
     onError: (error) => setStatus(error instanceof Error ? error.message : "Interval sync failed"),
   });
 
   const uploadMutation = useMutation({
-    mutationFn: ({ file, fileType }: { file: File; fileType: string }) =>
-      uploadMobileFile({ borehole_id: selectedBoreholeId, file_type: fileType, file }),
+    mutationFn: async ({ file, fileType }: { file: File; fileType: string }) => {
+      const result = await uploadMobileFile({ borehole_id: selectedBoreholeId, file_type: fileType, file });
+      setUploads((current) => {
+        const pendingIndex = current.findIndex((item) => item.status === "uploading");
+        if (pendingIndex < 0) return current;
+        return current.map((item, index) =>
+          index === pendingIndex
+            ? { ...item, name: result.original_name, fileType: result.file_type, status: result.status }
+            : item,
+        );
+      });
+      return result;
+    },
     onMutate: ({ file, fileType }) => {
       setStatus(`Uploading ${file.name}...`);
       setUploads((current) => [{ name: file.name, fileType, status: "uploading" }, ...current]);
     },
     onSuccess: (result) => {
       setStatus(`${result.original_name} uploaded`);
-      setUploads((current) =>
-        current.map((item) =>
-          item.name === result.original_name ? { ...item, fileType: result.file_type, status: result.status } : item,
-        ),
-      );
-      queryClient.invalidateQueries({ queryKey: ["boreholes"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
     },
     onError: (error) => setStatus(error instanceof Error ? error.message : "Upload failed"),
   });

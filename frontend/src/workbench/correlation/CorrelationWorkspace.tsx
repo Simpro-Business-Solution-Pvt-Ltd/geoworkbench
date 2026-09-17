@@ -3,6 +3,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/rea
 
 import { createCorrelationObservation, getCorrelationAiSummary, getWorkbench, listCorrelationObservations } from "../../api/client";
 import type { BoreholeListItem, BoreholeWorkbench, CorrelationAiSummary, CorrelationObservation, Curve, LithologyInterval } from "../../api/types";
+import { queryKeys } from "../../api/queryKeys";
 import { lithologyPattern } from "../core/lithologyPatterns";
 import { correlationDecisionPrompt, correlationInsightObservationText } from "./correlationActionModel";
 import {
@@ -44,7 +45,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   const queryClient = useQueryClient();
   const queries = useQueries({
     queries: selectedIds.map((id) => ({
-      queryKey: ["workbench", id],
+      queryKey: queryKeys.workbench(id),
       queryFn: () => getWorkbench(id),
       enabled: selectedIds.length > 0,
     })),
@@ -69,12 +70,12 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   );
   const correlationKey = useMemo(() => selectedIds.slice().sort((a, b) => a - b).join(":"), [selectedIds]);
   const observationsQuery = useQuery({
-    queryKey: ["correlation-observations", correlationKey],
+    queryKey: queryKeys.correlationObservations(correlationKey),
     queryFn: () => listCorrelationObservations(selectedIds),
     enabled: selectedIds.length > 0,
   });
   const correlationAiSummary = useQuery({
-    queryKey: ["correlation-ai-summary", correlationKey, selectedSeamRow?.seamName ?? "", alignMode],
+    queryKey: queryKeys.correlationAi(correlationKey, selectedSeamRow?.seamName ?? "", alignMode),
     queryFn: () =>
       getCorrelationAiSummary({
         borehole_ids: selectedIds,
@@ -82,11 +83,11 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         align_mode: alignMode,
       }),
     enabled: insightsOpen && selectedIds.length > 0,
-    staleTime: Infinity,
+    staleTime: 60_000,
     gcTime: 10 * 60_000,
     refetchOnMount: false,
-    refetchOnReconnect: false,
-    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
     retry: false,
   });
   const saveObservation = useMutation({
@@ -97,7 +98,8 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         observation_metadata: { source: "correlation_dialog", align_mode: alignMode, reference_borehole_id: referenceId },
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["correlation-observations", correlationKey] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.correlationObservations(correlationKey) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.correlationAiRoot });
     },
   });
 

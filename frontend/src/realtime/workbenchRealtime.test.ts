@@ -63,6 +63,30 @@ describe("workbench realtime", () => {
       "exportProfiles",
     ]);
   });
+
+  it("invalidates global derived data for quality setting events", () => {
+    const keys = queryKeysForWorkbenchEvent(
+      event({ type: "workbench.quality_settings.updated", borehole_id: null, entity: "quality_settings" }),
+    );
+    expect(keys).toContainEqual(["qualitySettings"]);
+    expect(keys).toContainEqual(["workbench"]);
+    expect(keys).toContainEqual(["aiSummary"]);
+    expect(keys).toContainEqual(["exportReadiness"]);
+    expect(keys).toContainEqual(["correlation-ai-summary"]);
+  });
+
+  it("invalidates matching observations for correlation events", () => {
+    const keys = queryKeysForWorkbenchEvent(
+      event({
+        type: "workbench.correlation_observation.created",
+        borehole_id: null,
+        entity: "correlation_observation",
+        payload: { borehole_ids: [9, 2] },
+      }),
+    );
+    expect(keys).toContainEqual(["correlation-observations", "2:9"]);
+    expect(keys).toContainEqual(["correlation-ai-summary"]);
+  });
 });
 
 function event(overrides: Partial<WorkbenchRealtimeEvent>): WorkbenchRealtimeEvent {

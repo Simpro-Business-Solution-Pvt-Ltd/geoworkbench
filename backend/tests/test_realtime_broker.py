@@ -1,3 +1,5 @@
+import json
+
 from app.core.realtime import RealtimeBroker, RealtimeEvent
 
 
@@ -29,4 +31,20 @@ def test_realtime_broker_drops_oldest_event_when_subscription_queue_is_full() ->
     broker.publish(RealtimeEvent(type="second", borehole_id=10))
 
     assert subscription.next_event(timeout=0.01).type == "second"
+    subscription.close()
+
+
+def test_realtime_broker_accepts_event_from_another_instance() -> None:
+    broker = RealtimeBroker()
+    subscription = broker.subscribe(10)
+    event = RealtimeEvent(
+        type="workbench.interval.updated",
+        borehole_id=10,
+        entity="lithology_interval",
+        operation="updated",
+    )
+
+    broker._handle_remote_message(json.dumps({"origin": "other-instance", "event": event.to_dict()}))
+
+    assert subscription.next_event(timeout=0.01).type == "workbench.interval.updated"
     subscription.close()

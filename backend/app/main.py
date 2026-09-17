@@ -7,12 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
+from app.core.cache import get_cache_store
 from app.core.config import get_settings
 from app.db.init_db import init_db
 from app.db.session import engine
-from app.domains.boreholes.router import router as borehole_router
 from app.domains.ai.router import router as ai_router
 from app.domains.auth.router import router as auth_router
+from app.domains.boreholes.router import router as borehole_router
 from app.domains.correlation.router import router as correlation_router
 from app.domains.exports.router import router as exports_router
 from app.domains.imports.router import router as imports_router
@@ -20,7 +21,6 @@ from app.domains.mobile.router import router as mobile_router
 from app.domains.quality.router import router as quality_router
 from app.domains.realtime.router import router as realtime_router
 from app.domains.validation.router import router as validation_router
-
 
 settings = get_settings()
 logger = logging.getLogger("geoworkbench.api")
@@ -58,12 +58,31 @@ async def request_timing(request: Request, call_next):
     response = await call_next(request)
     elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
     response.headers["X-GeoWorkbench-Request-Ms"] = str(elapsed_ms)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    path = request.url.path
+    if path.startswith(f"{settings.api_prefix}/auth/"):
+        response.headers["Cache-Control"] = "no-store"
+    elif path.startswith(f"{settings.api_prefix}/diagnostics/") or path == "/health":
+        response.headers["Cache-Control"] = "no-store"
+    elif path.startswith(f"{settings.api_prefix}/exports/jobs/") and path.endswith("/download"):
+        response.headers["Cache-Control"] = "private, no-store"
+    elif path.startswith("/assets/corebox/"):
+        response.headers["Cache-Control"] = "private, no-store"
+    elif path.startswith(f"{settings.api_prefix}/realtime/"):
+        response.headers["Cache-Control"] = "no-cache"
+    elif path.startswith(f"{settings.api_prefix}/"):
+        response.headers["Cache-Control"] = "private, no-cache"
+    if path.startswith(f"{settings.api_prefix}/"):
+        vary = {item.strip() for item in response.headers.get("Vary", "").split(",") if item.strip()}
+        vary.add("Authorization")
+        response.headers["Vary"] = ", ".join(sorted(vary))
     logger.info(
-        "request method=%s path=%s status=%s elapsed_ms=%s",
+        "request method=%s path=%s status=%s elapsed_ms=%s cache=%s",
         request.method,
         request.url.path,
         response.status_code,
         elapsed_ms,
+        response.headers.get("X-GeoWorkbench-Cache", "BYPASS"),
     )
     return response
 
@@ -87,6 +106,7 @@ def diagnostics_health() -> dict:
         "service": settings.app_name,
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "database": {"status": database, "detail": database_detail},
+        "cache": get_cache_store().health(),
         "ai": {"provider": settings.ai_provider, "model": settings.ai_model},
         "uploads": str(settings.upload_root),
         "exports": str(settings.export_root),
