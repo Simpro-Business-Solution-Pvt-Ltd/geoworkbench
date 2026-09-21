@@ -10,6 +10,8 @@
   --gw-text: #20262c;
   --gw-muted: #66717d;
   --gw-shadow: rgb(26 35 45 / 10%);
+  --gw-z-modal-backdrop: 10000;
+  --gw-z-modal: 10001;
   color: var(--gw-text);
   background: var(--gw-page);
   font-family: Inter, ui-sans-serif, system-ui, Arial, sans-serif;
@@ -2487,7 +2489,7 @@ small {
 .iam-dialog-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: var(--gw-z-modal-backdrop);
   display: grid;
   place-items: center;
   background: rgb(5 8 12 / 60%);
@@ -2495,6 +2497,8 @@ small {
 }
 
 .iam-dialog {
+  position: relative;
+  z-index: var(--gw-z-modal);
   display: grid;
   gap: 12px;
   width: min(100%, 460px);
@@ -7562,7 +7566,7 @@ h2 {
 .image-modal {
   position: fixed;
   inset: 24px;
-  z-index: 50;
+  z-index: var(--gw-z-modal);
   display: grid;
   grid-template-rows: 48px 1fr;
   border: 1px solid var(--gw-border);
@@ -7576,7 +7580,7 @@ h2 {
   right: 28px;
   top: 84px;
   bottom: 28px;
-  z-index: 52;
+  z-index: var(--gw-z-modal);
   display: grid;
   grid-template-rows: 48px 1fr;
   width: min(460px, calc(100vw - 56px));
@@ -8031,7 +8035,7 @@ h2 {
 .correlation-dialog-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--gw-z-modal-backdrop);
   display: grid;
   place-items: center;
   background: rgb(0 0 0 / 45%);
@@ -8039,6 +8043,8 @@ h2 {
 }
 
 .correlation-dialog {
+  position: relative;
+  z-index: var(--gw-z-modal);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   width: min(1180px, 96vw);
