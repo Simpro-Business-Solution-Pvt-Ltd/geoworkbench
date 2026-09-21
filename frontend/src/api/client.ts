@@ -32,6 +32,20 @@ import type {
 const API_BASE = "/api";
 const TOKEN_KEY = "geoworkbench.auth.token";
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+export function isUnauthorizedError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401;
+}
+
 export function getAuthToken(): string | null {
   return window.localStorage.getItem(TOKEN_KEY);
 }
@@ -52,7 +66,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw new ApiError(response.status, await response.text());
   }
   return response.json() as Promise<T>;
 }
@@ -313,7 +327,7 @@ export async function uploadSourceFile(payload: {
     body: form,
   });
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw new ApiError(response.status, await response.text());
   }
   return response.json() as Promise<SourceFile>;
 }
@@ -356,7 +370,7 @@ export async function uploadMobileFile(payload: {
     body: form,
   });
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw new ApiError(response.status, await response.text());
   }
   return response.json() as Promise<{
     id: number;

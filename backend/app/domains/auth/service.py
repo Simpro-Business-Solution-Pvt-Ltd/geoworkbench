@@ -545,17 +545,33 @@ def create_session(db: Session, user: User, client_type: str) -> AuthSession:
     return session
 
 
+def _refresh_active_session(db: Session, session: AuthSession, now: datetime) -> None:
+    settings = get_settings()
+    threshold_minutes = max(0, settings.auth_session_refresh_threshold_minutes)
+    if threshold_minutes == 0:
+        return
+    expires_at = _to_aware(session.expires_at)
+    if expires_at - now > timedelta(minutes=threshold_minutes):
+        return
+    session.expires_at = now + timedelta(hours=settings.auth_token_hours)
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+
 def get_session(db: Session, token: str) -> tuple[User, AuthSession]:
     session = db.scalar(select(AuthSession).where(AuthSession.token == token))
     if session is None:
         raise ValueError("Invalid session")
+    now = datetime.now(timezone.utc)
     expires_at = session.expires_at
     expires_at = _to_aware(expires_at)
-    if expires_at < datetime.now(timezone.utc):
+    if expires_at < now:
         raise ValueError("Session expired")
     user = db.scalar(select(User).where(User.id == session.user_id).where(User.is_active == 1))
     if user is None:
         raise ValueError("User not found")
+    _refresh_active_session(db, session, now)
     return user, session
 
 

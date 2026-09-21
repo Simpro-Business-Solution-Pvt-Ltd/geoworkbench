@@ -36,6 +36,7 @@ import {
   getQualitySettings,
   getRoleAccess,
   importSourceFileAsBorehole,
+  isUnauthorizedError,
   listPermissions,
   listRoles,
   mergeSourceFileIntoBorehole,
@@ -423,11 +424,11 @@ export function App() {
     if (sessionQuery.data) {
       setSession(sessionQuery.data);
       setAuthError(null);
-    } else if (sessionQuery.isError) {
+    } else if (sessionQuery.isError && isUnauthorizedError(sessionQuery.error)) {
       setSession(null);
       setAuthToken(null);
     }
-  }, [sessionQuery.data, sessionQuery.isError]);
+  }, [sessionQuery.data, sessionQuery.error, sessionQuery.isError]);
 
   useEffect(() => {
     if (!visibleWikiPages.length) return;

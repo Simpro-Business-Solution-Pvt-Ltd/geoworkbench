@@ -25,7 +25,8 @@ class Settings(BaseSettings):
     ai_base_url: str | None = "http://192.168.1.23:1234/v1"
     ai_model: str = "google/gemma-4-12b-qat"
     ai_timeout_seconds: float = 45
-    auth_token_hours: int = 12
+    auth_token_hours: float = 24
+    auth_session_refresh_threshold_minutes: int = 30
     mobile_otp_minutes: int = 10
     web_base_url: str = "http://127.0.0.1:5173"
     entra_tenant_id: str | None = None

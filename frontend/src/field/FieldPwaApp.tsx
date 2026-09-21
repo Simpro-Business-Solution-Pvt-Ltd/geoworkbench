@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createMobileBorehole,
   getCurrentSession,
+  isUnauthorizedError,
   listBoreholes,
   login,
   logout,
@@ -115,11 +116,11 @@ export function FieldPwaApp() {
 
   useEffect(() => {
     if (sessionQuery.data) setSession(sessionQuery.data);
-    if (sessionQuery.isError) {
+    if (sessionQuery.isError && isUnauthorizedError(sessionQuery.error)) {
       setSession(null);
       setAuthToken(null);
     }
-  }, [sessionQuery.data, sessionQuery.isError]);
+  }, [sessionQuery.data, sessionQuery.error, sessionQuery.isError]);
 
   const selectedBorehole = useMemo(
     () => boreholes.data?.find((item) => item.id === selectedBoreholeId) ?? null,
