@@ -625,7 +625,7 @@ function CorrelationColumn({
       <div className="correlation-log">
         <div className="correlation-lithology">
           {data.lithology_intervals.map((interval) => {
-            const pattern = lithologyPattern(interval.lithology_code);
+            const pattern = lithologyPattern(interval.lithology_code, interval.lithology_label);
             return (
               <div
                 key={interval.id}
