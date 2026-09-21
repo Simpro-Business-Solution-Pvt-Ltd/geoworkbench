@@ -180,7 +180,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
           <b>Evidence</b> {stats.boreholes} boreholes · {stats.commonSeams} common seam groups · {stats.gammaCoverage}
         </span>
         <span>
-          <b>Seam links</b> {drawableTieLines.length} shown for {selectedSeamRow?.seamName ?? "selected seam"} · {tieLines.length} available
+          <b>Top/bottom links</b> {drawableTieLines.length} shown for {selectedSeamRow?.seamName ?? "selected seam"} · {tieLines.length} available
         </span>
         {selectedSeamRow && (
           <span>
@@ -191,6 +191,11 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         {selectedSeamRow && (
           <span>
             <b>Top spread</b> {selectedSeamRow.minTop.toFixed(1)}-{selectedSeamRow.maxTop.toFixed(1)}m
+          </span>
+        )}
+        {selectedSeamRow && (
+          <span>
+            <b>Bottom spread</b> {selectedSeamRow.minBottom.toFixed(1)}-{selectedSeamRow.maxBottom.toFixed(1)}m
           </span>
         )}
         <span>
@@ -368,14 +373,14 @@ function SeamTieLineOverlay({ lines, columnCount }: { lines: CorrelationTieLine[
       {lines.map((line) => (
         <line
           key={line.id}
-          className={`correlation-tie-line ${line.status}`}
+          className={`correlation-tie-line ${line.marker} ${line.status}`}
           x1={`${columnCenter(line.fromColumn)}%`}
           x2={`${columnCenter(line.toColumn)}%`}
           y1={`${line.fromY}%`}
           y2={`${line.toY}%`}
         >
           <title>
-            {line.seamName}: {line.offset.toFixed(1)}m adjacent seam offset
+            {line.seamName} {line.marker}: {line.offset.toFixed(1)}m adjacent marker offset
           </title>
         </line>
       ))}

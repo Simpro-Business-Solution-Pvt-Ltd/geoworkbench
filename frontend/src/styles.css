@@ -8212,6 +8212,12 @@ h2 {
   vector-effect: non-scaling-stroke;
 }
 
+.correlation-tie-line.bottom {
+  stroke: rgb(180 83 9 / 62%);
+  stroke-dasharray: 2 3;
+  stroke-width: 1.6;
+}
+
 .correlation-tie-line.review {
   stroke: rgb(220 38 38 / 72%);
   stroke-dasharray: 6 4;

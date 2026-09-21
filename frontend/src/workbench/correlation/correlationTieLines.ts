@@ -5,6 +5,7 @@ import type { CorrelationAlignMode } from "./correlationInsights";
 export type CorrelationTieLine = {
   id: string;
   seamName: string;
+  marker: "top" | "bottom";
   fromColumn: number;
   toColumn: number;
   fromY: number;
@@ -31,19 +32,24 @@ export function buildSeamTieLines(
       for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
         const leftSeam = leftSeams[pairIndex];
         const rightSeam = rightSeams[pairIndex];
-        const leftMid = seamMidDepth(leftSeam);
-        const rightMid = seamMidDepth(rightSeam);
-        const offset = Math.abs(leftMid - rightMid);
-        lines.push({
-          id: `${left.id}:${right.id}:${key}:${pairIndex}`,
+        const markers = [
+          { marker: "top" as const, leftDepth: leftSeam.from_depth, rightDepth: rightSeam.from_depth },
+          { marker: "bottom" as const, leftDepth: leftSeam.to_depth, rightDepth: rightSeam.to_depth },
+        ];
+        for (const marker of markers) {
+          const offset = Math.abs(marker.leftDepth - marker.rightDepth);
+          lines.push({
+          id: `${left.id}:${right.id}:${key}:${pairIndex}:${marker.marker}`,
           seamName: key,
+          marker: marker.marker,
           fromColumn: index,
           toColumn: index + 1,
-          fromY: depthY(leftMid, left, domain, alignMode),
-          toY: depthY(rightMid, right, domain, alignMode),
+          fromY: depthY(marker.leftDepth, left, domain, alignMode),
+          toY: depthY(marker.rightDepth, right, domain, alignMode),
           status: offset >= 10 ? "review" : "strong",
           offset,
-        });
+          });
+        }
       }
     }
   }

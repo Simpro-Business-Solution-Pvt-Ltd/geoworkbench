@@ -113,7 +113,9 @@ describe("correlation insights", () => {
     const insights = buildCorrelationInsights(items, seamCorrelationRows(items));
 
     expect(insights.map((item) => item.id)).toContain("top-spread:A");
+    expect(insights.map((item) => item.id)).toContain("bottom-spread:A");
     expect(insights.find((item) => item.id === "top-spread:A")?.action).toContain("depth and RL modes");
+    expect(insights.find((item) => item.id === "bottom-spread:A")?.action).toContain("roof/top and floor/bottom");
   });
 
   it("adds workbench investigation targets for actionable seam insights", () => {
