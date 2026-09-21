@@ -21,6 +21,8 @@ export type WorkbenchActions = {
   setHoveredObject: (object: TrackObject | null) => void;
   setContextMenu: (contextMenu: TrackContextMenu | null) => void;
   setTooltipsEnabled: (tooltipsEnabled: boolean) => void;
+  toggleRuntimeCurve: (curveKey: string) => void;
+  resetRuntimeCurves: () => void;
   setMode: (mode: "runtime" | "edit") => void;
 };
 
@@ -33,6 +35,7 @@ type WorkbenchState = {
   hoveredObject: TrackObject | null;
   contextMenu: TrackContextMenu | null;
   tooltipsEnabled: boolean;
+  hiddenRuntimeCurves: Record<string, boolean>;
   mode: "runtime" | "edit";
 } & WorkbenchActions;
 
@@ -45,6 +48,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set) => ({
   hoveredObject: null,
   contextMenu: null,
   tooltipsEnabled: true,
+  hiddenRuntimeCurves: {},
   mode: "runtime",
   setSelectedInterval: (selectedInterval) => set({ selectedInterval }),
   setSelectedDepth: (selectedDepth) => set({ selectedDepth }),
@@ -58,5 +62,14 @@ export const useWorkbenchStore = create<WorkbenchState>((set) => ({
       tooltipsEnabled,
       hoveredObject: tooltipsEnabled ? state.hoveredObject : null,
     })),
+  toggleRuntimeCurve: (curveKey) =>
+    set((state) => ({
+      hiddenRuntimeCurves: {
+        ...state.hiddenRuntimeCurves,
+        [curveKey]: !state.hiddenRuntimeCurves[curveKey],
+      },
+      hoveredObject: null,
+    })),
+  resetRuntimeCurves: () => set({ hiddenRuntimeCurves: {}, hoveredObject: null }),
   setMode: (mode) => set({ mode }),
 }));

@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from sqlalchemy.orm import Session
 
-from app.core.cache import get_cache_store
+from app.core.cache import get_cache_store, invalidate_for_event
 from app.core.config import get_settings
 from app.core.realtime import publish_workbench_event
 from app.db.session import get_db
 from app.domains.auth.router import current_user
 from app.domains.boreholes import service
 from app.domains.boreholes.schemas import (
+    BoreholeCreate,
     BoreholeListItem,
     BoreholeStatusOut,
     BoreholeWorkbenchOut,
@@ -47,6 +48,27 @@ def list_boreholes(
     )
     response.headers["X-GeoWorkbench-Cache"] = lookup.status
     return result
+
+
+@router.post("", response_model=BoreholeListItem)
+def create_borehole(
+    payload: BoreholeCreate,
+    db: Session = Depends(get_db),
+    user=Depends(current_user),
+) -> BoreholeListItem:
+    try:
+        result = service.create_borehole(db, payload)
+        invalidate_for_event("workbench.borehole.created", result.id, "borehole")
+        publish_workbench_event(
+            "workbench.borehole.created",
+            borehole_id=result.id,
+            entity="borehole",
+            operation="created",
+            payload={"code": result.code, "actor": user.display_name or user.username},
+        )
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/{borehole_id}/workbench", response_model=BoreholeWorkbenchOut)

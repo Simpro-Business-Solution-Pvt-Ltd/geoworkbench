@@ -16,6 +16,7 @@ from app.db.models import (
     Site,
 )
 from app.domains.boreholes.schemas import (
+    BoreholeCreate,
     BoreholeListItem,
     BoreholeStatusOut,
     BoreholeWorkbenchOut,
@@ -107,6 +108,67 @@ def list_boreholes(db: Session) -> list[BoreholeListItem]:
         )
         for borehole, site, project in rows
     ]
+
+
+def _get_or_create_site(db: Session, payload: BoreholeCreate) -> Site:
+    project = db.scalar(select(Project).where(Project.code == payload.project_code))
+    if project is None:
+        project = Project(code=payload.project_code, name=payload.project_name)
+        db.add(project)
+        db.flush()
+    site = db.scalar(
+        select(Site).where(Site.project_id == project.id).where(Site.code == payload.site_code)
+    )
+    if site is None:
+        site = Site(project=project, code=payload.site_code, name=payload.site_name or payload.site_code)
+        db.add(site)
+        db.flush()
+    return site
+
+
+def create_borehole(db: Session, payload: BoreholeCreate) -> BoreholeListItem:
+    existing = db.scalar(select(Borehole).where(Borehole.code == payload.borehole_code))
+    if existing is not None:
+        raise ValueError(f"Borehole code already exists: {payload.borehole_code}")
+
+    site = _get_or_create_site(db, payload)
+    borehole = Borehole(
+        site=site,
+        code=payload.borehole_code,
+        title=payload.title or payload.borehole_code,
+        state=payload.state,
+        total_depth=max(0, payload.total_depth),
+        closure_note="AWAITING DATA IMPORT",
+        workflow_status=payload.workflow_status or "ready_for_data",
+        attributes={
+            "capture_source": "web",
+            "collar": {
+                "coalgrid_easting": payload.coalgrid_easting,
+                "coalgrid_northing": payload.coalgrid_northing,
+                "utm_easting": payload.utm_easting,
+                "utm_northing": payload.utm_northing,
+                "reduced_level": payload.reduced_level,
+                "water_level": payload.water_level,
+                "coordinate_system": payload.coordinate_system,
+            },
+        },
+    )
+    borehole.display_layouts.append(
+        DisplayLayout(name="Central Review Display", mode="runtime", settings=default_borehole_layout())
+    )
+    db.add(borehole)
+    db.commit()
+    db.refresh(borehole)
+    return BoreholeListItem(
+        id=borehole.id,
+        code=borehole.code,
+        title=borehole.title,
+        total_depth=borehole.total_depth,
+        workflow_status=borehole.workflow_status,
+        site_code=site.code,
+        project_code=site.project.code,
+        coordinates=borehole_coordinates(borehole),
+    )
 
 
 def _display_layout_options(borehole: Borehole) -> list[DisplayLayout]:

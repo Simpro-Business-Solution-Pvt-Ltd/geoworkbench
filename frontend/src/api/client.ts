@@ -1,5 +1,6 @@
 import type {
   BoreholeListItem,
+  BoreholeCreate,
   BoreholeAiSummary,
   BoreholeWorkbench,
   BoreholeStatus,
@@ -186,6 +187,13 @@ export function changePassword(currentPassword: string, newPassword: string): Pr
 
 export function listBoreholes(): Promise<BoreholeListItem[]> {
   return request<BoreholeListItem[]>("/boreholes");
+}
+
+export function createBorehole(payload: BoreholeCreate): Promise<BoreholeListItem> {
+  return request<BoreholeListItem>("/boreholes", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function getWorkbench(boreholeId: number, displayLayoutId?: number | null): Promise<BoreholeWorkbench> {

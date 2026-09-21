@@ -13,4 +13,9 @@ export type LogTrackContext = {
   visibleDepthSpan: DepthSpan;
   widthForTrack: (track: DisplayTrack) => string;
   dispatchTrackEvent: (event: TrackPointerEvent) => void;
+  resolvePointerFromClient: (
+    clientX: number,
+    clientY: number,
+    trackBounds: { left: number },
+  ) => { localX: number; localY: number; depth: number; viewportY: number };
 };

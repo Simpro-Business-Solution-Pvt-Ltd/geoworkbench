@@ -2419,6 +2419,38 @@ small {
   padding: 9px 10px;
 }
 
+.borehole-create-dialog {
+  width: min(820px, calc(100vw - 28px));
+}
+
+.borehole-create-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.empty-action {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+
+.empty-action strong {
+  color: var(--gw-text);
+  font-size: 18px;
+}
+
+.empty-action span {
+  max-width: 720px;
+  color: var(--gw-muted);
+}
+
+.empty-action div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .iam-form textarea {
   resize: vertical;
 }
@@ -7004,6 +7036,21 @@ h2 {
 .track-context-menu span {
   color: var(--gw-muted);
   font-size: 12px;
+}
+
+.context-menu-group {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--gw-border);
+  padding-top: 6px;
+}
+
+.context-menu-group small {
+  color: var(--gw-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .log-track-empty {

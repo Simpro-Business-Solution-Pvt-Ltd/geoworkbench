@@ -15,6 +15,25 @@ export type BoreholeListItem = {
   } | null;
 };
 
+export type BoreholeCreate = {
+  project_code: string;
+  project_name?: string | null;
+  site_code: string;
+  site_name?: string | null;
+  borehole_code: string;
+  title?: string | null;
+  total_depth?: number;
+  state?: string | null;
+  workflow_status?: string;
+  coalgrid_easting?: number | null;
+  coalgrid_northing?: number | null;
+  utm_easting?: number | null;
+  utm_northing?: number | null;
+  reduced_level?: number | null;
+  water_level?: number | null;
+  coordinate_system?: string | null;
+};
+
 export type User = {
   id: number;
   username: string;
