@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   approveBoreholeForExport,
   changePassword,
+  createBorehole,
   cloneDisplayLayout,
   createRole,
   createSourceFile,
@@ -36,6 +37,7 @@ import {
   getQualitySettings,
   getRoleAccess,
   importSourceFileAsBorehole,
+  isUnauthorizedError,
   listPermissions,
   listRoles,
   mergeSourceFileIntoBorehole,
@@ -67,6 +69,7 @@ import {
 } from "./api/client";
 import type {
   AuthSession,
+  BoreholeCreate,
   BoreholeListItem,
   DisplayLayout,
   LithologyInterval,
@@ -77,6 +80,7 @@ import type {
   User,
 } from "./api/types";
 import { CorrelationWorkspace } from "./workbench/correlation/CorrelationWorkspace";
+import { BoreholeMapWidget } from "./workbench/dashboard/BoreholeMapWidget";
 import { DisplayEditorDialog } from "./workbench/display/DisplayEditorDialog";
 import { DisplayRuntime } from "./workbench/display/DisplayRuntime";
 import { useWorkbenchStore } from "./workbench/display/workbenchStore";
@@ -90,6 +94,7 @@ import {
 } from "./preferences/userPreferences";
 import { PreferencesSettingsPanel } from "./settings/PreferencesSettingsPanel";
 import { useWorkbenchRealtime } from "./realtime/useWorkbenchRealtime";
+import { appBranding } from "./branding/appBranding";
 
 const WIKI_MARKDOWN = {
   ...import.meta.glob("../../docs/wiki/**/*.md", { query: "?raw", import: "default", eager: true }),
@@ -117,6 +122,9 @@ const WIKI_MARKDOWN = {
 
 const WIKI_PAGES = [
   { key: "../../docs/wiki/user-manual/reliance-uat-story-and-demo-script.md", title: "Reliance UAT Story", group: "User Guidance", audience: "user" },
+  { key: "../../docs/wiki/user-manual/field-pwa.md", title: "Field PWA", group: "User Guidance", audience: "user" },
+  { key: "../../docs/wiki/user-manual/uat-test-cases.md", title: "UAT Test Cases", group: "User Guidance", audience: "user" },
+  { key: "../../docs/wiki/user-manual/lifecycle-management.md", title: "Lifecycle Management", group: "User Guidance", audience: "user" },
   { key: "../../docs/wiki/user-manual/uat-interpretation-platform-plan.md", title: "UAT Interpretation Plan", group: "User Guidance", audience: "user" },
   { key: "../../docs/wiki/uat-demo-readiness.md", title: "UAT Demo Readiness", group: "User Guidance", audience: "user" },
   { key: "../../docs/import-export-template-user-manual.md", title: "Import, Merge, And Export", group: "User Guidance", audience: "user" },
@@ -237,6 +245,7 @@ const settingsFromUser = (user: User): PersistedUserSettings => {
 export function App() {
   const queryClient = useQueryClient();
   const [boreholeId, setBoreholeId] = useState<number | null>(null);
+  const [boreholeSelectionReady, setBoreholeSelectionReady] = useState(false);
   const [view, setView] = useState<
     AppView
   >("landing");
@@ -248,6 +257,7 @@ export function App() {
   const [displayChoice, setDisplayChoice] = useState<DisplayChoice>("saved");
   const [userPreferences, setUserPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES);
   const [displayEditorOpen, setDisplayEditorOpen] = useState(false);
+  const [boreholeDialogOpen, setBoreholeDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => window.localStorage.getItem("geoworkbench.sidebar") === "collapsed",
   );
@@ -276,9 +286,19 @@ export function App() {
       );
     },
   });
+  const createBoreholeMutation = useMutation({
+    mutationFn: createBorehole,
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["boreholes"] });
+      setPersistedBorehole(created.id);
+      setBoreholeDialogOpen(false);
+      setView("import");
+    },
+  });
 
   const setPersistedBorehole = (nextBoreholeId: number | null) => {
     setBoreholeId(nextBoreholeId);
+    setBoreholeSelectionReady(true);
     if (session) {
       const nextSettings = { ...readUserSettings(session.user.id), selectedBoreholeId: nextBoreholeId };
       persistUserSettings(session.user.id, nextSettings);
@@ -367,9 +387,9 @@ export function App() {
     enabled: isAuthed && profileOpen,
     refetchInterval: profileOpen ? 15000 : false,
   });
-  const activeId = boreholeId ?? boreholes.data?.[0]?.id;
+  const activeId = boreholeSelectionReady ? boreholeId : null;
   const selectedDisplayLayoutId = activeId ? selectedDisplayLayoutIds[String(activeId)] ?? null : null;
-  const selectedBorehole = boreholes.data?.find((item) => item.id === activeId) ?? boreholes.data?.[0];
+  const selectedBorehole = boreholes.data?.find((item) => item.id === activeId) ?? null;
   const correlationIds = useMemo(() => (boreholes.data ?? []).map((item) => item.id), [boreholes.data]);
   const workbench = useQuery({
     queryKey: ["workbench", activeId, displayChoice === "saved" ? selectedDisplayLayoutId : null],
@@ -419,11 +439,11 @@ export function App() {
     if (sessionQuery.data) {
       setSession(sessionQuery.data);
       setAuthError(null);
-    } else if (sessionQuery.isError) {
+    } else if (sessionQuery.isError && isUnauthorizedError(sessionQuery.error)) {
       setSession(null);
       setAuthToken(null);
     }
-  }, [sessionQuery.data, sessionQuery.isError]);
+  }, [sessionQuery.data, sessionQuery.error, sessionQuery.isError]);
 
   useEffect(() => {
     if (!visibleWikiPages.length) return;
@@ -433,7 +453,11 @@ export function App() {
   }, [visibleWikiPages, wikiPageKey]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session) {
+      setBoreholeSelectionReady(false);
+      setBoreholeId(null);
+      return;
+    }
     const userSettings = settingsFromUser(session.user);
     setUserPreferences(userSettings.preferences);
     setSelectedDisplayLayoutIds(userSettings.selectedDisplayLayoutIds);
@@ -441,18 +465,20 @@ export function App() {
   }, [session]);
 
   useEffect(() => {
-    if (!session || !boreholes.data?.length) return;
+    if (!session || !boreholes.data) return;
     const userSettings = settingsFromUser(session.user);
     setUserPreferences(userSettings.preferences);
     setSelectedDisplayLayoutIds(userSettings.selectedDisplayLayoutIds);
     if (userSettings.displayChoice !== displayChoice) {
       setDisplayChoice(userSettings.displayChoice);
     }
-    if (userSettings.selectedBoreholeId === null) return;
-    const exists = boreholes.data.some((item) => item.id === userSettings.selectedBoreholeId);
-    if (exists && userSettings.selectedBoreholeId !== boreholeId) {
-      setBoreholeId(userSettings.selectedBoreholeId);
+    const savedId = userSettings.selectedBoreholeId;
+    const exists = savedId !== null && boreholes.data.some((item) => item.id === savedId);
+    const nextBoreholeId = exists ? savedId : null;
+    if (nextBoreholeId !== boreholeId) {
+      setBoreholeId(nextBoreholeId);
     }
+    setBoreholeSelectionReady(true);
   }, [boreholes.data?.length, boreholeId, displayChoice, session?.user.id, boreholes.data, session]);
 
   const saveInterval = useMutation({
@@ -782,8 +808,8 @@ export function App() {
       <header className="topbar">
         <div className="sidebar-brand">
           <button type="button" className="brand-lockup" onClick={() => setView("landing")}>
-            <img className="brand-logo-full" src="/branding/simpro-logo.png" alt="Simpro" />
-            <img className="brand-logo-mark" src="/branding/simpro-favicon.png" alt="Simpro" />
+            <img className="brand-logo-full" src={appBranding.customerLogoSrc} alt={appBranding.customerName} />
+            <img className="brand-logo-mark" src={appBranding.customerMarkSrc} alt={appBranding.customerName} />
           </button>
           <button
             type="button"
@@ -801,7 +827,7 @@ export function App() {
           <button type="button" className={view === "workbench" ? "active" : ""} disabled={!activeId} onClick={() => openWorkbench()}>
             <span><PanelTop size={17} strokeWidth={2.1} /></span><b>Workbench</b>
           </button>
-          <button type="button" className={view === "import" ? "active" : ""} onClick={() => navigateTo("import")} disabled={!activeId}>
+          <button type="button" className={view === "import" ? "active" : ""} onClick={() => navigateTo("import")}>
             <span><Upload size={17} strokeWidth={2.1} /></span><b>Import</b>
           </button>
           <button type="button" className={view === "export" ? "active" : ""} onClick={() => navigateTo("export")} disabled={!activeId}>
@@ -892,7 +918,10 @@ export function App() {
             <span><BookOpenText size={17} strokeWidth={2.1} /></span><b>Wiki</b>
           </button>
         </nav>
-        <div className="sidebar-footer" aria-hidden="true" />
+        <div className="sidebar-footer">
+          <span>{appBranding.poweredByLabel}</span>
+          <img src={appBranding.poweredByLogoSrc} alt={appBranding.poweredByName} />
+        </div>
       </header>
       <section className="page-topbar">
         <div className="page-selection">
@@ -1026,6 +1055,8 @@ export function App() {
           displayChoice={displayChoice}
           onSelect={(id) => setPersistedBorehole(id)}
           onDisplayChoice={(choice) => setPersistedDisplayChoice(choice)}
+          onNavigate={navigateTo}
+          onCreateBorehole={() => setBoreholeDialogOpen(true)}
           onOpen={(id) => openWorkbench(id)}
           onManageDisplay={(id) => {
             setPersistedBorehole(id);
@@ -1095,6 +1126,14 @@ export function App() {
       )}
 
       {view === "import" && workbench.isLoading && <div className="empty">Loading import center...</div>}
+      {view === "import" && !activeId && (
+        <EmptyBoreholeSelection
+          title="Create or select a borehole before import"
+          detail="Imports are attached to a borehole so uploaded Excel, LAS, PDF, image, and mobile data can be merged into the right lifecycle record."
+          onCreate={() => setBoreholeDialogOpen(true)}
+          onDashboard={() => setView("landing")}
+        />
+      )}
       {view === "import" && runtimeWorkbenchData && (
         <ImportCenter
           data={runtimeWorkbenchData}
@@ -1278,6 +1317,14 @@ export function App() {
           }
         />
       )}
+      {boreholeDialogOpen && (
+        <BoreholeCreateDialog
+          busy={createBoreholeMutation.isPending}
+          error={createBoreholeMutation.error instanceof Error ? createBoreholeMutation.error.message : null}
+          onClose={() => setBoreholeDialogOpen(false)}
+          onSave={(payload) => createBoreholeMutation.mutate(payload)}
+        />
+      )}
     </main>
   );
 }
@@ -1290,6 +1337,8 @@ type LandingPageProps = {
   displayChoice: DisplayChoice;
   onSelect: (id: number) => void;
   onDisplayChoice: (choice: DisplayChoice) => void;
+  onNavigate: (view: AppView) => void;
+  onCreateBorehole: () => void;
   onOpen: (id: number) => void;
   onManageDisplay: (id: number) => void;
 };
@@ -1319,10 +1368,10 @@ function LoginScreen({
     <main className="login-shell">
       <section className="login-panel">
         <div className="login-brand">
-          <img src="/branding/simpro-logo.png" alt="Simpro" />
+          <img src={appBranding.customerLogoSrc} alt={appBranding.customerName} />
           <span>
-            <strong>GeoWorkbench</strong>
-            <small>Borehole correction workspace</small>
+            <strong>{appBranding.productName}</strong>
+            <small>{appBranding.productSubtitle}</small>
           </span>
         </div>
         <div className="login-heading">
@@ -1358,7 +1407,7 @@ function LoginScreen({
         <form className="login-form" onSubmit={submit}>
           <label>
             Username
-            <input name="username" defaultValue="geologist" placeholder="e.g. geologist" autoComplete="username" />
+            <input name="username" placeholder="Username" autoComplete="username" />
           </label>
           <label>
             Password
@@ -1366,8 +1415,7 @@ function LoginScreen({
               <input
                 name="password"
                 type={showPassword ? "text" : "password"}
-                defaultValue="geologist123"
-                placeholder="Use alphanumeric characters"
+                placeholder="Password"
                 autoComplete="current-password"
               />
               <button
@@ -1382,9 +1430,13 @@ function LoginScreen({
           </label>
           {error && <div className="auth-error">{error}</div>}
           <button type="submit" disabled={busy}>
-            {busy ? "Signing in..." : "Secure Sign-in"}
+            {busy ? "Signing in..." : "Secure Sign in"}
           </button>
         </form>
+        <div className="login-powered-by">
+          <span>{appBranding.poweredByLabel}</span>
+          <img src={appBranding.poweredByLogoSrc} alt={appBranding.poweredByName} />
+        </div>
       </section>
     </main>
   );
@@ -2338,6 +2390,149 @@ function PasswordDialog({
   );
 }
 
+function EmptyBoreholeSelection({
+  title,
+  detail,
+  onCreate,
+  onDashboard,
+}: {
+  title: string;
+  detail: string;
+  onCreate: () => void;
+  onDashboard: () => void;
+}) {
+  return (
+    <section className="workflow-center">
+      <div className="empty empty-action">
+        <strong>{title}</strong>
+        <span>{detail}</span>
+        <div>
+          <button type="button" onClick={onCreate}>
+            Create borehole
+          </button>
+          <button type="button" onClick={onDashboard}>
+            Choose from dashboard
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BoreholeCreateDialog({
+  busy,
+  error,
+  onClose,
+  onSave,
+}: {
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSave: (payload: BoreholeCreate) => void;
+}) {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const optionalNumber = (name: string) => {
+      const value = String(form.get(name) || "").trim();
+      return value ? Number(value) : null;
+    };
+    onSave({
+      project_code: String(form.get("project_code") || "DEMO-COAL").trim(),
+      project_name: String(form.get("project_name") || "Demo Coal Block").trim(),
+      site_code: String(form.get("site_code") || "").trim(),
+      site_name: String(form.get("site_name") || "").trim() || null,
+      borehole_code: String(form.get("borehole_code") || "").trim(),
+      title: String(form.get("title") || "").trim() || null,
+      total_depth: optionalNumber("total_depth") ?? 0,
+      state: String(form.get("state") || "").trim() || null,
+      workflow_status: "ready_for_data",
+      coalgrid_easting: optionalNumber("coalgrid_easting"),
+      coalgrid_northing: optionalNumber("coalgrid_northing"),
+      utm_easting: optionalNumber("utm_easting"),
+      utm_northing: optionalNumber("utm_northing"),
+      reduced_level: optionalNumber("reduced_level"),
+      water_level: optionalNumber("water_level"),
+      coordinate_system: String(form.get("coordinate_system") || "").trim() || null,
+    });
+  };
+
+  return (
+    <div className="iam-dialog-backdrop" role="dialog" aria-modal="true">
+      <form className="iam-dialog borehole-create-dialog" onSubmit={submit}>
+        <header>
+          <strong>Create Borehole</strong>
+          <button type="button" onClick={onClose}>Close</button>
+        </header>
+        {error && <div className="auth-error">{error}</div>}
+        <div className="borehole-create-grid">
+          <label>
+            Borehole code
+            <input name="borehole_code" required placeholder="MGCA-21" />
+          </label>
+          <label>
+            Title
+            <input name="title" placeholder="MGCA-21 central import" />
+          </label>
+          <label>
+            Project code
+            <input name="project_code" defaultValue="DEMO-COAL" required />
+          </label>
+          <label>
+            Project name
+            <input name="project_name" defaultValue="Demo Coal Block" />
+          </label>
+          <label>
+            Site code
+            <input name="site_code" required placeholder="RELIANCE-BLOCK" />
+          </label>
+          <label>
+            Site name
+            <input name="site_name" placeholder="Block / lease area" />
+          </label>
+          <label>
+            Total depth
+            <input name="total_depth" type="number" min="0" step="0.01" defaultValue="0" />
+          </label>
+          <label>
+            State
+            <input name="state" placeholder="Madhya Pradesh" />
+          </label>
+          <label>
+            Coordinate system
+            <input name="coordinate_system" placeholder="UTM / coal grid" />
+          </label>
+          <label>
+            RL
+            <input name="reduced_level" type="number" step="0.01" />
+          </label>
+          <label>
+            UTM easting
+            <input name="utm_easting" type="number" step="0.01" />
+          </label>
+          <label>
+            UTM northing
+            <input name="utm_northing" type="number" step="0.01" />
+          </label>
+          <label>
+            Coalgrid easting
+            <input name="coalgrid_easting" type="number" step="0.01" />
+          </label>
+          <label>
+            Coalgrid northing
+            <input name="coalgrid_northing" type="number" step="0.01" />
+          </label>
+          <label>
+            Water level
+            <input name="water_level" type="number" step="0.01" />
+          </label>
+        </div>
+        <button type="submit" disabled={busy}>{busy ? "Creating..." : "Create and open import"}</button>
+      </form>
+    </div>
+  );
+}
+
 function formatDateTime(value: string | null, preferences = DEFAULT_USER_PREFERENCES): string {
   return formatDateTimeWithPreferences(value, preferences);
 }
@@ -2350,6 +2545,8 @@ function LandingPage({
   displayChoice,
   onSelect,
   onDisplayChoice,
+  onNavigate,
+  onCreateBorehole,
   onOpen,
   onManageDisplay,
 }: LandingPageProps) {
@@ -2372,6 +2569,36 @@ function LandingPage({
             <DashboardKpi label="Selected" value={selectedBorehole?.code ?? "-"} />
           </div>
         </div>
+        <div className="pwa-action-strip dashboard-widget" aria-label="UAT quick actions">
+          <button type="button" onClick={() => onNavigate("import")}>
+            <Upload size={18} strokeWidth={2.1} />
+            <span>Capture / Upload</span>
+          </button>
+          <button type="button" onClick={onCreateBorehole}>
+            <Building2 size={18} strokeWidth={2.1} />
+            <span>New Borehole</span>
+          </button>
+          <button type="button" disabled={!selectedBorehole} onClick={() => selectedBorehole && onOpen(selectedBorehole.id)}>
+            <PanelTop size={18} strokeWidth={2.1} />
+            <span>Review Log</span>
+          </button>
+          <button type="button" disabled={!boreholes.length} onClick={() => onNavigate("correlation")}>
+            <GitCompareArrows size={18} strokeWidth={2.1} />
+            <span>Correlate</span>
+          </button>
+          <button type="button" disabled={!selectedBorehole} onClick={() => onNavigate("export")}>
+            <Download size={18} strokeWidth={2.1} />
+            <span>Export</span>
+          </button>
+        </div>
+        {!loading && (
+          <BoreholeMapWidget
+            boreholes={boreholes}
+            activeId={activeId}
+            onSelect={onSelect}
+            onOpen={onOpen}
+          />
+        )}
         {loading && <div className="empty">Loading boreholes...</div>}
         {!loading && (
           <BoreholeGroup
@@ -2396,8 +2623,12 @@ function LandingPage({
             Borehole
             <select
               value={activeId ?? ""}
-              onChange={(event) => onSelect(Number(event.target.value))}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value) onSelect(Number(value));
+              }}
             >
+              <option value="">Select borehole</option>
               {boreholes.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.code} - {item.workflow_status.replaceAll("_", " ")}
@@ -2416,6 +2647,9 @@ function LandingPage({
             </select>
           </label>
           <div className="setup-actions">
+            <button type="button" onClick={onCreateBorehole}>
+              New Borehole
+            </button>
             <button type="button" disabled={!selectedBorehole} onClick={() => selectedBorehole && onOpen(selectedBorehole.id)}>
               Open Workbench
             </button>

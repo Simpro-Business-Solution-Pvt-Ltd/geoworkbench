@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { keepPreviousData, useQueries } from "@tanstack/react-query";
 
 import { getCurveSampleWindow } from "../../../api/client";
 import type { BoreholeWorkbench, CurveSampleWindow, DisplayTrack } from "../../../api/types";
@@ -46,6 +46,7 @@ export function useCurveWindowData({ data, track, visibleDepthSpan }: UseCurveWi
       enabled:
         useWindowedSamples &&
         data.curves.some((curve) => curve.key === identity.curveKey),
+      placeholderData: keepPreviousData,
       staleTime: 5_000,
     })),
   });

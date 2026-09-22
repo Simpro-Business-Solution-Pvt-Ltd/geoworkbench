@@ -3,6 +3,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/rea
 
 import { createCorrelationObservation, getCorrelationAiSummary, getWorkbench, listCorrelationObservations } from "../../api/client";
 import type { BoreholeListItem, BoreholeWorkbench, CorrelationAiSummary, CorrelationObservation, Curve, LithologyInterval } from "../../api/types";
+import { queryKeys } from "../../api/queryKeys";
 import { lithologyPattern } from "../core/lithologyPatterns";
 import { correlationDecisionPrompt, correlationInsightObservationText } from "./correlationActionModel";
 import {
@@ -44,7 +45,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   const queryClient = useQueryClient();
   const queries = useQueries({
     queries: selectedIds.map((id) => ({
-      queryKey: ["workbench", id],
+      queryKey: queryKeys.workbench(id),
       queryFn: () => getWorkbench(id),
       enabled: selectedIds.length > 0,
     })),
@@ -69,12 +70,12 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   );
   const correlationKey = useMemo(() => selectedIds.slice().sort((a, b) => a - b).join(":"), [selectedIds]);
   const observationsQuery = useQuery({
-    queryKey: ["correlation-observations", correlationKey],
+    queryKey: queryKeys.correlationObservations(correlationKey),
     queryFn: () => listCorrelationObservations(selectedIds),
     enabled: selectedIds.length > 0,
   });
   const correlationAiSummary = useQuery({
-    queryKey: ["correlation-ai-summary", correlationKey, selectedSeamRow?.seamName ?? "", alignMode],
+    queryKey: queryKeys.correlationAi(correlationKey, selectedSeamRow?.seamName ?? "", alignMode),
     queryFn: () =>
       getCorrelationAiSummary({
         borehole_ids: selectedIds,
@@ -82,11 +83,11 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         align_mode: alignMode,
       }),
     enabled: insightsOpen && selectedIds.length > 0,
-    staleTime: Infinity,
+    staleTime: 60_000,
     gcTime: 10 * 60_000,
     refetchOnMount: false,
-    refetchOnReconnect: false,
-    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
     retry: false,
   });
   const saveObservation = useMutation({
@@ -97,7 +98,8 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         observation_metadata: { source: "correlation_dialog", align_mode: alignMode, reference_borehole_id: referenceId },
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["correlation-observations", correlationKey] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.correlationObservations(correlationKey) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.correlationAiRoot });
     },
   });
 
@@ -178,7 +180,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
           <b>Evidence</b> {stats.boreholes} boreholes · {stats.commonSeams} common seam groups · {stats.gammaCoverage}
         </span>
         <span>
-          <b>Seam links</b> {drawableTieLines.length} shown for {selectedSeamRow?.seamName ?? "selected seam"} · {tieLines.length} available
+          <b>Top/bottom links</b> {drawableTieLines.length} shown for {selectedSeamRow?.seamName ?? "selected seam"} · {tieLines.length} available
         </span>
         {selectedSeamRow && (
           <span>
@@ -189,6 +191,11 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         {selectedSeamRow && (
           <span>
             <b>Top spread</b> {selectedSeamRow.minTop.toFixed(1)}-{selectedSeamRow.maxTop.toFixed(1)}m
+          </span>
+        )}
+        {selectedSeamRow && (
+          <span>
+            <b>Bottom spread</b> {selectedSeamRow.minBottom.toFixed(1)}-{selectedSeamRow.maxBottom.toFixed(1)}m
           </span>
         )}
         <span>
@@ -366,14 +373,14 @@ function SeamTieLineOverlay({ lines, columnCount }: { lines: CorrelationTieLine[
       {lines.map((line) => (
         <line
           key={line.id}
-          className={`correlation-tie-line ${line.status}`}
+          className={`correlation-tie-line ${line.marker} ${line.status}`}
           x1={`${columnCenter(line.fromColumn)}%`}
           x2={`${columnCenter(line.toColumn)}%`}
           y1={`${line.fromY}%`}
           y2={`${line.toY}%`}
         >
           <title>
-            {line.seamName}: {line.offset.toFixed(1)}m adjacent seam offset
+            {line.seamName} {line.marker}: {line.offset.toFixed(1)}m adjacent marker offset
           </title>
         </line>
       ))}
@@ -618,7 +625,7 @@ function CorrelationColumn({
       <div className="correlation-log">
         <div className="correlation-lithology">
           {data.lithology_intervals.map((interval) => {
-            const pattern = lithologyPattern(interval.lithology_code);
+            const pattern = lithologyPattern(interval.lithology_code, interval.lithology_label);
             return (
               <div
                 key={interval.id}

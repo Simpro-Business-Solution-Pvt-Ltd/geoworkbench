@@ -19,6 +19,7 @@ dist/
 runtime-data/
 RelianceData/
 outputs/
+release-packages/
 
 # Generated corebox rock-lane assets. Store these in object storage or regenerate them.
 MTSE-65(PBH 62)/core-rock-lanes/

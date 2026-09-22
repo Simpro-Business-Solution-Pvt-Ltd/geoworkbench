@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.realtime import publish_workbench_event
 from app.db.session import get_db
+from app.domains.auth.router import current_user
 from app.domains.mobile import service
 from app.domains.mobile.schemas import (
     MobileBoreholeCreate,
@@ -17,7 +18,9 @@ router = APIRouter()
 
 @router.post("/boreholes", response_model=MobileSubmissionOut)
 def create_mobile_borehole(
-    payload: MobileBoreholeCreate, db: Session = Depends(get_db)
+    payload: MobileBoreholeCreate,
+    db: Session = Depends(get_db),
+    user=Depends(current_user),
 ) -> MobileSubmissionOut:
     borehole = service.create_mobile_borehole(db, payload)
     publish_workbench_event(
@@ -36,7 +39,9 @@ def create_mobile_borehole(
 
 @router.post("/field-submissions", response_model=MobileSubmissionOut)
 def submit_field_data(
-    payload: MobileFieldSubmissionCreate, db: Session = Depends(get_db)
+    payload: MobileFieldSubmissionCreate,
+    db: Session = Depends(get_db),
+    user=Depends(current_user),
 ) -> MobileSubmissionOut:
     try:
         submission = service.submit_field_data(db, payload)
@@ -58,7 +63,9 @@ def submit_field_data(
 
 @router.post("/demo-copy", response_model=MobileSubmissionOut)
 def create_demo_copy(
-    payload: MobileDemoCopyCreate, db: Session = Depends(get_db)
+    payload: MobileDemoCopyCreate,
+    db: Session = Depends(get_db),
+    user=Depends(current_user),
 ) -> MobileSubmissionOut:
     try:
         borehole = service.create_demo_copy(db, payload)
@@ -84,6 +91,7 @@ def upload_mobile_file(
     file_type: str = Form(...),
     borehole_id: int | None = Form(default=None),
     db: Session = Depends(get_db),
+    user=Depends(current_user),
 ) -> dict:
     source_file = upload_source_file(db, file=file, file_type=file_type, borehole_id=borehole_id)
     publish_workbench_event(

@@ -15,16 +15,18 @@ describe("correlation tie lines", () => {
       "depth",
     );
 
-    expect(lines).toHaveLength(2);
+    expect(lines).toHaveLength(4);
     expect(lines[0]).toMatchObject({
       seamName: "A",
+      marker: "top",
       fromColumn: 0,
       toColumn: 1,
       status: "strong",
     });
-    expect(lines[0].fromY).toBeCloseTo(50.5);
-    expect(lines[0].toY).toBeCloseTo(53);
-    expect(lines[1]).toMatchObject({ fromColumn: 1, toColumn: 2, status: "review" });
+    expect(lines[0].fromY).toBeCloseTo(50);
+    expect(lines[0].toY).toBeCloseTo(52);
+    expect(lines[1]).toMatchObject({ marker: "bottom", fromColumn: 0, toColumn: 1, status: "strong" });
+    expect(lines[2]).toMatchObject({ marker: "top", fromColumn: 1, toColumn: 2, status: "review" });
   });
 
   it("flags large adjacent seam offsets for review", () => {
@@ -34,7 +36,8 @@ describe("correlation tie lines", () => {
       "depth",
     );
 
-    expect(lines[0]).toMatchObject({ status: "review", offset: 22 });
+    expect(lines[0]).toMatchObject({ marker: "top", status: "review", offset: 22 });
+    expect(lines[1]).toMatchObject({ marker: "bottom", status: "review", offset: 22 });
   });
 
   it("pairs repeated seam names by depth order instead of fanning every duplicate", () => {
@@ -47,10 +50,15 @@ describe("correlation tie lines", () => {
       "depth",
     );
 
-    expect(lines).toHaveLength(2);
-    expect(lines.map((line) => line.id)).toEqual(["1:2:BAND:0", "1:2:BAND:1"]);
-    expect(lines[0].fromY).toBeCloseTo(10.25);
-    expect(lines[0].toY).toBeCloseTo(11.75);
+    expect(lines).toHaveLength(4);
+    expect(lines.map((line) => line.id)).toEqual([
+      "1:2:BAND:0:top",
+      "1:2:BAND:0:bottom",
+      "1:2:BAND:1:top",
+      "1:2:BAND:1:bottom",
+    ]);
+    expect(lines[0].fromY).toBeCloseTo(10);
+    expect(lines[0].toY).toBeCloseTo(11.5);
   });
 });
 
