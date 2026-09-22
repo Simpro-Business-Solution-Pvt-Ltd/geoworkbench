@@ -20,7 +20,7 @@ const DEFAULT_WINDOW_PRECISION = 3;
 
 export function shouldUseWindowedCurveSamples(track: DisplayTrack): boolean {
   return (
-    stringRendererSetting(track, "sampleSource", ["workbench", "visible-window"], "workbench") ===
+    stringRendererSetting(track, "sampleSource", ["workbench", "visible-window"], "visible-window") ===
     "visible-window"
   );
 }

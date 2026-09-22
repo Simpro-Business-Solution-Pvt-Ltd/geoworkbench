@@ -1,4 +1,4 @@
-import { type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 
 import type { BoreholeWorkbench, DisplayTrack } from "../../api/types";
 import type { LogTrackContext } from "./logTrackContext";
@@ -39,7 +39,7 @@ export function TrackFrame({
   const headerStyle: CSSProperties | undefined = headerHeight ? { height: headerHeight } : undefined;
   const bodyStyle: CSSProperties | undefined = headerHeight ? { top: headerHeight } : undefined;
 
-  function emit(type: TrackPointerEvent["type"], event: MouseEvent<HTMLDivElement>) {
+  function emit(type: TrackPointerEvent["type"], event: MouseEvent<HTMLDivElement> | PointerEvent<HTMLDivElement>) {
     if (!scale || !onTrackEvent) return;
     if (isTrackHeaderTarget(event.target)) return;
     if (!shouldEmitTrackPointerEvent(track, type)) return;
@@ -70,12 +70,24 @@ export function TrackFrame({
       data-track-id={track.id}
       data-track-type={track.type}
       style={{ width: resolvedWidth }}
-      onMouseDown={(event) => {
-        if (event.button === 0) emit("dragstart", event);
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        if (isTrackHeaderTarget(event.target)) return;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        emit("dragstart", event);
       }}
-      onMouseMove={(event) => emit(event.buttons === 1 ? "drag" : "hover", event)}
-      onMouseUp={(event) => {
-        if (event.button === 0) emit("dragend", event);
+      onPointerMove={(event) => emit(event.buttons === 1 ? "drag" : "hover", event)}
+      onPointerUp={(event) => {
+        if (event.button !== 0) return;
+        emit("dragend", event);
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+      }}
+      onPointerCancel={(event) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
       }}
       onContextMenu={(event) => {
         event.preventDefault();

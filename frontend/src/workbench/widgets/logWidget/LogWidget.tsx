@@ -346,9 +346,9 @@ export function LogWidget({
           className="track-row"
           style={{ height: viewport.contentHeight }}
           onMouseLeave={() => {
+            if (dragSelectionRef.current) return;
             setRuler(null);
             setHoveredObject(null);
-            setDragSelectionState(null);
           }}
         >
           {visibleTracks.map((track) => renderRegisteredTrack(data, track, trackContext))}
