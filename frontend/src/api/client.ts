@@ -22,6 +22,8 @@ import type {
   Role,
   RoleAccess,
   SourceFile,
+  TemplateSampleInspection,
+  TemplateTestResult,
   ValidationIssue,
   AiSuggestion,
   AuthSession,
@@ -244,6 +246,70 @@ export function updateImportProfile(
   });
 }
 
+/** Files stored against a borehole (uploads and registered sources), newest first. */
+export function listSourceFiles(boreholeId: number): Promise<SourceFile[]> {
+  return request<SourceFile[]>(`/imports/source-files?borehole_id=${boreholeId}`);
+}
+
+export function createImportProfile(
+  payload: Pick<ImportProfile, "name" | "description" | "mapping">,
+): Promise<ImportProfile> {
+  return request<ImportProfile>("/imports/profiles", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function setImportProfileArchived(profileId: number, archived: boolean): Promise<ImportProfile> {
+  return request<ImportProfile>(`/imports/profiles/${profileId}/archive`, {
+    method: "POST",
+    body: JSON.stringify({ archived }),
+  });
+}
+
+async function postTemplateForm<T>(url: string, form: FormData): Promise<T> {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE}${url}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  return response.json() as Promise<T>;
+}
+
+export function inspectTemplateSample(file: File): Promise<TemplateSampleInspection> {
+  const form = new FormData();
+  form.append("file", file);
+  return postTemplateForm<TemplateSampleInspection>("/imports/profiles/inspect-sample", form);
+}
+
+export function testImportTemplate(
+  file: File,
+  mapping: Record<string, unknown>,
+  boreholeCode: string | null,
+): Promise<TemplateTestResult> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("mapping", JSON.stringify(mapping));
+  if (boreholeCode) form.append("borehole_code", boreholeCode);
+  return postTemplateForm<TemplateTestResult>("/imports/profiles/test", form);
+}
+
+/** Readable message from an API failure; FastAPI errors arrive as {"detail": ...}. */
+export function apiErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) return "Request failed.";
+  try {
+    const parsed = JSON.parse(error.message) as { detail?: unknown };
+    if (typeof parsed.detail === "string") return parsed.detail;
+  } catch {
+    // not JSON: fall through to the raw message
+  }
+  return error.message || "Request failed.";
+}
+
 export function runValidation(boreholeId: number): Promise<ValidationIssue[]> {
   return request<ValidationIssue[]>(`/validation/boreholes/${boreholeId}/run`, {
     method: "POST",
@@ -448,6 +514,7 @@ export function mergeSourceFileIntoBorehole(
     curve_mode?: string;
     from_depth?: number | null;
     to_depth?: number | null;
+    source_borehole_code?: string | null;
   },
 ): Promise<{
   source_file: SourceFile;

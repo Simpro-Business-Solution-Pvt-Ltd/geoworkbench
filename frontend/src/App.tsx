@@ -13,7 +13,7 @@ import {
   Upload,
 } from "lucide-react";
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   approveBoreholeForExport,
@@ -59,6 +59,9 @@ import {
   updateDisplayLayout,
   updateExportProfile,
   updateImportProfile,
+  createImportProfile,
+  setImportProfileArchived,
+  apiErrorMessage,
   updateCurrentUserPreferences,
   updateAiSuggestionStatus,
   updateInterval,
@@ -79,6 +82,7 @@ import type {
   Role,
   User,
 } from "./api/types";
+import { queryKeys } from "./api/queryKeys";
 import { CorrelationWorkspace } from "./workbench/correlation/CorrelationWorkspace";
 import { BoreholeMapWidget } from "./workbench/dashboard/BoreholeMapWidget";
 import { DisplayEditorDialog } from "./workbench/display/DisplayEditorDialog";
@@ -86,6 +90,7 @@ import { DisplayRuntime } from "./workbench/display/DisplayRuntime";
 import { useWorkbenchStore } from "./workbench/display/workbenchStore";
 import { ExportCenter } from "./workbench/exports/ExportCenter";
 import { ImportCenter } from "./workbench/imports/ImportCenter";
+import type { TemplateSavePayload } from "./workbench/imports/TemplateEditorDialog";
 import {
   DEFAULT_USER_PREFERENCES,
   formatDateTimeWithPreferences,
@@ -360,7 +365,7 @@ export function App() {
     if (token) {
       setAuthToken(token);
       setAuthError(null);
-      queryClient.invalidateQueries({ queryKey: ["authSession"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.authSession });
     }
     if (error) {
       setAuthToken(null);
@@ -371,69 +376,89 @@ export function App() {
   }, [queryClient]);
 
   const sessionQuery = useQuery({
-    queryKey: ["authSession"],
+    queryKey: queryKeys.authSession,
     queryFn: getCurrentSession,
     retry: false,
+    staleTime: 0,
   });
   const isAuthed = Boolean(session);
   const canViewDeveloperDocs = session?.user.role === "system_admin" || session?.user.role === "developer";
   const visibleWikiPages = WIKI_PAGES.filter((page) => page.audience === "user" || canViewDeveloperDocs);
-  const boreholes = useQuery({ queryKey: ["boreholes"], queryFn: listBoreholes, enabled: isAuthed });
-  const importProfiles = useQuery({ queryKey: ["importProfiles"], queryFn: listImportProfiles, enabled: isAuthed });
-  const exportProfiles = useQuery({ queryKey: ["exportProfiles"], queryFn: listExportProfiles, enabled: isAuthed });
+  const boreholes = useQuery({ queryKey: queryKeys.boreholes, queryFn: listBoreholes, enabled: isAuthed, staleTime: 30_000 });
+  const importProfiles = useQuery({ queryKey: queryKeys.importProfiles, queryFn: listImportProfiles, enabled: isAuthed, staleTime: 5 * 60_000 });
+  const exportProfiles = useQuery({ queryKey: queryKeys.exportProfiles, queryFn: listExportProfiles, enabled: isAuthed, staleTime: 5 * 60_000 });
   const diagnostics = useQuery({
-    queryKey: ["diagnosticsHealth"],
+    queryKey: queryKeys.diagnosticsHealth,
     queryFn: getDiagnosticsHealth,
     enabled: isAuthed && profileOpen,
     refetchInterval: profileOpen ? 15000 : false,
+    staleTime: 0,
   });
   const activeId = boreholeSelectionReady ? boreholeId : null;
   const selectedDisplayLayoutId = activeId ? selectedDisplayLayoutIds[String(activeId)] ?? null : null;
   const selectedBorehole = boreholes.data?.find((item) => item.id === activeId) ?? null;
   const correlationIds = useMemo(() => (boreholes.data ?? []).map((item) => item.id), [boreholes.data]);
   const workbench = useQuery({
-    queryKey: ["workbench", activeId, displayChoice === "saved" ? selectedDisplayLayoutId : null],
+    queryKey: queryKeys.workbench(activeId, displayChoice === "saved" ? selectedDisplayLayoutId : null),
     queryFn: () => getWorkbench(activeId as number, displayChoice === "saved" ? selectedDisplayLayoutId : null),
     enabled: isAuthed && Boolean(activeId),
   });
   const aiSummary = useQuery({
-    queryKey: ["aiSummary", activeId],
+    queryKey: queryKeys.aiSummary(activeId),
     queryFn: () => getBoreholeAiSummary(activeId as number),
     enabled: isAuthed && Boolean(activeId),
+    staleTime: 60_000,
   });
-  const aiProvider = useQuery({ queryKey: ["aiProvider"], queryFn: getAiProviderStatus, enabled: isAuthed });
+  const aiProvider = useQuery({ queryKey: queryKeys.aiProvider, queryFn: getAiProviderStatus, enabled: isAuthed, staleTime: 5 * 60_000 });
   const exportReadiness = useQuery({
-    queryKey: ["exportReadiness", activeId],
+    queryKey: queryKeys.exportReadiness(activeId),
     queryFn: () => getExportReadiness(activeId as number),
     enabled: isAuthed && Boolean(activeId),
+    staleTime: 10_000,
   });
   const exportJobs = useQuery({
-    queryKey: ["exportJobs", activeId],
+    queryKey: queryKeys.exportJobs(activeId),
     queryFn: () => listExportJobs(activeId as number),
     enabled: isAuthed && Boolean(activeId),
+    staleTime: 5_000,
   });
-  const roles = useQuery({ queryKey: ["roles"], queryFn: listRoles, enabled: isAuthed });
+  const roles = useQuery({ queryKey: queryKeys.roles, queryFn: listRoles, enabled: isAuthed, staleTime: 5 * 60_000 });
   const permissions = useQuery({
-    queryKey: ["permissions"],
+    queryKey: queryKeys.permissions,
     queryFn: listPermissions,
     enabled: isAuthed,
+    staleTime: 5 * 60_000,
   });
   const roleAccess = useQuery({
-    queryKey: ["roleAccess", selectedAccessRole],
+    queryKey: queryKeys.roleAccess(selectedAccessRole),
     queryFn: () => getRoleAccess(selectedAccessRole),
     enabled: isAuthed && session?.user.role === "system_admin" && Boolean(selectedAccessRole),
+    staleTime: 5 * 60_000,
   });
   const users = useQuery({
-    queryKey: ["users"],
+    queryKey: queryKeys.users,
     queryFn: listUsers,
     enabled: isAuthed && session?.user.role === "system_admin",
+    staleTime: 30_000,
   });
   const qualitySettings = useQuery({
-    queryKey: ["qualitySettings"],
+    queryKey: queryKeys.qualitySettings,
     queryFn: getQualitySettings,
     enabled: isAuthed && session?.user.role === "system_admin",
+    staleTime: 5 * 60_000,
   });
   useWorkbenchRealtime({ boreholeId: activeId, enabled: isAuthed, queryClient });
+
+  const invalidateBoreholeData = (id: number | null | undefined, includeCurves = false) => {
+    if (!id) return;
+    void queryClient.invalidateQueries({ queryKey: queryKeys.workbench(id).slice(0, 2) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.aiSummary(id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.exportReadiness(id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.correlationAiRoot });
+    if (includeCurves) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.curveSamplesRoot(id) });
+    }
+  };
 
   useEffect(() => {
     if (sessionQuery.data) {
@@ -486,30 +511,28 @@ export function App() {
       updateInterval(payload.intervalId, payload.patch),
     onSuccess: (updated) => {
       setSelectedInterval(updated);
-      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
+      invalidateBoreholeData(activeId);
     },
   });
   const validateCurrent = useMutation({
     mutationFn: () => runValidation(activeId as number),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workbench", activeId] }),
+    onSuccess: () => invalidateBoreholeData(activeId),
   });
   const generateSuggestions = useMutation({
     mutationFn: () => generateAiSuggestions(activeId as number),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
-      queryClient.invalidateQueries({ queryKey: ["aiSummary", activeId] });
+      invalidateBoreholeData(activeId);
     },
   });
   const acceptSuggestion = useMutation({
     mutationFn: (suggestionId: number) => acceptAiSuggestion(suggestionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
-      queryClient.invalidateQueries({ queryKey: ["aiSummary", activeId] });
+      invalidateBoreholeData(activeId);
     },
   });
   const rejectSuggestion = useMutation({
     mutationFn: (suggestionId: number) => updateAiSuggestionStatus(suggestionId, "rejected"),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workbench", activeId] }),
+    onSuccess: () => invalidateBoreholeData(activeId),
   });
   const createExport = useMutation({
     mutationFn: (payload:
@@ -523,16 +546,15 @@ export function App() {
           sections?: string[] | null;
         }) => createExportJob(activeId as number, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exportReadiness", activeId] });
-      queryClient.invalidateQueries({ queryKey: ["exportJobs", activeId] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.exportReadiness(activeId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.exportJobs(activeId) });
     },
   });
   const approveExport = useMutation({
     mutationFn: () => approveBoreholeForExport(activeId as number),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["boreholes"] });
-      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
-      queryClient.invalidateQueries({ queryKey: ["exportReadiness", activeId] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
+      invalidateBoreholeData(activeId);
     },
   });
   const saveDisplayLayout = useMutation({
@@ -542,17 +564,30 @@ export function App() {
         mode: layout.mode,
         settings: layout.settings,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workbench", activeId] }),
+    onSuccess: () => invalidateBoreholeData(activeId),
   });
   const resetCurrentLayout = useMutation({
     mutationFn: () => resetDisplayLayout(activeId as number),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workbench", activeId] }),
+    onSuccess: () => invalidateBoreholeData(activeId),
   });
+  const clonedLayoutNames = useRef(new Set<string>());
   const cloneCurrentLayout = useMutation({
-    mutationFn: (layout: DisplayLayout) => cloneDisplayLayout(layout.id, `${layout.name} Copy`),
+    mutationFn: (layout: DisplayLayout) => {
+      const takenNames = new Set([
+        ...(workbench.data?.display_layouts ?? []).map((item) => item.name),
+        ...clonedLayoutNames.current,
+      ]);
+      const baseName = layout.name.replace(/( Copy( \d+)?)+$/, "");
+      let cloneName = `${baseName} Copy`;
+      for (let suffix = 2; takenNames.has(cloneName); suffix += 1) {
+        cloneName = `${baseName} Copy ${suffix}`;
+      }
+      clonedLayoutNames.current.add(cloneName);
+      return cloneDisplayLayout(layout.id, cloneName);
+    },
     onSuccess: (layout) => {
       if (activeId) setPersistedDisplayLayoutId(activeId, layout.id);
-      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
+      invalidateBoreholeData(activeId);
     },
   });
   const cloneRuntimeLayout = useMutation({
@@ -566,14 +601,14 @@ export function App() {
     },
     onSuccess: (layout) => {
       if (activeId) setPersistedDisplayLayoutId(activeId, layout.id);
-      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
+      invalidateBoreholeData(activeId);
     },
   });
   const deleteCurrentLayout = useMutation({
     mutationFn: (layout: DisplayLayout) => deleteDisplayLayout(layout.id),
     onSuccess: (layout) => {
       if (activeId) setPersistedDisplayLayoutId(activeId, layout.id);
-      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
+      invalidateBoreholeData(activeId);
     },
   });
   const registerSourceFile = useMutation({
@@ -590,16 +625,26 @@ export function App() {
         storage_path: payload.storage_path ?? `registered://${payload.original_name}`,
         file_metadata: payload.file_metadata ?? { registration_mode: "manual_registration" },
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workbench", activeId] }),
+    onSuccess: () => {
+      invalidateBoreholeData(activeId, true);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
+    },
   });
   const saveImportProfile = useMutation({
-    mutationFn: (payload: { profileId: number; name: string; description: string; mapping: Record<string, unknown> }) =>
-      updateImportProfile(payload.profileId, {
-        name: payload.name,
-        description: payload.description,
-        mapping: payload.mapping,
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["importProfiles"] }),
+    mutationFn: (payload: TemplateSavePayload) =>
+      payload.profileId === null
+        ? createImportProfile({ name: payload.name, description: payload.description, mapping: payload.mapping })
+        : updateImportProfile(payload.profileId, {
+            name: payload.name,
+            description: payload.description,
+            mapping: payload.mapping,
+          }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.importProfiles }),
+  });
+  const archiveImportProfile = useMutation({
+    mutationFn: (payload: { profileId: number; archived: boolean }) =>
+      setImportProfileArchived(payload.profileId, payload.archived),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.importProfiles }),
   });
   const saveExportProfile = useMutation({
     mutationFn: (payload: { profileId: number; name: string; description: string; mapping: Record<string, unknown> }) =>
@@ -608,7 +653,7 @@ export function App() {
         description: payload.description,
         mapping: payload.mapping,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["exportProfiles"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.exportProfiles }),
   });
   const uploadFile = useMutation({
     mutationFn: (payload: { file_type: string; file: File }) =>
@@ -617,18 +662,23 @@ export function App() {
         file_type: payload.file_type,
         file: payload.file,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workbench", activeId] }),
+    onSuccess: () => {
+      invalidateBoreholeData(activeId, true);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
+    },
   });
   const processFile = useMutation({
     mutationFn: (sourceFileId: number) => processSourceFile(sourceFileId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workbench", activeId] }),
+    onSuccess: () => invalidateBoreholeData(activeId, true),
   });
   const importBoreholeFile = useMutation({
     mutationFn: (sourceFileId: number) => importSourceFileAsBorehole(sourceFileId),
     onSuccess: (result) => {
       setPersistedBorehole(result.borehole_id);
-      queryClient.invalidateQueries({ queryKey: ["boreholes"] });
-      queryClient.invalidateQueries({ queryKey: ["workbench"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.workbenchRoot });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.aiSummaryRoot });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.correlationAiRoot });
     },
   });
   const mergeSourceFile = useMutation({
@@ -639,21 +689,26 @@ export function App() {
         curve_mode?: string;
         from_depth?: number | null;
         to_depth?: number | null;
+        source_borehole_code?: string | null;
       };
     }) => mergeSourceFileIntoBorehole(payload.sourceFileId, payload.options),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
-      queryClient.invalidateQueries({ queryKey: ["boreholes"] });
+      invalidateBoreholeData(activeId, true);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
     },
   });
+  const failedImportAction = [importBoreholeFile, mergeSourceFile, processFile, uploadFile].find(
+    (mutation) => mutation.error,
+  );
+  const importActionError = failedImportAction ? apiErrorMessage(failedImportAction.error) : null;
   const loginMutation = useMutation({
     mutationFn: (payload: { username: string; password: string }) => login(payload.username, payload.password),
     onSuccess: (result) => {
       setAuthToken(result.token);
       setSession({ user: result.user, expires_at: result.expires_at, client_type: "web" });
       setAuthError(null);
-      queryClient.invalidateQueries({ queryKey: ["authSession"] });
-      queryClient.invalidateQueries({ queryKey: ["boreholes"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.authSession });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
     },
     onError: (error) => setAuthError(error instanceof Error ? error.message : "Login failed"),
   });
@@ -669,60 +724,64 @@ export function App() {
   });
   const createUserMutation = useMutation({
     mutationFn: createUser,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.users }),
   });
   const updateUserMutation = useMutation({
     mutationFn: (payload: { userId: number; patch: Partial<User> }) =>
       updateUser(payload.userId, payload.patch),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-      queryClient.invalidateQueries({ queryKey: ["authSession"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.authSession });
     },
   });
   const deactivateUserMutation = useMutation({
     mutationFn: deactivateUser,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.users }),
   });
   const resetPasswordMutation = useMutation({
     mutationFn: (payload: { userId: number; newPassword: string }) =>
       resetUserPassword(payload.userId, payload.newPassword),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.users }),
   });
   const createRoleMutation = useMutation({
     mutationFn: createRole,
     onSuccess: (role) => {
       setSelectedAccessRole(role.key);
-      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.roles });
     },
   });
   const updateRoleMutation = useMutation({
     mutationFn: (payload: { roleKey: string; patch: Partial<Role> }) =>
       updateRole(payload.roleKey, payload.patch),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["roles"] });
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.roles });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users });
     },
   });
   const updateRoleAccessMutation = useMutation({
     mutationFn: (payload: { roleKey: string; permissions: string[] }) =>
       updateRoleAccess(payload.roleKey, payload.permissions),
     onSuccess: (_, variables) =>
-      queryClient.invalidateQueries({ queryKey: ["roleAccess", variables.roleKey] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.roleAccess(variables.roleKey) }),
   });
   const updateQualitySettingsMutation = useMutation({
     mutationFn: updateQualitySettings,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["qualitySettings"] });
-      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
-      queryClient.invalidateQueries({ queryKey: ["aiSummary", activeId] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.qualitySettings });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.workbenchRoot });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.aiSummaryRoot });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.exportReadinessRoot });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.correlationAiRoot });
     },
   });
   const resetQualitySettingsMutation = useMutation({
     mutationFn: resetQualitySettings,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["qualitySettings"] });
-      queryClient.invalidateQueries({ queryKey: ["workbench", activeId] });
-      queryClient.invalidateQueries({ queryKey: ["aiSummary", activeId] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.qualitySettings });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.workbenchRoot });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.aiSummaryRoot });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.exportReadinessRoot });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.correlationAiRoot });
     },
   });
   const changePasswordMutation = useMutation({
@@ -1022,8 +1081,8 @@ export function App() {
                       <span className="status-dot" />
                       <strong>Status</strong>
                       <small>
-                        API {diagnostics.data.status} · DB {diagnostics.data.database.status} · AI{" "}
-                        {diagnostics.data.ai.provider}
+                        API {diagnostics.data.status} · DB {diagnostics.data.database.status} · Cache{" "}
+                        {diagnostics.data.cache?.status ?? "unknown"} · AI {diagnostics.data.ai.provider}
                       </small>
                     </>
                   ) : (
@@ -1144,6 +1203,22 @@ export function App() {
           importing={importBoreholeFile.isPending}
           merging={mergeSourceFile.isPending}
           savingProfile={saveImportProfile.isPending}
+          archivingProfile={archiveImportProfile.isPending}
+          canManageTemplates={session?.user.role === "system_admin"}
+          profileError={
+            saveImportProfile.error
+              ? apiErrorMessage(saveImportProfile.error)
+              : archiveImportProfile.error
+                ? apiErrorMessage(archiveImportProfile.error)
+                : null
+          }
+          actionError={importActionError}
+          onDismissActionError={() => {
+            uploadFile.reset();
+            processFile.reset();
+            importBoreholeFile.reset();
+            mergeSourceFile.reset();
+          }}
           onRegisterSourceFile={(payload) =>
             registerSourceFile.mutate({
               file_type: payload.file_type,
@@ -1152,7 +1227,14 @@ export function App() {
               file_metadata: payload.file_metadata,
             })
           }
-          onSaveImportProfile={(payload) => saveImportProfile.mutate(payload)}
+          onSaveTemplate={(payload, onSaved) => {
+            archiveImportProfile.reset();
+            saveImportProfile.mutate(payload, { onSuccess: onSaved });
+          }}
+          onArchiveTemplate={(profileId, archived) => {
+            saveImportProfile.reset();
+            archiveImportProfile.mutate({ profileId, archived });
+          }}
           onUploadSourceFile={(payload) => uploadFile.mutate(payload)}
           onProcessSourceFile={(sourceFileId) => processFile.mutate(sourceFileId)}
           onImportBoreholeFile={(sourceFileId) => importBoreholeFile.mutate(sourceFileId)}
@@ -1263,7 +1345,9 @@ export function App() {
               },
             })
           }
-          onClone={(layout) => cloneCurrentLayout.mutate(layout)}
+          onClone={(layout, onCloned) =>
+            cloneCurrentLayout.mutate(layout, { onSuccess: (clone) => onCloned(clone.name) })
+          }
           onDelete={(layout) => deleteCurrentLayout.mutate(layout)}
           onReset={() => resetCurrentLayout.mutate()}
           onClose={() => {
@@ -1335,7 +1419,7 @@ type LandingPageProps = {
   activeId: number | null;
   selectedBorehole: BoreholeListItem | null;
   displayChoice: DisplayChoice;
-  onSelect: (id: number) => void;
+  onSelect: (id: number | null) => void;
   onDisplayChoice: (choice: DisplayChoice) => void;
   onNavigate: (view: AppView) => void;
   onCreateBorehole: () => void;
@@ -2625,10 +2709,10 @@ function LandingPage({
               value={activeId ?? ""}
               onChange={(event) => {
                 const value = event.target.value;
-                if (value) onSelect(Number(value));
+                onSelect(value ? Number(value) : null);
               }}
             >
-              <option value="">Select borehole</option>
+              <option value="">No borehole selected</option>
               {boreholes.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.code} - {item.workflow_status.replaceAll("_", " ")}

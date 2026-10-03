@@ -1,5 +1,6 @@
 import type { BoreholeWorkbench, Curve } from "../../api/types";
 import { metadataFor, rlLabel, type BoreholeMeta } from "./correlationMetadata";
+import { seamOccurrences } from "./seamOccurrences";
 
 export type CorrelationAlignMode = "depth" | "rl";
 
@@ -50,8 +51,9 @@ export type CollarContextRow = {
 export function seamCorrelationRows(items: BoreholeWorkbench[]): SeamCorrelationRow[] {
   const groups = new Map<string, SeamCorrelationRow["items"]>();
   for (const data of items) {
-    for (const seam of data.seam_intervals) {
-      const name = (seam.name || "Unnamed seam").trim().toUpperCase();
+    // Whole seams: a seam logged as several bands counts once, with its real top and bottom.
+    for (const seam of seamOccurrences(data.seam_intervals)) {
+      const name = seam.key;
       const current = groups.get(name) ?? [];
       current.push({
         borehole: data.code,
@@ -107,7 +109,7 @@ export function collarContextRows(items: BoreholeWorkbench[], referenceBoreholeI
       rlSource: meta.rlSource,
       waterLevel: meta.waterLevel,
       distanceFromReference,
-      seamCount: item.seam_intervals.length,
+      seamCount: seamOccurrences(item.seam_intervals).length,
       curveCount: item.curves.length,
     };
   });

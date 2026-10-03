@@ -1,7 +1,27 @@
-import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { createCorrelationObservation, getCorrelationAiSummary, getWorkbench, listCorrelationObservations } from "../../api/client";
+import {
+  MIN_DRAG_PIXELS,
+  MIN_ZOOM,
+  axisTickStep,
+  clampZoom,
+  formatZoom,
+  fractionAt,
+  stepZoom,
+  zoomForSelection,
+} from "./correlationZoomModel";
+import { seamOccurrences } from "./seamOccurrences";
 import type { BoreholeListItem, BoreholeWorkbench, CorrelationAiSummary, CorrelationObservation, Curve, LithologyInterval } from "../../api/types";
 import { queryKeys } from "../../api/queryKeys";
 import { lithologyPattern } from "../core/lithologyPatterns";
@@ -42,6 +62,17 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
   const [selectedSeamName, setSelectedSeamName] = useState<string>("");
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [reviewedInsightIds, setReviewedInsightIds] = useState<Set<string>>(() => new Set());
+  // Zoom: the log is drawn in percentages, so zooming makes it taller and the panel scrolls.
+  const [zoom, setZoom] = useState(MIN_ZOOM);
+  const [dragBand, setDragBand] = useState<{ top: number; height: number } | null>(null);
+  const [visibleFractions, setVisibleFractions] = useState<{ top: number; bottom: number }>({ top: 0, bottom: 1 });
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const columnsRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  // After a zoom renders: put log fraction `fraction` at `offset` px below the panel top.
+  const pendingScroll = useRef<{ fraction: number; offset: number } | null>(null);
+  const dragStart = useRef<{ clientY: number } | null>(null);
   const queryClient = useQueryClient();
   const queries = useQueries({
     queries: selectedIds.map((id) => ({
@@ -54,10 +85,128 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
     .map((query) => query.data)
     .filter((item): item is BoreholeWorkbench => Boolean(item));
   const domain = useMemo(() => correlationDomain(loaded, alignMode), [loaded, alignMode]);
+
+  // The first column's log area is the reference for depth <-> screen position.
+  const logRect = () => columnsRef.current?.querySelector(".correlation-log")?.getBoundingClientRect() ?? null;
+
+  const updateVisibleRange = () => {
+    const panel = panelRef.current;
+    const log = logRect();
+    if (!panel || !log || log.height <= 0) return;
+    const view = panel.getBoundingClientRect();
+    setVisibleFractions({
+      top: fractionAt(view.top, log.top, log.height),
+      bottom: fractionAt(view.bottom, log.top, log.height),
+    });
+  };
+
+  const applyZoom = (nextZoom: number, anchor: { clientY: number; offset: number } | null) => {
+    const panel = panelRef.current;
+    const log = logRect();
+    if (panel && log && log.height > 0) {
+      const view = panel.getBoundingClientRect();
+      const clientY = anchor?.clientY ?? view.top + view.height / 2;
+      pendingScroll.current = {
+        fraction: fractionAt(clientY, log.top, log.height),
+        offset: anchor?.offset ?? clientY - view.top,
+      };
+    }
+    setZoom(clampZoom(nextZoom));
+  };
+
+  useLayoutEffect(() => {
+    const target = pendingScroll.current;
+    pendingScroll.current = null;
+    const panel = panelRef.current;
+    const log = logRect();
+    if (panel && zoom === MIN_ZOOM) {
+      panel.scrollTop = 0;
+    } else if (panel && log && target) {
+      const view = panel.getBoundingClientRect();
+      panel.scrollTop += log.top + target.fraction * log.height - (view.top + target.offset);
+    }
+    updateVisibleRange();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom]);
+
+  // Ctrl/Alt + wheel zooms at the pointer, as in the Workbench. A native listener is used
+  // because React's wheel listener is passive and could not stop the browser's page zoom.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.altKey) return;
+      event.preventDefault();
+      const view = panel.getBoundingClientRect();
+      applyZoom(stepZoom(zoomRef.current, event.deltaY < 0 ? "in" : "out"), {
+        clientY: event.clientY,
+        offset: event.clientY - view.top,
+      });
+    };
+    panel.addEventListener("wheel", onWheel, { passive: false });
+    return () => panel.removeEventListener("wheel", onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Drag-zoom: press on the logs, drag over a depth range, release; that range fills the view.
+  const isDragTarget = (target: EventTarget | null) =>
+    target instanceof Element && Boolean(target.closest(".correlation-log")) && !target.closest("button,select,input,a");
+
+  const onLogPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || !isDragTarget(event.target)) return;
+    dragStart.current = { clientY: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onLogPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = dragStart.current;
+    const columns = columnsRef.current;
+    if (!start || !columns) return;
+    if (Math.abs(event.clientY - start.clientY) < MIN_DRAG_PIXELS) {
+      setDragBand(null);
+      return;
+    }
+    const box = columns.getBoundingClientRect();
+    setDragBand({
+      top: Math.min(start.clientY, event.clientY) - box.top + columns.scrollTop,
+      height: Math.abs(event.clientY - start.clientY),
+    });
+  };
+
+  const endDrag = (event: ReactPointerEvent<HTMLDivElement>, apply: boolean) => {
+    const start = dragStart.current;
+    dragStart.current = null;
+    setDragBand(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (!apply || !start || Math.abs(event.clientY - start.clientY) < MIN_DRAG_PIXELS) return;
+    const panel = panelRef.current;
+    const log = logRect();
+    if (!panel || !log || log.height <= 0) return;
+    const fromFraction = fractionAt(Math.min(start.clientY, event.clientY), log.top, log.height);
+    const toFraction = fractionAt(Math.max(start.clientY, event.clientY), log.top, log.height);
+    const view = panel.getBoundingClientRect();
+    pendingScroll.current = { fraction: fromFraction, offset: 8 };
+    setZoom(zoomForSelection(zoomRef.current, fromFraction, toFraction, log.height, view.height - 16));
+  };
+
+  const visibleRangeText = (() => {
+    const span = domain.max - domain.min;
+    const at = (fraction: number) => (alignMode === "rl" ? domain.max - fraction * span : domain.min + fraction * span);
+    const unit = alignMode === "rl" ? " RL" : " m";
+    const a = at(visibleFractions.top);
+    const b = at(visibleFractions.bottom);
+    return `Visible ${Math.min(a, b).toFixed(1)}-${Math.max(a, b).toFixed(1)}${unit}`;
+  })();
   const seamRows = useMemo(() => seamCorrelationRows(loaded), [loaded]);
   const collarRows = useMemo(() => collarContextRows(loaded, referenceId), [loaded, referenceId]);
   const tieLines = useMemo(() => buildSeamTieLines(loaded, domain, alignMode), [alignMode, domain, loaded]);
-  const focusSeamRows = useMemo(() => seamRows.filter((row) => row.presentCount >= 2), [seamRows]);
+  // Generic names ("BAND", "UNNAMED") are partings, not correlatable seams: keep them out of the list.
+  const focusSeamRows = useMemo(
+    () => seamRows.filter((row) => row.presentCount >= 2 && !isGenericCorrelationMarker(row.seamName)),
+    [seamRows],
+  );
   const selectedSeamRow = focusSeamRows.find((row) => row.seamName === selectedSeamName) ?? focusSeamRows[0] ?? null;
   const drawableTieLines = useMemo(
     () => tieLines.filter((line) => selectedSeamRow && line.seamName === selectedSeamRow.seamName),
@@ -144,6 +293,30 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
           <p>Compare selected boreholes by lithology, seam markers, and normalized Natural Gamma response.</p>
         </div>
         <div className="correlation-toolbar-actions">
+          <div className="correlation-zoom-controls" aria-label="Zoom">
+            <button
+              type="button"
+              aria-label="Zoom out"
+              title="Zoom out (or Ctrl + mouse wheel)"
+              disabled={zoom <= MIN_ZOOM}
+              onClick={() => applyZoom(stepZoom(zoom, "out"), null)}
+            >
+              −
+            </button>
+            <span title="Zoom level">{formatZoom(zoom)}</span>
+            <button
+              type="button"
+              aria-label="Zoom in"
+              title="Zoom in (or Ctrl + mouse wheel, or drag over a depth range)"
+              onClick={() => applyZoom(stepZoom(zoom, "in"), null)}
+            >
+              +
+            </button>
+            <button type="button" disabled={zoom <= MIN_ZOOM} onClick={() => applyZoom(MIN_ZOOM, null)}>
+              Full depth
+            </button>
+            <small>{visibleRangeText}</small>
+          </div>
           <button type="button" onClick={() => setInsightsOpen(true)}>
             AI insights
           </button>
@@ -270,11 +443,16 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
         )}
       </div>
 
-      <div className="correlation-panel">
+      <div
+        ref={panelRef}
+        className={`correlation-panel${zoom > MIN_ZOOM ? " is-zoomed" : ""}`}
+        style={{ "--corr-zoom": zoom } as CSSProperties}
+        onScroll={updateVisibleRange}
+      >
         <div className="correlation-axis">
           <div className="correlation-axis-header">Depth</div>
           <div className="correlation-axis-body">
-            {axisTicks(domain.min, domain.max).map((tick) => (
+            {axisTicks(domain.min, domain.max, zoom).map((tick) => (
             <span key={tick} style={{ top: `${axisTickPercent(tick, domain)}%` }}>
                 {tick.toFixed(0)}
                 {alignMode === "rl" ? " RL" : "m"}
@@ -282,7 +460,17 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
             ))}
           </div>
         </div>
-        <div className="correlation-columns">
+        <div
+          ref={columnsRef}
+          className="correlation-columns"
+          onPointerDown={onLogPointerDown}
+          onPointerMove={onLogPointerMove}
+          onPointerUp={(event) => endDrag(event, true)}
+          onPointerCancel={(event) => endDrag(event, false)}
+        >
+          {dragBand && (
+            <div className="correlation-drag-band" style={{ top: dragBand.top, height: dragBand.height }} aria-hidden="true" />
+          )}
           <div
             className="correlation-column-grid"
             style={
@@ -299,6 +487,7 @@ export function CorrelationWorkspace({ boreholes, initialIds, onOpenWorkbench }:
                 data={data}
                 domain={domain}
                 alignMode={alignMode}
+                zoom={zoom}
                 focusSeamName={selectedSeamRow?.seamName ?? ""}
                 onOpenWorkbench={onOpenWorkbench}
               />
@@ -353,7 +542,7 @@ function providerStatusText(summary: CorrelationAiSummary): string {
 
 function isGenericCorrelationMarker(name: string): boolean {
   const normalized = name.trim().toUpperCase();
-  return normalized === "BAND" || normalized === "UNNAMED" || normalized.length <= 2;
+  return normalized === "BAND" || normalized === "UNNAMED" || normalized === "UNNAMED SEAM" || normalized.length <= 2;
 }
 
 function seamMarkerName(name: string | null | undefined): string {
@@ -597,12 +786,14 @@ function CorrelationColumn({
   data,
   domain,
   alignMode,
+  zoom,
   focusSeamName,
   onOpenWorkbench,
 }: {
   data: BoreholeWorkbench;
   domain: { min: number; max: number };
   alignMode: AlignMode;
+  zoom: number;
   focusSeamName: string;
   onOpenWorkbench: (id: number, focusDepth?: number | null) => void;
 }) {
@@ -610,12 +801,13 @@ function CorrelationColumn({
   const gamma = data.curves.find(isGammaCurve);
   const gammaPath = gamma ? curvePath(gamma, data, domain, alignMode, meta) : "";
   const seamThickness = data.seam_intervals.reduce((sum, seam) => sum + Math.max(0, seam.to_depth - seam.from_depth), 0);
+  const seams = seamOccurrences(data.seam_intervals);
   return (
     <article className="correlation-column">
       <header>
         <strong>{data.code}</strong>
         <span>
-          {rlLabel(meta)} · {data.seam_intervals.length} seams · {seamThickness.toFixed(1)}m coal
+          {rlLabel(meta)} · {seams.length} seams · {seamThickness.toFixed(1)}m coal
         </span>
         <small>0-{data.total_depth.toFixed(0)}m TD</small>
         <button type="button" onClick={() => onOpenWorkbench(data.id)}>
@@ -632,7 +824,7 @@ function CorrelationColumn({
                 className={`correlation-lith lithology-pattern ${pattern.className}`}
                 style={{
                   top: `${intervalTop(interval, data, domain, alignMode, meta)}%`,
-                  height: `${intervalHeight(interval, data, domain, alignMode, meta)}%`,
+                  height: `${intervalHeight(interval, data, domain, alignMode, meta, zoom)}%`,
                   backgroundColor: interval.display_color ?? pattern.color,
                 }}
                 title={`${interval.from_depth}-${interval.to_depth}m ${interval.lithology_label}`}
@@ -648,11 +840,16 @@ function CorrelationColumn({
           Gamma
         </div>
         <div className="correlation-markers">
-          {data.seam_intervals.map((seam) => {
+          {seams.map((seam) => {
             const y = depthY((seam.from_depth + seam.to_depth) / 2, data, domain, alignMode, meta);
             const focused = seamMarkerName(seam.name) === focusSeamName;
             return (
-              <span key={seam.id} className={focused ? "focus" : "context"} style={{ top: `${y}%` }}>
+              <span
+                key={`${seam.key}-${seam.from_depth}`}
+                className={focused ? "focus" : "context"}
+                style={{ top: `${y}%` }}
+                title={`${seam.name}: ${seam.from_depth}-${seam.to_depth} m (${(seam.to_depth - seam.from_depth).toFixed(2)} m)`}
+              >
                 {focused && <b>{seam.name}</b>}
               </span>
             );
@@ -681,9 +878,9 @@ function correlationDomain(items: BoreholeWorkbench[], alignMode: AlignMode): { 
   return { min: Math.floor(Math.min(...values) / 25) * 25, max: Math.ceil(Math.max(...values) / 25) * 25 };
 }
 
-function axisTicks(min: number, max: number): number[] {
+function axisTicks(min: number, max: number, zoom = 1): number[] {
   const span = Math.max(1, max - min);
-  const step = span > 600 ? 100 : span > 280 ? 50 : 25;
+  const step = axisTickStep(span, zoom);
   const start = Math.ceil(min / step) * step;
   const ticks: number[] = [];
   for (let value = start; value <= max; value += step) ticks.push(value);
@@ -732,9 +929,11 @@ function intervalHeight(
   domain: { min: number; max: number },
   alignMode: AlignMode,
   meta: BoreholeMeta,
+  zoom = 1,
 ): number {
+  // Minimum visible height, scaled down with zoom so thin layers stay true to size when zoomed.
   return Math.max(
-    0.3,
+    0.3 / zoom,
     Math.abs(
       depthY(interval.to_depth, data, domain, alignMode, meta) -
         depthY(interval.from_depth, data, domain, alignMode, meta),

@@ -60,6 +60,31 @@ describe("correlation tie lines", () => {
     expect(lines[0].fromY).toBeCloseTo(10);
     expect(lines[0].toY).toBeCloseTo(11.5);
   });
+
+  it("ties a seam logged band by band at its real top and bottom", () => {
+    // MGCA-08 stores LK-3 SECTION-5 as one record; MGCA-08-UAT stores the same seam as four bands.
+    const lines = buildSeamTieLines(
+      [
+        borehole("BH-1", [seam("LK-3 SECTION-5", 93.07, 94.61)]),
+        borehole("BH-2", [
+          seam("LK-3 SECTION-5", 93.07, 93.53),
+          seam("LK-3 SECTION-5", 93.53, 93.7),
+          seam("LK-3 SECTION-5", 93.7, 94.28),
+          seam("LK-3 SECTION-5", 94.28, 94.61),
+        ]),
+      ],
+      { min: 0, max: 200 },
+      "depth",
+    );
+
+    expect(lines).toHaveLength(2);
+    const [top, bottom] = lines;
+    expect(top).toMatchObject({ marker: "top", offset: 0, status: "strong" });
+    expect(bottom).toMatchObject({ marker: "bottom", status: "strong" });
+    expect(bottom.offset).toBeCloseTo(0);
+    expect(bottom.fromY).toBeCloseTo(bottom.toY);
+    expect(bottom.toY).toBeCloseTo((94.61 / 200) * 100);
+  });
 });
 
 function borehole(code: string, seams: SeamInterval[]): BoreholeWorkbench {

@@ -1,4 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { checkFieldInterval, type FieldIntervalCheck, type FieldName } from "./fieldIntervalValidation";
+import { isConnectionError, newOutboxItem, readOutbox, writeOutbox, type OutboxItem } from "./fieldOutbox";
 import {
   Camera,
   CheckCircle2,
@@ -11,15 +14,17 @@ import {
   RefreshCw,
   Smartphone,
   Sun,
+  WifiOff,
 } from "lucide-react";
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   createMobileBorehole,
   getCurrentSession,
   isUnauthorizedError,
   listBoreholes,
+  listSourceFiles,
   login,
   logout,
   setAuthToken,
@@ -27,13 +32,14 @@ import {
   submitMobileFieldData,
   uploadMobileFile,
 } from "../api/client";
-import type { AuthSession, BoreholeListItem, MobileRuntimeParameter } from "../api/types";
+import type { AuthSession, BoreholeListItem, MobileFieldSubmissionCreate, MobileRuntimeParameter } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
 import { appBranding } from "../branding/appBranding";
 
 type FieldTheme = "light" | "dark";
 type FieldStep = "borehole" | "interval" | "attachments";
-type UploadStatus = { name: string; status: string; fileType: string };
+/** An upload still in progress (or failed) in this session; finished files are read from the server. */
+type UploadStatus = { key: string; boreholeId: number; name: string; status: string; fileType: string };
 
 const FIELD_THEME_KEY = "geoworkbench.field.theme";
 const SELECTED_FIELD_BOREHOLE_KEY = "geoworkbench.field.selectedBorehole";
@@ -54,6 +60,10 @@ export function FieldPwaApp() {
   const [activeStep, setActiveStep] = useState<FieldStep>("borehole");
   const [status, setStatus] = useState("Ready");
   const [uploads, setUploads] = useState<UploadStatus[]>([]);
+  // Intervals waiting to be sent, kept on the device so a reload or closed app loses nothing.
+  const [outbox, setOutbox] = useState<OutboxItem[]>(() => readOutbox(window.localStorage));
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const flushing = useRef(false);
 
   const [projectCode, setProjectCode] = useState("RELIANCE-COAL");
   const [projectName, setProjectName] = useState("Reliance Coal Data");
@@ -97,7 +107,7 @@ export function FieldPwaApp() {
     if (token) {
       setAuthToken(token);
       setLoginError(null);
-      queryClient.invalidateQueries({ queryKey: ["fieldAuthSession"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.fieldAuthSession });
     }
     if (error) {
       setAuthToken(null);
@@ -107,12 +117,27 @@ export function FieldPwaApp() {
   }, [queryClient]);
 
   useEffect(() => {
+    writeOutbox(window.localStorage, outbox);
+  }, [outbox]);
+
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
+
+  useEffect(() => {
     if (selectedBoreholeId) window.localStorage.setItem(SELECTED_FIELD_BOREHOLE_KEY, String(selectedBoreholeId));
     else window.localStorage.removeItem(SELECTED_FIELD_BOREHOLE_KEY);
   }, [selectedBoreholeId]);
 
-  const sessionQuery = useQuery({ queryKey: ["fieldAuthSession"], queryFn: getCurrentSession, retry: false });
-  const boreholes = useQuery({ queryKey: ["boreholes"], queryFn: listBoreholes, enabled: Boolean(session) });
+  const sessionQuery = useQuery({ queryKey: queryKeys.fieldAuthSession, queryFn: getCurrentSession, retry: false, staleTime: 0 });
+  const boreholes = useQuery({ queryKey: queryKeys.boreholes, queryFn: listBoreholes, enabled: Boolean(session), staleTime: 30_000 });
 
   useEffect(() => {
     if (sessionQuery.data) setSession(sessionQuery.data);
@@ -127,6 +152,13 @@ export function FieldPwaApp() {
     [boreholes.data, selectedBoreholeId],
   );
 
+  // Checked as the geologist types, so mistakes are fixed at the rig, not at central review.
+  const intervalCheck = useMemo(
+    () =>
+      checkFieldInterval({ fromDepth, toDepth, lithologyCode, recovery, recoveryPercent, rqd, currentDepth }),
+    [fromDepth, toDepth, lithologyCode, recovery, recoveryPercent, rqd, currentDepth],
+  );
+
   const loginMutation = useMutation({
     mutationFn: () => login(username.trim(), password),
     onMutate: () => {
@@ -138,7 +170,7 @@ export function FieldPwaApp() {
       setSession({ user: token.user, expires_at: token.expires_at, client_type: "field-pwa" });
       setPassword("");
       setStatus("Signed in");
-      queryClient.invalidateQueries({ queryKey: ["boreholes"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
     },
     onError: (error) => {
       setLoginError(error instanceof Error ? error.message : "Sign in failed");
@@ -178,14 +210,12 @@ export function FieldPwaApp() {
       setSelectedBoreholeId(result.borehole.id);
       setStatus(result.message);
       setActiveStep("interval");
-      queryClient.invalidateQueries({ queryKey: ["boreholes"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
     },
     onError: (error) => setStatus(error instanceof Error ? error.message : "Borehole creation failed"),
   });
 
-  const submitIntervalMutation = useMutation({
-    mutationFn: () =>
-      submitMobileFieldData({
+  const buildIntervalPayload = (): MobileFieldSubmissionCreate => ({
         borehole_id: selectedBoreholeId as number,
         submission_type: "field_pwa_interval",
         submitted_by: session?.user.display_name ?? session?.user.username ?? "field-pwa",
@@ -200,7 +230,8 @@ export function FieldPwaApp() {
             seam_name: emptyToNull(seamName),
             recovery: toNumber(recovery),
             recovery_percent: toNumber(recoveryPercent),
-            rqd: toNumber(rqd),
+            // Entered as a percentage; the system stores RQD as a fraction (65 % -> 0.65).
+            rqd: percentToFraction(rqd),
             logged_color: emptyToNull(loggedColor),
             structural_features: emptyToNull(structuralFeatures),
             remark: emptyToNull(remarks),
@@ -210,7 +241,61 @@ export function FieldPwaApp() {
         remarks: emptyToNull(remarks),
         payload: { client: "field-pwa", captured_at: new Date().toISOString() },
         apply_to_log: true,
-      }),
+      });
+
+  const refreshAfterSync = useCallback(
+    (boreholeId: number) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.workbench(boreholeId).slice(0, 2) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.aiSummary(boreholeId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.exportReadiness(boreholeId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.correlationAiRoot });
+    },
+    [queryClient],
+  );
+
+  const queueInterval = (payload: MobileFieldSubmissionCreate) => {
+    setOutbox((current) => [...current, newOutboxItem(payload, selectedBorehole?.code ?? null)]);
+    setStatus("No connection. Interval saved on this device; it will send automatically when the connection returns.");
+  };
+
+  // Send waiting intervals oldest first. Each leaves the outbox only once the server confirms it.
+  const flushOutbox = useCallback(async () => {
+    if (flushing.current || !navigator.onLine) return;
+    const waiting = readOutbox(window.localStorage).filter((item) => item.state === "waiting");
+    if (!waiting.length) return;
+    flushing.current = true;
+    let sent = 0;
+    try {
+      for (const item of waiting) {
+        try {
+          await submitMobileFieldData(item.payload);
+          sent += 1;
+          setOutbox((current) => current.filter((entry) => entry.id !== item.id));
+          refreshAfterSync(item.boreholeId);
+        } catch (error) {
+          if (isConnectionError(error, navigator.onLine)) break;
+          const reason = error instanceof Error ? error.message : "Rejected by the server";
+          setOutbox((current) =>
+            current.map((entry) => (entry.id === item.id ? { ...entry, state: "rejected", lastError: reason } : entry)),
+          );
+        }
+      }
+    } finally {
+      flushing.current = false;
+      if (sent) setStatus(`Connection back: ${sent} saved interval${sent === 1 ? "" : "s"} sent.`);
+    }
+  }, [refreshAfterSync]);
+
+  useEffect(() => {
+    if (session && online) void flushOutbox();
+  }, [session, online, flushOutbox]);
+
+  const submitIntervalMutation = useMutation({
+    // "always": fail at once when offline so the interval goes to the device outbox,
+    // instead of waiting in memory where a reload would lose it.
+    networkMode: "always",
+    mutationFn: (payload: MobileFieldSubmissionCreate) => submitMobileFieldData(payload),
     onMutate: () => setStatus("Syncing interval..."),
     onSuccess: (result) => {
       setStatus(result.message);
@@ -223,33 +308,66 @@ export function FieldPwaApp() {
         void queryClient.invalidateQueries({ queryKey: queryKeys.correlationAiRoot });
       }
     },
-    onError: (error) => setStatus(error instanceof Error ? error.message : "Interval sync failed"),
+    onError: (error, payload) => {
+      if (isConnectionError(error, navigator.onLine)) {
+        queueInterval(payload);
+        return;
+      }
+      setStatus(error instanceof Error ? error.message : "Interval sync failed");
+    },
+  });
+
+  const syncInterval = () => {
+    const payload = buildIntervalPayload();
+    if (!navigator.onLine) {
+      queueInterval(payload);
+      return;
+    }
+    submitIntervalMutation.mutate(payload);
+  };
+
+  // The borehole's files as stored on the server, so the list survives reloads and other devices.
+  const attachments = useQuery({
+    queryKey: ["field-attachments", selectedBoreholeId],
+    queryFn: () => listSourceFiles(selectedBoreholeId as number),
+    enabled: Boolean(session) && Boolean(selectedBoreholeId),
+    staleTime: 10_000,
   });
 
   const uploadMutation = useMutation({
-    mutationFn: async ({ file, fileType }: { file: File; fileType: string }) => {
-      const result = await uploadMobileFile({ borehole_id: selectedBoreholeId, file_type: fileType, file });
-      setUploads((current) => {
-        const pendingIndex = current.findIndex((item) => item.status === "uploading");
-        if (pendingIndex < 0) return current;
-        return current.map((item, index) =>
-          index === pendingIndex
-            ? { ...item, name: result.original_name, fileType: result.file_type, status: result.status }
-            : item,
-        );
-      });
-      return result;
+    mutationFn: ({ file, fileType, boreholeId }: { file: File; fileType: string; boreholeId: number; key: string }) =>
+      uploadMobileFile({ borehole_id: boreholeId, file_type: fileType, file }),
+    onMutate: ({ file, fileType, boreholeId, key }) => {
+      setStatus(
+        navigator.onLine
+          ? `Uploading ${file.name}...`
+          : `No connection. ${file.name} will upload when the connection returns. Keep the app open: files are not stored on the device.`,
+      );
+      setUploads((current) => [{ key, boreholeId, name: file.name, fileType, status: "uploading" }, ...current]);
     },
-    onMutate: ({ file, fileType }) => {
-      setStatus(`Uploading ${file.name}...`);
-      setUploads((current) => [{ name: file.name, fileType, status: "uploading" }, ...current]);
-    },
-    onSuccess: (result) => {
+    onSuccess: (result, { key, boreholeId }) => {
       setStatus(`${result.original_name} uploaded`);
+      // Done: drop the in-progress row; the server list now shows the file.
+      setUploads((current) => current.filter((item) => item.key !== key));
+      void queryClient.invalidateQueries({ queryKey: ["field-attachments", boreholeId] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
     },
-    onError: (error) => setStatus(error instanceof Error ? error.message : "Upload failed"),
+    onError: (error, { key }) => {
+      setStatus(error instanceof Error ? error.message : "Upload failed");
+      setUploads((current) => current.map((item) => (item.key === key ? { ...item, status: "failed" } : item)));
+    },
   });
+
+  const uploadToSelectedBorehole = ({ file, fileType }: { file: File; fileType: string }) => {
+    if (!selectedBoreholeId) {
+      setStatus("Select a borehole before uploading.");
+      return;
+    }
+    uploadMutation.mutate({ file, fileType, boreholeId: selectedBoreholeId, key: `${Date.now()}-${file.name}` });
+  };
+
+  const pendingUploads = uploads.filter((item) => item.boreholeId === selectedBoreholeId);
+  const storedFiles = attachments.data ?? [];
 
   if (!session) {
     return (
@@ -309,7 +427,10 @@ export function FieldPwaApp() {
           <button className="field-icon-button" type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
             {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
           </button>
-          <button className="field-icon-button" type="button" onClick={() => queryClient.invalidateQueries()}>
+          <button className="field-icon-button" type="button" onClick={() => {
+            void queryClient.invalidateQueries();
+            void flushOutbox();
+          }}>
             <RefreshCw size={17} />
           </button>
           <button className="field-icon-button" type="button" onClick={() => logoutMutation.mutate()}>
@@ -318,11 +439,15 @@ export function FieldPwaApp() {
         </div>
       </header>
 
-      <section className="field-status">
-        <CheckCircle2 size={18} />
+      <section className={`field-status${online ? "" : " offline"}`}>
+        {online ? <CheckCircle2 size={18} /> : <WifiOff size={18} />}
         <div>
           <strong>{status}</strong>
-          <span>{session.user.display_name || session.user.username}</span>
+          <span>
+            {session.user.display_name || session.user.username}
+            {!online && " · Offline: new intervals are saved on this device"}
+            {outbox.length > 0 && ` · ${outbox.length} waiting to send`}
+          </span>
         </div>
       </section>
 
@@ -432,11 +557,23 @@ export function FieldPwaApp() {
           <div className="field-grid two">
             <label>
               From depth
-              <input inputMode="decimal" value={fromDepth} onChange={(event) => setFromDepth(event.target.value)} />
+              <input
+                inputMode="decimal"
+                value={fromDepth}
+                aria-invalid={Boolean(intervalCheck.errors.fromDepth)}
+                onChange={(event) => setFromDepth(event.target.value)}
+              />
+              <FieldMessage check={intervalCheck} name="fromDepth" />
             </label>
             <label>
               To depth
-              <input inputMode="decimal" value={toDepth} onChange={(event) => setToDepth(event.target.value)} />
+              <input
+                inputMode="decimal"
+                value={toDepth}
+                aria-invalid={Boolean(intervalCheck.errors.toDepth)}
+                onChange={(event) => setToDepth(event.target.value)}
+              />
+              <FieldMessage check={intervalCheck} name="toDepth" />
             </label>
             <label>
               Lithology code
@@ -456,19 +593,43 @@ export function FieldPwaApp() {
             </label>
             <label>
               Recovery
-              <input inputMode="decimal" value={recovery} onChange={(event) => setRecovery(event.target.value)} />
+              <input
+                inputMode="decimal"
+                value={recovery}
+                aria-invalid={Boolean(intervalCheck.errors.recovery)}
+                onChange={(event) => setRecovery(event.target.value)}
+              />
+              <FieldMessage check={intervalCheck} name="recovery" />
             </label>
             <label>
               Recovery %
-              <input inputMode="decimal" value={recoveryPercent} onChange={(event) => setRecoveryPercent(event.target.value)} />
+              <input
+                inputMode="decimal"
+                value={recoveryPercent}
+                aria-invalid={Boolean(intervalCheck.errors.recoveryPercent)}
+                onChange={(event) => setRecoveryPercent(event.target.value)}
+              />
+              <FieldMessage check={intervalCheck} name="recoveryPercent" />
             </label>
             <label>
-              RQD
-              <input inputMode="decimal" value={rqd} onChange={(event) => setRqd(event.target.value)} />
+              RQD %
+              <input
+                inputMode="decimal"
+                value={rqd}
+                aria-invalid={Boolean(intervalCheck.errors.rqd)}
+                onChange={(event) => setRqd(event.target.value)}
+              />
+              <FieldMessage check={intervalCheck} name="rqd" />
             </label>
             <label>
               Current depth
-              <input inputMode="decimal" value={currentDepth} onChange={(event) => setCurrentDepth(event.target.value)} />
+              <input
+                inputMode="decimal"
+                value={currentDepth}
+                aria-invalid={Boolean(intervalCheck.errors.currentDepth)}
+                onChange={(event) => setCurrentDepth(event.target.value)}
+              />
+              <FieldMessage check={intervalCheck} name="currentDepth" />
             </label>
           </div>
           <label>
@@ -507,11 +668,18 @@ export function FieldPwaApp() {
             </div>
           ))}
 
+          <OutboxPanel
+            items={outbox}
+            online={online}
+            onSendNow={() => void flushOutbox()}
+            onDiscard={(id) => setOutbox((current) => current.filter((item) => item.id !== id))}
+          />
+          <SyncBlockers check={intervalCheck} boreholeSelected={Boolean(selectedBoreholeId)} />
           <button
             className="field-primary"
             type="button"
-            disabled={!selectedBoreholeId || !fromDepth || !toDepth || submitIntervalMutation.isPending}
-            onClick={() => submitIntervalMutation.mutate()}
+            disabled={!selectedBoreholeId || !intervalCheck.canSync || submitIntervalMutation.isPending}
+            onClick={syncInterval}
           >
             <CloudUpload size={18} />
             Sync interval
@@ -526,20 +694,33 @@ export function FieldPwaApp() {
             <span>{selectedBorehole?.code ?? "select borehole"}</span>
           </div>
           <div className="field-upload-grid">
-            <UploadButton label="Excel" fileType="excel" accept=".xlsx,.xls,.csv" onUpload={uploadMutation.mutate} />
-            <UploadButton label="LAS" fileType="las" accept=".las" onUpload={uploadMutation.mutate} />
-            <UploadButton label="PDF" fileType="geophysical_pdf" accept=".pdf" onUpload={uploadMutation.mutate} />
-            <UploadButton label="Image" fileType="corebox_image" accept="image/*" onUpload={uploadMutation.mutate} />
-            <UploadButton label="Camera" fileType="corebox_image" accept="image/*" capture="environment" onUpload={uploadMutation.mutate} />
+            <UploadButton label="Excel" fileType="excel" accept=".xlsx,.xls,.csv" onUpload={uploadToSelectedBorehole} />
+            <UploadButton label="LAS" fileType="las" accept=".las" onUpload={uploadToSelectedBorehole} />
+            <UploadButton label="PDF" fileType="geophysical_pdf" accept=".pdf" onUpload={uploadToSelectedBorehole} />
+            <UploadButton label="Image" fileType="corebox_image" accept="image/*" onUpload={uploadToSelectedBorehole} />
+            <UploadButton label="Camera" fileType="corebox_image" accept="image/*" capture="environment" onUpload={uploadToSelectedBorehole} />
           </div>
           <div className="field-upload-list">
-            {uploads.length === 0 && <p>No attachments uploaded in this session.</p>}
-            {uploads.map((upload, index) => (
-              <div key={`${upload.name}-${index}`}>
+            {!selectedBoreholeId && <p>Select a borehole to see and add its attachments.</p>}
+            {selectedBoreholeId && attachments.isLoading && <p>Loading attachments...</p>}
+            {selectedBoreholeId && attachments.isError && <p>Could not load attachments. Tap refresh to try again.</p>}
+            {selectedBoreholeId && attachments.isSuccess && !storedFiles.length && !pendingUploads.length && (
+              <p>No attachments on {selectedBorehole?.code ?? "this borehole"} yet.</p>
+            )}
+            {pendingUploads.map((upload) => (
+              <div key={upload.key}>
                 <FileUp size={16} />
                 <span>{upload.name}</span>
                 <b>{upload.fileType}</b>
                 <em>{upload.status}</em>
+              </div>
+            ))}
+            {storedFiles.map((file) => (
+              <div key={file.id}>
+                <FileUp size={16} />
+                <span>{file.original_name}</span>
+                <b>{file.file_type}</b>
+                <em>{file.status}</em>
               </div>
             ))}
           </div>
@@ -611,6 +792,86 @@ function updateRuntimeParameter(
   setRuntimeParameters: Dispatch<SetStateAction<MobileRuntimeParameter[]>>,
 ) {
   setRuntimeParameters((items) => items.map((item, itemIndex) => (itemIndex === index ? { ...item, [key]: value } : item)));
+}
+
+function OutboxPanel({
+  items,
+  online,
+  onSendNow,
+  onDiscard,
+}: {
+  items: OutboxItem[];
+  online: boolean;
+  onSendNow: () => void;
+  onDiscard: (id: string) => void;
+}) {
+  if (!items.length) return null;
+  const waiting = items.filter((item) => item.state === "waiting").length;
+  return (
+    <div className="field-outbox" role="status">
+      <div className="field-outbox-heading">
+        <strong>
+          Waiting to send ({items.length})
+        </strong>
+        <button type="button" className="field-small-button" disabled={!online || !waiting} onClick={onSendNow}>
+          Send now
+        </button>
+      </div>
+      <small>
+        {online
+          ? "Saved on this device. Sending automatically."
+          : "Saved on this device. Will send automatically when the connection returns."}
+      </small>
+      {items.map((item) => (
+        <div key={item.id} className={`field-outbox-item ${item.state}`}>
+          <span>
+            <b>{item.label}</b> · {item.boreholeCode ?? `borehole ${item.boreholeId}`}
+          </span>
+          <em>{item.state === "rejected" ? `Not accepted: ${item.lastError ?? "server error"}` : "waiting"}</em>
+          {item.state === "rejected" && (
+            <button
+              type="button"
+              className="field-small-button"
+              onClick={() => {
+                if (window.confirm(`Discard ${item.label}? It was not saved on the server.`)) onDiscard(item.id);
+              }}
+            >
+              Discard
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FieldMessage({ check, name }: { check: FieldIntervalCheck; name: FieldName }) {
+  const error = check.errors[name];
+  const warning = check.warnings[name];
+  if (error) return <small className="field-check error">{error}</small>;
+  if (warning) return <small className="field-check warning">{warning}</small>;
+  return null;
+}
+
+/** Says why "Sync interval" is disabled, so the button never just does nothing. */
+function SyncBlockers({ check, boreholeSelected }: { check: FieldIntervalCheck; boreholeSelected: boolean }) {
+  const reasons: string[] = [];
+  if (!boreholeSelected) reasons.push("Select a borehole on the Borehole step.");
+  if (check.missing.length) reasons.push(`Still needed: ${check.missing.join(", ")}.`);
+  if (Object.keys(check.errors).length) reasons.push("Fix the fields marked in red.");
+  if (!reasons.length) return null;
+  return (
+    <div className="field-sync-blockers" role="status">
+      {reasons.map((reason) => (
+        <span key={reason}>{reason}</span>
+      ))}
+    </div>
+  );
+}
+
+function percentToFraction(value: string): number | null {
+  const percent = toNumber(value);
+  return percent === null ? null : percent / 100;
 }
 
 function toNumber(value: string): number | null {

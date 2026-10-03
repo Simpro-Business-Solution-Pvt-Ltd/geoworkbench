@@ -10,6 +10,28 @@ import {
   seamCorrelationRows,
 } from "./correlationInsights";
 
+describe("seam rows use whole seams", () => {
+  it("reports the real top, bottom and thickness of a seam logged band by band", () => {
+    const rows = seamCorrelationRows([
+      borehole("BH-1", { seams: [seam("LK-3 SECTION-5", 93.07, 94.61)] }),
+      borehole("BH-2", {
+        seams: [
+          seam("LK-3 SECTION-5", 93.07, 93.53),
+          seam("LK-3 SECTION-5", 93.53, 93.7),
+          seam("LK-3 SECTION-5", 93.7, 94.28),
+          seam("LK-3 SECTION-5", 94.28, 94.61),
+        ],
+      }),
+    ]);
+    const row = rows.find((item) => item.seamName === "LK-3 SECTION-5");
+    expect(row).toBeDefined();
+    expect(row?.items).toHaveLength(2);
+    expect(row?.minBottom).toBeCloseTo(94.61);
+    expect(row?.maxTop).toBeCloseTo(93.07);
+    expect(row?.minThickness).toBeCloseTo(1.54);
+  });
+});
+
 describe("correlation insights", () => {
   it("groups seam markers and reports missing boreholes", () => {
     const rows = seamCorrelationRows([

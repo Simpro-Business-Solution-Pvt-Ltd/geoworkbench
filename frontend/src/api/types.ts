@@ -381,6 +381,43 @@ export type ImportProfile = {
   profile_type: string;
   description: string | null;
   mapping: Record<string, unknown>;
+  builtin?: boolean;
+};
+
+export type TemplateSampleSheet = {
+  name: string;
+  max_row: number;
+  rows: Array<Array<string | number | boolean | null>>;
+};
+
+export type TemplateSampleInspection = {
+  sheets: TemplateSampleSheet[];
+};
+
+export type TemplateTestResult = {
+  template: Record<string, unknown>;
+  profile: {
+    message?: string;
+    headers?: string[];
+    summary: {
+      lithology_interval_count: number;
+      seam_interval_count: number;
+      min_depth: number | null;
+      max_depth: number | null;
+      borehole_row_counts: Record<string, number>;
+      skipped_rows: number;
+      dictionary_review_count: number;
+    };
+    sample_rows: Array<{
+      source_row: number;
+      from_depth: number;
+      to_depth: number;
+      lithology_source: string;
+      normalized_code: string;
+      seam_name: string | null;
+    }>;
+    warnings: string[];
+  };
 };
 
 export type ExportReadiness = {

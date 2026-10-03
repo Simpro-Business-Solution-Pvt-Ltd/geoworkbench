@@ -1,5 +1,6 @@
-import type { BoreholeWorkbench, SeamInterval } from "../../api/types";
+import type { BoreholeWorkbench } from "../../api/types";
 import { metadataFor } from "./correlationMetadata";
+import { seamOccurrences, type SeamOccurrence } from "./seamOccurrences";
 import type { CorrelationAlignMode } from "./correlationInsights";
 
 export type CorrelationTieLine = {
@@ -23,8 +24,10 @@ export function buildSeamTieLines(
   for (let index = 0; index < items.length - 1; index += 1) {
     const left = items[index];
     const right = items[index + 1];
-    const leftByName = groupSeamsByKey(left.seam_intervals);
-    const rightByName = groupSeamsByKey(right.seam_intervals);
+    // Whole seams (bands merged), so a seam logged band by band ties top-to-top and
+    // bottom-to-bottom instead of first band to first band.
+    const leftByName = groupByKey(seamOccurrences(left.seam_intervals));
+    const rightByName = groupByKey(seamOccurrences(right.seam_intervals));
     for (const [key, leftSeams] of leftByName.entries()) {
       const rightSeams = rightByName.get(key);
       if (!rightSeams?.length) continue;
@@ -56,24 +59,13 @@ export function buildSeamTieLines(
   return lines;
 }
 
-function groupSeamsByKey(seams: SeamInterval[]): Map<string, SeamInterval[]> {
-  const groups = new Map<string, SeamInterval[]>();
-  for (const seam of seams) {
-    const key = seamKey(seam);
-    groups.set(key, [...(groups.get(key) ?? []), seam]);
-  }
-  for (const items of groups.values()) {
-    items.sort((a, b) => seamMidDepth(a) - seamMidDepth(b));
+/** Occurrences come sorted by top depth, so repeated names pair in depth order. */
+function groupByKey(occurrences: SeamOccurrence[]): Map<string, SeamOccurrence[]> {
+  const groups = new Map<string, SeamOccurrence[]>();
+  for (const occurrence of occurrences) {
+    groups.set(occurrence.key, [...(groups.get(occurrence.key) ?? []), occurrence]);
   }
   return groups;
-}
-
-function seamKey(seam: SeamInterval): string {
-  return (seam.name || "UNNAMED").trim().toUpperCase();
-}
-
-function seamMidDepth(seam: SeamInterval): number {
-  return (seam.from_depth + seam.to_depth) / 2;
 }
 
 function depthY(

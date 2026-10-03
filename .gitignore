@@ -29,3 +29,12 @@ MTSE-65(PBH 62)/core-rock-lanes/
 Thumbs.db
 .idea/
 .vscode/
+
+
+reliance sql test/
+reliancedata.sql
+Data_10BH/
+LAS/
+.playwright-mcp/
+*.egg-info/
+

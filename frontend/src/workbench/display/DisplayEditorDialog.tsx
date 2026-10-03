@@ -27,7 +27,7 @@ type Props = {
   canDelete: boolean;
   loading?: boolean;
   onSave: (layout: DisplayLayout) => void;
-  onClone: (layout: DisplayLayout) => void;
+  onClone: (layout: DisplayLayout, onCloned: (cloneName: string) => void) => void;
   onDelete: (layout: DisplayLayout) => void;
   onReset: () => void;
   onClose: () => void;
@@ -54,9 +54,11 @@ export function DisplayEditorDialog({
   const [history, setHistory] = useState<DisplayLayout[]>([]);
   const [selectedWidgetId, setSelectedWidgetId] = useState("log-widget");
   const [settingsWidgetId, setSettingsWidgetId] = useState<string | null>(null);
-  const [widgetLibraryOpen, setWidgetLibraryOpen] = useState(true);
+  // Panels start closed; the Panels toolbar (Library / Inspector / Explorer) opens them.
+  const [widgetLibraryOpen, setWidgetLibraryOpen] = useState(false);
   const [boreholeExplorerOpen, setBoreholeExplorerOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [cloneNotice, setCloneNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && layout) {
@@ -65,11 +67,16 @@ export function DisplayEditorDialog({
       setHistory([]);
       setSelectedWidgetId(normalized.settings.widgets?.["log-widget"] ? "log-widget" : "");
       setSettingsWidgetId(null);
-      setWidgetLibraryOpen(true);
-      setBoreholeExplorerOpen(false);
-      setInspectorOpen(true);
     }
   }, [availableCurves, layout, open]);
+
+  // Reset panels only when the editor opens, so a layout refetch never closes a panel the user opened.
+  useEffect(() => {
+    if (!open) return;
+    setWidgetLibraryOpen(false);
+    setBoreholeExplorerOpen(false);
+    setInspectorOpen(false);
+  }, [open]);
 
   const widgets = draft?.settings.widgets ?? {};
   const gridItems = draft?.settings.grid?.items ?? [];
@@ -255,7 +262,19 @@ export function DisplayEditorDialog({
             <details className="editor-display-actions">
               <summary>Display actions</summary>
               <div>
-                <button className="editor-action-secondary" type="button" disabled={cloning || saving} onClick={() => onClone(draft)}>
+                <button
+                  className="editor-action-secondary"
+                  type="button"
+                  disabled={cloning || saving}
+                  onClick={() => {
+                    setCloneNotice(null);
+                    onClone(draft, (cloneName) =>
+                      setCloneNotice(
+                        `Cloned as "${cloneName}". With "Saved borehole display" on, pick it from the Display menu in the header.`,
+                      ),
+                    );
+                  }}
+                >
                   {cloning ? "Cloning..." : "Clone display"}
                 </button>
                 <button className="editor-action-secondary" type="button" disabled={resetting || saving} onClick={onReset}>
@@ -273,6 +292,11 @@ export function DisplayEditorDialog({
                 </button>
               </div>
             </details>
+            {cloneNotice && (
+              <small className="editor-clone-notice" role="status">
+                {cloneNotice}
+              </small>
+            )}
           </div>
         </div>
 
