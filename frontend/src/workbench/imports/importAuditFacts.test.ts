@@ -76,4 +76,3 @@ it("reports how many boreholes a registry-template file holds", () => {
     expect(facts.find((fact) => fact.label === "Depth")).toBeUndefined();
   });
 });
-

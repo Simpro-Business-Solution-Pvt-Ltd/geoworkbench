@@ -372,6 +372,7 @@ def read_template_dataset(
                 "toDepth": lith_to,
                 "thickness": thickness,
                 "recovery": to_float(field("recovery")),
+                "recoveryPercent": to_float(field("recovery_percent")),
                 "lithologySource": lithology,
                 "lithologyCode": normalized["code"],
                 "lithologyLabel": normalized["label"],

@@ -647,9 +647,13 @@ def merge_source_file_into_borehole(
                         logged_color=item.get("loggedColor"),
                         seam_name=item.get("seamName"),
                         recovery=item.get("recovery"),
-                        recovery_percent=round((item["recovery"] / item["thickness"]) * 100, 2)
-                        if item.get("recovery") is not None and item.get("thickness")
-                        else None,
+                        recovery_percent=item["recoveryPercent"]
+                        if item.get("recoveryPercent") is not None
+                        else (
+                            round((item["recovery"] / item["thickness"]) * 100, 2)
+                            if item.get("recovery") is not None and item.get("thickness")
+                            else None
+                        ),
                         rqd=item.get("rqd"),
                         structural_features=item.get("structuralFeatures"),
                         remark=item.get("remark"),
