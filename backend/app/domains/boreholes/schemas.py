@@ -12,6 +12,26 @@ class BoreholeListItem(BaseModel):
     workflow_status: str
     site_code: str
     project_code: str
+    coordinates: dict | None = None
+
+
+class BoreholeCreate(BaseModel):
+    project_code: str = "DEMO-COAL"
+    project_name: str = "Demo Coal Block"
+    site_code: str
+    site_name: str | None = None
+    borehole_code: str
+    title: str | None = None
+    total_depth: float = 0
+    state: str | None = None
+    workflow_status: str = "ready_for_data"
+    coalgrid_easting: float | None = None
+    coalgrid_northing: float | None = None
+    utm_easting: float | None = None
+    utm_northing: float | None = None
+    reduced_level: float | None = None
+    water_level: float | None = None
+    coordinate_system: str | None = None
 
 
 class BoreholeStatusOut(BaseModel):

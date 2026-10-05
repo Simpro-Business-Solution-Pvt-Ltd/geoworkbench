@@ -98,6 +98,7 @@ export const TRACK_CATALOG: TrackCatalogItem[] = [
       title: "Curves",
       visible: true,
       width: 260,
+      renderer: { sampleSource: "visible-window", maxWindowSamples: 1200 },
       curves: orderedCurves(availableCurves).map((curve) => createCurveDisplayConfig(curve)),
     }),
   },

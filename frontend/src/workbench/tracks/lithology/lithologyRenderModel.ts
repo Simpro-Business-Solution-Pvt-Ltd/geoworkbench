@@ -29,7 +29,7 @@ export function buildLithologyRenderModel(
   interval: LithologyInterval,
   scale: DepthScale,
 ): LithologyRenderModel {
-  const pattern = lithologyPattern(interval.lithology_code);
+  const pattern = lithologyPattern(interval.lithology_code, interval.lithology_label);
   return {
     interval,
     key: interval.id,

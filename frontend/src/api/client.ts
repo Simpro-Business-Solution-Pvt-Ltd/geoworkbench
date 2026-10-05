@@ -1,5 +1,6 @@
 import type {
   BoreholeListItem,
+  BoreholeCreate,
   BoreholeAiSummary,
   BoreholeWorkbench,
   BoreholeStatus,
@@ -12,12 +13,17 @@ import type {
   ExportReadiness,
   ImportProfile,
   LithologyInterval,
+  MobileBoreholeCreate,
+  MobileFieldSubmissionCreate,
+  MobileSubmissionOut,
   Permission,
   QualitySettings,
   QualitySettingsPayload,
   Role,
   RoleAccess,
   SourceFile,
+  TemplateSampleInspection,
+  TemplateTestResult,
   ValidationIssue,
   AiSuggestion,
   AuthSession,
@@ -28,6 +34,20 @@ import type {
 
 const API_BASE = "/api";
 const TOKEN_KEY = "geoworkbench.auth.token";
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+export function isUnauthorizedError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401;
+}
 
 export function getAuthToken(): string | null {
   return window.localStorage.getItem(TOKEN_KEY);
@@ -49,7 +69,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw new ApiError(response.status, await response.text());
   }
   return response.json() as Promise<T>;
 }
@@ -61,8 +81,9 @@ export function login(username: string, password: string): Promise<AuthToken> {
   });
 }
 
-export function startEntraLogin(): void {
-  window.location.assign(`${API_BASE}/auth/entra/login`);
+export function startEntraLogin(returnTo?: string): void {
+  const query = returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : "";
+  window.location.assign(`${API_BASE}/auth/entra/login${query}`);
 }
 
 export function getCurrentSession(): Promise<AuthSession> {
@@ -170,6 +191,13 @@ export function listBoreholes(): Promise<BoreholeListItem[]> {
   return request<BoreholeListItem[]>("/boreholes");
 }
 
+export function createBorehole(payload: BoreholeCreate): Promise<BoreholeListItem> {
+  return request<BoreholeListItem>("/boreholes", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function getWorkbench(boreholeId: number, displayLayoutId?: number | null): Promise<BoreholeWorkbench> {
   const query = displayLayoutId ? `?display_layout_id=${displayLayoutId}` : "";
   return request<BoreholeWorkbench>(`/boreholes/${boreholeId}/workbench${query}`);
@@ -216,6 +244,70 @@ export function updateImportProfile(
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+/** Files stored against a borehole (uploads and registered sources), newest first. */
+export function listSourceFiles(boreholeId: number): Promise<SourceFile[]> {
+  return request<SourceFile[]>(`/imports/source-files?borehole_id=${boreholeId}`);
+}
+
+export function createImportProfile(
+  payload: Pick<ImportProfile, "name" | "description" | "mapping">,
+): Promise<ImportProfile> {
+  return request<ImportProfile>("/imports/profiles", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function setImportProfileArchived(profileId: number, archived: boolean): Promise<ImportProfile> {
+  return request<ImportProfile>(`/imports/profiles/${profileId}/archive`, {
+    method: "POST",
+    body: JSON.stringify({ archived }),
+  });
+}
+
+async function postTemplateForm<T>(url: string, form: FormData): Promise<T> {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE}${url}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  return response.json() as Promise<T>;
+}
+
+export function inspectTemplateSample(file: File): Promise<TemplateSampleInspection> {
+  const form = new FormData();
+  form.append("file", file);
+  return postTemplateForm<TemplateSampleInspection>("/imports/profiles/inspect-sample", form);
+}
+
+export function testImportTemplate(
+  file: File,
+  mapping: Record<string, unknown>,
+  boreholeCode: string | null,
+): Promise<TemplateTestResult> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("mapping", JSON.stringify(mapping));
+  if (boreholeCode) form.append("borehole_code", boreholeCode);
+  return postTemplateForm<TemplateTestResult>("/imports/profiles/test", form);
+}
+
+/** Readable message from an API failure; FastAPI errors arrive as {"detail": ...}. */
+export function apiErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) return "Request failed.";
+  try {
+    const parsed = JSON.parse(error.message) as { detail?: unknown };
+    if (typeof parsed.detail === "string") return parsed.detail;
+  } catch {
+    // not JSON: fall through to the raw message
+  }
+  return error.message || "Request failed.";
 }
 
 export function runValidation(boreholeId: number): Promise<ValidationIssue[]> {
@@ -309,9 +401,58 @@ export async function uploadSourceFile(payload: {
     body: form,
   });
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw new ApiError(response.status, await response.text());
   }
   return response.json() as Promise<SourceFile>;
+}
+
+export function createMobileBorehole(payload: MobileBoreholeCreate): Promise<MobileSubmissionOut> {
+  return request<MobileSubmissionOut>("/mobile/boreholes", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function submitMobileFieldData(payload: MobileFieldSubmissionCreate): Promise<MobileSubmissionOut> {
+  return request<MobileSubmissionOut>("/mobile/field-submissions", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function uploadMobileFile(payload: {
+  borehole_id: number | null;
+  file_type: string;
+  file: File;
+}): Promise<{
+  id: number;
+  borehole_id: number | null;
+  file_type: string;
+  original_name: string;
+  status: string;
+}> {
+  const form = new FormData();
+  form.append("file", payload.file);
+  form.append("file_type", payload.file_type);
+  if (payload.borehole_id !== null) {
+    form.append("borehole_id", String(payload.borehole_id));
+  }
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE}/mobile/uploads`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  return response.json() as Promise<{
+    id: number;
+    borehole_id: number | null;
+    file_type: string;
+    original_name: string;
+    status: string;
+  }>;
 }
 
 export function processSourceFile(sourceFileId: number): Promise<{
@@ -373,6 +514,7 @@ export function mergeSourceFileIntoBorehole(
     curve_mode?: string;
     from_depth?: number | null;
     to_depth?: number | null;
+    source_borehole_code?: string | null;
   },
 ): Promise<{
   source_file: SourceFile;

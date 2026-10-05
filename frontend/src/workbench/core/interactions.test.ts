@@ -14,6 +14,8 @@ function actions(): WorkbenchActions {
     setHoveredObject: vi.fn(),
     setContextMenu: vi.fn(),
     setTooltipsEnabled: vi.fn(),
+    toggleRuntimeCurve: vi.fn(),
+    resetRuntimeCurves: vi.fn(),
     setMode: vi.fn(),
   };
 }

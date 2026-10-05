@@ -6,6 +6,32 @@ export type BoreholeListItem = {
   workflow_status: string;
   site_code: string;
   project_code: string;
+  coordinates?: {
+    system: string;
+    x: number;
+    y: number;
+    x_label: string;
+    y_label: string;
+  } | null;
+};
+
+export type BoreholeCreate = {
+  project_code: string;
+  project_name?: string | null;
+  site_code: string;
+  site_name?: string | null;
+  borehole_code: string;
+  title?: string | null;
+  total_depth?: number;
+  state?: string | null;
+  workflow_status?: string;
+  coalgrid_easting?: number | null;
+  coalgrid_northing?: number | null;
+  utm_easting?: number | null;
+  utm_northing?: number | null;
+  reduced_level?: number | null;
+  water_level?: number | null;
+  coordinate_system?: string | null;
 };
 
 export type User = {
@@ -60,6 +86,16 @@ export type DiagnosticsHealth = {
   service: string;
   checked_at: string;
   database: { status: string; detail: string };
+  cache?: {
+    status: "ok" | "disabled" | "degraded" | string;
+    enabled: boolean;
+    hits: number;
+    misses: number;
+    errors: number;
+    writes: number;
+    invalidations: number;
+    detail?: string;
+  };
   ai: { provider: string; model: string };
   uploads: string;
   exports: string;
@@ -345,6 +381,43 @@ export type ImportProfile = {
   profile_type: string;
   description: string | null;
   mapping: Record<string, unknown>;
+  builtin?: boolean;
+};
+
+export type TemplateSampleSheet = {
+  name: string;
+  max_row: number;
+  rows: Array<Array<string | number | boolean | null>>;
+};
+
+export type TemplateSampleInspection = {
+  sheets: TemplateSampleSheet[];
+};
+
+export type TemplateTestResult = {
+  template: Record<string, unknown>;
+  profile: {
+    message?: string;
+    headers?: string[];
+    summary: {
+      lithology_interval_count: number;
+      seam_interval_count: number;
+      min_depth: number | null;
+      max_depth: number | null;
+      borehole_row_counts: Record<string, number>;
+      skipped_rows: number;
+      dictionary_review_count: number;
+    };
+    sample_rows: Array<{
+      source_row: number;
+      from_depth: number;
+      to_depth: number;
+      lithology_source: string;
+      normalized_code: string;
+      seam_name: string | null;
+    }>;
+    warnings: string[];
+  };
 };
 
 export type ExportReadiness = {
@@ -386,6 +459,64 @@ export type CorrelationObservation = {
   created_by: string;
   created_at: string;
   observation_metadata: Record<string, unknown> | null;
+};
+
+export type MobileRuntimeParameter = {
+  name: string;
+  value: string;
+  unit?: string | null;
+};
+
+export type MobileLithologyInterval = {
+  from_depth: number;
+  to_depth: number;
+  lithology_code?: string | null;
+  lithology_label?: string | null;
+  logged_color?: string | null;
+  seam_name?: string | null;
+  recovery?: number | null;
+  recovery_percent?: number | null;
+  rqd?: number | null;
+  structural_features?: string | null;
+  remark?: string | null;
+};
+
+export type MobileBoreholeCreate = {
+  project_code: string;
+  project_name: string;
+  site_code: string;
+  site_name?: string | null;
+  borehole_code: string;
+  title?: string | null;
+  total_depth: number;
+  state?: string | null;
+  current_depth?: number | null;
+  coalgrid_easting?: number | null;
+  coalgrid_northing?: number | null;
+  utm_easting?: number | null;
+  utm_northing?: number | null;
+  reduced_level?: number | null;
+  water_level?: number | null;
+  coordinate_system?: string | null;
+};
+
+export type MobileFieldSubmissionCreate = {
+  borehole_id: number;
+  submission_type?: string;
+  submitted_by?: string | null;
+  status?: string;
+  current_depth?: number | null;
+  lithology_intervals: MobileLithologyInterval[];
+  runtime_parameters: MobileRuntimeParameter[];
+  remarks?: string | null;
+  payload?: Record<string, unknown> | null;
+  apply_to_log?: boolean;
+};
+
+export type MobileSubmissionOut = {
+  borehole: BoreholeListItem;
+  field_submission_id: number | null;
+  message: string;
 };
 
 export type BoreholeWorkbench = {

@@ -1,10 +1,14 @@
 import csv
+import json
 import re
 import shutil
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,6 +21,13 @@ from app.services.geophysical_pdf_import import (
     profile_pinnacle_composite_pdf,
 )
 from app.services.las_import import import_las_curves, profile_las_file
+from app.services.template_import import (
+    inspect_workbook,
+    is_tabular_template,
+    read_template_dataset,
+    template_matches,
+    validate_template,
+)
 from app.services.curve_dictionary import curve_dictionary_mapping
 from app.services.data_stage import RAW_IMPORTED, merge_stage_metadata
 
@@ -141,6 +152,42 @@ def list_import_profiles(db: Session) -> list[ImportProfile]:
     return list(db.scalars(select(ImportProfile).order_by(ImportProfile.profile_type, ImportProfile.name)))
 
 
+def builtin_import_profile_names() -> set[str]:
+    return {profile.name for profile in default_import_profiles()}
+
+
+def is_builtin_import_profile(profile: ImportProfile) -> bool:
+    return profile.name in builtin_import_profile_names()
+
+
+def _clean_template_name(db: Session, name: str | None, *, exclude_id: int | None = None) -> str:
+    cleaned = (name or "").strip()
+    if not cleaned:
+        raise ValueError("Template name is required.")
+    if cleaned in builtin_import_profile_names():
+        raise ValueError(f'"{cleaned}" is a built-in template name. Choose another name.')
+    clash = db.scalar(select(ImportProfile).where(ImportProfile.name == cleaned))
+    if clash is not None and clash.id != exclude_id:
+        raise ValueError(f'A template named "{cleaned}" already exists.')
+    return cleaned
+
+
+def create_import_profile(db: Session, *, name: str, description: str | None, mapping: dict) -> ImportProfile:
+    template = validate_template(mapping)
+    template["version"] = 1
+    template["status"] = "active"
+    profile = ImportProfile(
+        name=_clean_template_name(db, name),
+        profile_type="excel",
+        description=(description or "").strip() or "Registry template for flat interval workbooks.",
+        mapping=template,
+    )
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
 def update_import_profile(
     db: Session,
     profile_id: int,
@@ -152,12 +199,72 @@ def update_import_profile(
     profile = db.get(ImportProfile, profile_id)
     if profile is None:
         raise ValueError("Import profile not found")
+    if is_builtin_import_profile(profile):
+        raise ValueError("Built-in templates are read-only. Create a new template instead.")
     if name is not None:
-        profile.name = name
+        profile.name = _clean_template_name(db, name, exclude_id=profile.id)
     if description is not None:
         profile.description = description
     if mapping is not None:
-        profile.mapping = mapping
+        template = validate_template(mapping)
+        current = profile.mapping or {}
+        # Every saved change is a new version; imports record the version they used.
+        template["version"] = int(current.get("version", 1)) + 1
+        template["status"] = current.get("status", "active")
+        profile.mapping = template
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+@contextmanager
+def temporary_upload(file: UploadFile) -> Iterator[Path]:
+    """Store an uploaded sample in a temp file that is deleted afterwards."""
+    suffix = Path(file.filename or "sample.xlsx").suffix.lower() or ".xlsx"
+    if suffix not in {".xlsx", ".xlsm"}:
+        raise HTTPException(status_code=400, detail=f'Template samples must be .xlsx or .xlsm, not "{suffix}".')
+    handle = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+    try:
+        with handle:
+            shutil.copyfileobj(file.file, handle)
+        yield Path(handle.name)
+    finally:
+        Path(handle.name).unlink(missing_ok=True)
+
+
+def inspect_template_sample(path: Path) -> dict:
+    return inspect_workbook(path)
+
+
+def test_template_on_sample(path: Path, mapping_json: str, borehole_code: str | None) -> dict:
+    try:
+        mapping = json.loads(mapping_json)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Template JSON is not valid: {exc.msg} (line {exc.lineno}).") from exc
+    template = validate_template(mapping)
+    if not template_matches(path, template):
+        missing_note = ", ".join(template["detect"]["required_headers"])
+        raise ValueError(
+            f"This sample would not be detected by the template: it needs all of these headers in row "
+            f'{template["header_row"]}: {missing_note}.'
+        )
+    dataset = read_template_dataset(
+        path,
+        template,
+        borehole_code=(borehole_code or "").strip() or None,
+        template_label="Draft template",
+    )
+    return {"template": template, "profile": dataset["profile"]}
+
+
+def set_import_profile_archived(db: Session, profile_id: int, archived: bool) -> ImportProfile:
+    profile = db.get(ImportProfile, profile_id)
+    if profile is None:
+        raise ValueError("Import profile not found")
+    if is_builtin_import_profile(profile):
+        raise ValueError("Built-in templates cannot be archived.")
+    profile.mapping = {**(profile.mapping or {}), "status": "archived" if archived else "active"}
     db.add(profile)
     db.commit()
     db.refresh(profile)
@@ -262,6 +369,60 @@ def preview_delimited_file(path: Path) -> dict:
         }
 
 
+NO_BUILTIN_TEMPLATE_MESSAGE = "No supported descriptive lithology template was detected."
+
+
+def _registry_template_label(profile: ImportProfile, template: dict) -> str:
+    return f"{profile.name} v{template.get('version', 1)}"
+
+
+def _active_registry_templates(db: Session) -> list[tuple[ImportProfile, dict]]:
+    templates = []
+    for profile in db.scalars(select(ImportProfile).order_by(ImportProfile.name)):
+        if not is_tabular_template(profile.mapping) or (profile.mapping or {}).get("status") == "archived":
+            continue
+        try:
+            templates.append((profile, validate_template(profile.mapping)))
+        except ValueError:
+            continue
+    return templates
+
+
+def _profile_excel_source(db: Session, source_file: SourceFile, path: Path) -> dict:
+    """Built-in CTSJ/PBH readers first, then active Template Registry templates."""
+    try:
+        return profile_excel_workbook(path)
+    except ValueError as exc:
+        if NO_BUILTIN_TEMPLATE_MESSAGE not in str(exc):
+            raise
+
+    matches = [(profile, template) for profile, template in _active_registry_templates(db) if template_matches(path, template)]
+    if not matches:
+        raise ValueError(
+            "No built-in layout or Template Registry template matches this workbook. "
+            "Create one in Import > Template Registry > New template."
+        )
+    # Most specific template wins: the one requiring the most headers.
+    matches.sort(key=lambda item: len(item[1]["detect"]["required_headers"]), reverse=True)
+    profile, template = matches[0]
+    borehole = db.get(Borehole, source_file.borehole_id) if source_file.borehole_id else None
+    label = _registry_template_label(profile, template)
+    summary = read_template_dataset(
+        path, template, borehole_code=borehole.code if borehole else None, template_label=label
+    )["profile"]
+    summary["registry_template"] = {
+        "id": profile.id,
+        "name": profile.name,
+        "version": template.get("version", 1),
+        "mapping": template,
+    }
+    if len(matches) > 1:
+        summary["warnings"].append(
+            "Also matched: " + ", ".join(item[0].name for item in matches[1:]) + f'. Used "{profile.name}".'
+        )
+    return summary
+
+
 def process_source_file(db: Session, source_file_id: int) -> tuple[SourceFile, SourceImport, dict]:
     source_file = db.get(SourceFile, source_file_id)
     if source_file is None:
@@ -278,7 +439,7 @@ def process_source_file(db: Session, source_file_id: int) -> tuple[SourceFile, S
         if suffix in {".csv", ".txt"}:
             summary = preview_delimited_file(absolute_path)
         elif suffix in {".xlsx", ".xlsm"}:
-            summary = profile_excel_workbook(absolute_path)
+            summary = _profile_excel_source(db, source_file, absolute_path)
         elif suffix == ".las" or source_file.file_type == "las":
             summary = profile_las_file(absolute_path)
         elif suffix == ".pdf" and source_file.file_type in {"geophysical_pdf", "pinnacle_pdf"}:
@@ -323,6 +484,19 @@ def import_source_file_as_borehole(db: Session, source_file_id: int) -> tuple[So
     absolute_path = storage_path if storage_path.is_absolute() else settings.repo_root / storage_path
     if absolute_path.suffix.lower() not in {".xlsx", ".xlsm"}:
         raise ValueError("Only supported Excel workbooks can be imported as boreholes.")
+
+    # A file uploaded from a borehole's Import Center belongs to that borehole, so
+    # import into it rather than the code written inside the workbook. Loading goes
+    # through the regular merge path: it keeps the data in the selected borehole and
+    # does not generate synthetic curves.
+    if source_file.borehole_id is not None:
+        # Importing loads the whole workbook, so replace rather than the merge default of
+        # append_new_depths, which skips rows that overlap rows added earlier in the same file.
+        source_file, borehole_id, _status, summary = merge_source_file_into_borehole(
+            db, source_file_id, merge_options={"interval_mode": "replace_overlapping_range"}
+        )
+        target = db.get(Borehole, borehole_id)
+        return source_file, borehole_id, target.code if target else "", summary
 
     borehole = import_excel_workbook(db, absolute_path)
     source_file.borehole_id = borehole.id
@@ -404,11 +578,29 @@ def merge_source_file_into_borehole(
         return source_file, borehole.id, "merged", summary
 
     if suffix in {".xlsx", ".xlsm"}:
-        dataset = normalize_excel_workbook(absolute_path)
+        # A file processed with a registry template merges with the exact template
+        # snapshot it was previewed with, so a later template edit cannot change it.
+        parse_summary = (source_file.file_metadata or {}).get("parse_summary") or {}
+        registry_template = parse_summary.get("registry_template")
+        if registry_template:
+            source_code = (merge_options.get("source_borehole_code") or "").strip() or borehole.code
+            dataset = read_template_dataset(
+                absolute_path,
+                registry_template["mapping"],
+                borehole_code=source_code,
+                template_label=f"{registry_template['name']} v{registry_template['version']}",
+            )
+            if not dataset["lithologyIntervals"]:
+                raise ValueError(
+                    f'No rows for borehole "{source_code}" in this file. '
+                    "Open Merge and choose which file borehole's rows to load."
+                )
+        else:
+            dataset = normalize_excel_workbook(absolute_path)
         profile = dataset["profile"]
         supported_templates = {"pbh_descriptive_v1", "ctsj_descriptive_v1"}
         template_key = profile.get("template", {}).get("key")
-        if template_key in supported_templates:
+        if template_key in supported_templates or registry_template:
             interval_mode = merge_options.get("interval_mode") or (
                 "replace_overlapping_range" if borehole.lithology_intervals else "append_new_depths"
             )
@@ -418,11 +610,16 @@ def merge_source_file_into_borehole(
             range_to = float(merge_options.get("to_depth", incoming_to))
 
             if interval_mode == "replace_overlapping_range":
+                # Remove from the collection as well as the session: rows left in
+                # borehole.lithology_intervals after db.delete() make the later
+                # db.add(borehole) fail with "Instance ... has been deleted".
                 for interval in list(borehole.lithology_intervals):
                     if _overlaps(interval.from_depth, interval.to_depth, range_from, range_to):
+                        borehole.lithology_intervals.remove(interval)
                         db.delete(interval)
                 for seam in list(borehole.seam_intervals):
                     if _overlaps(seam.from_depth, seam.to_depth, range_from, range_to):
+                        borehole.seam_intervals.remove(seam)
                         db.delete(seam)
                 db.flush()
 
@@ -450,9 +647,13 @@ def merge_source_file_into_borehole(
                         logged_color=item.get("loggedColor"),
                         seam_name=item.get("seamName"),
                         recovery=item.get("recovery"),
-                        recovery_percent=round((item["recovery"] / item["thickness"]) * 100, 2)
-                        if item.get("recovery") is not None and item.get("thickness")
-                        else None,
+                        recovery_percent=item["recoveryPercent"]
+                        if item.get("recoveryPercent") is not None
+                        else (
+                            round((item["recovery"] / item["thickness"]) * 100, 2)
+                            if item.get("recovery") is not None and item.get("thickness")
+                            else None
+                        ),
                         rqd=item.get("rqd"),
                         structural_features=item.get("structuralFeatures"),
                         remark=item.get("remark"),
@@ -511,7 +712,10 @@ def merge_source_file_into_borehole(
                 "seam_intervals": inserted_seams,
                 "skipped_intervals": skipped_intervals,
                 "range": {"from_depth": range_from, "to_depth": range_to},
-                "merge_options": {"interval_mode": interval_mode},
+                "merge_options": {
+                    "interval_mode": interval_mode,
+                    **({"source_borehole_code": source_code} if registry_template else {}),
+                },
                 "profile": profile,
             }
             source_file.status = "merged"

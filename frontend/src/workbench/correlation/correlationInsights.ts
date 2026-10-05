@@ -1,5 +1,6 @@
 import type { BoreholeWorkbench, Curve } from "../../api/types";
 import { metadataFor, rlLabel, type BoreholeMeta } from "./correlationMetadata";
+import { seamOccurrences } from "./seamOccurrences";
 
 export type CorrelationAlignMode = "depth" | "rl";
 
@@ -26,6 +27,8 @@ export type SeamCorrelationRow = {
   missingCount: number;
   minTop: number;
   maxTop: number;
+  minBottom: number;
+  maxBottom: number;
   minThickness: number;
   maxThickness: number;
   items: Array<{ borehole: string; top: number; bottom: number; thickness: number }>;
@@ -48,8 +51,9 @@ export type CollarContextRow = {
 export function seamCorrelationRows(items: BoreholeWorkbench[]): SeamCorrelationRow[] {
   const groups = new Map<string, SeamCorrelationRow["items"]>();
   for (const data of items) {
-    for (const seam of data.seam_intervals) {
-      const name = (seam.name || "Unnamed seam").trim().toUpperCase();
+    // Whole seams: a seam logged as several bands counts once, with its real top and bottom.
+    for (const seam of seamOccurrences(data.seam_intervals)) {
+      const name = seam.key;
       const current = groups.get(name) ?? [];
       current.push({
         borehole: data.code,
@@ -64,6 +68,7 @@ export function seamCorrelationRows(items: BoreholeWorkbench[]): SeamCorrelation
   return Array.from(groups.entries())
     .map(([seamName, groupItems]) => {
       const tops = groupItems.map((item) => item.top);
+      const bottoms = groupItems.map((item) => item.bottom);
       const thicknesses = groupItems.map((item) => item.thickness);
       const boreholeCount = new Set(groupItems.map((item) => item.borehole)).size;
       return {
@@ -72,6 +77,8 @@ export function seamCorrelationRows(items: BoreholeWorkbench[]): SeamCorrelation
         missingCount: Math.max(0, items.length - boreholeCount),
         minTop: Math.min(...tops),
         maxTop: Math.max(...tops),
+        minBottom: Math.min(...bottoms),
+        maxBottom: Math.max(...bottoms),
         minThickness: Math.min(...thicknesses),
         maxThickness: Math.max(...thicknesses),
         items: groupItems,
@@ -102,7 +109,7 @@ export function collarContextRows(items: BoreholeWorkbench[], referenceBoreholeI
       rlSource: meta.rlSource,
       waterLevel: meta.waterLevel,
       distanceFromReference,
-      seamCount: item.seam_intervals.length,
+      seamCount: seamOccurrences(item.seam_intervals).length,
       curveCount: item.curves.length,
     };
   });
@@ -135,6 +142,7 @@ export function buildCorrelationInsights(
   const missingSeams = seamRows.filter((row) => row.missingCount > 0 && row.presentCount >= 2);
   const variableSeams = seamRows.filter((row) => row.maxThickness - row.minThickness >= 1);
   const topSpreadSeams = seamRows.filter((row) => row.presentCount >= 2 && row.maxTop - row.minTop >= 10);
+  const bottomSpreadSeams = seamRows.filter((row) => row.presentCount >= 2 && row.maxBottom - row.minBottom >= 10);
   const curveCoverage = items.map((item) => ({
     code: item.code,
     curves: item.curves.length,
@@ -249,6 +257,27 @@ export function buildCorrelationInsights(
             boreholeCode: deepestTop.borehole,
             depth: deepestTop.top,
             reason: `${seam.seamName} deepest top in selected section`,
+          }
+        : undefined,
+    });
+  }
+
+  if (bottomSpreadSeams.length) {
+    const seam = bottomSpreadSeams[0];
+    const deepestBottom = maxBy(seam.items, (item) => item.bottom);
+    insights.push({
+      id: `bottom-spread:${seam.seamName}`,
+      severity: "review",
+      title: `Seam bottom spread: ${seam.seamName}`,
+      detail: `${seam.seamName} bottom depth varies by ${(seam.maxBottom - seam.minBottom).toFixed(1)}m across selected boreholes. Compare the floor pick separately from the seam top before accepting continuity.`,
+      evidence: seam.items.map((item) => `${item.borehole}: bottom ${item.bottom.toFixed(1)}m`).join(" · "),
+      action: "Review roof/top and floor/bottom lines together. If only the bottom diverges, check partings, merged bands, or floor-pick consistency.",
+      target: deepestBottom
+        ? {
+            boreholeId: boreholeIdForCode(items, deepestBottom.borehole),
+            boreholeCode: deepestBottom.borehole,
+            depth: deepestBottom.bottom,
+            reason: `${seam.seamName} deepest bottom in selected section`,
           }
         : undefined,
     });

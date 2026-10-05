@@ -9,12 +9,23 @@ class ImportProfileOut(BaseModel):
     profile_type: str
     description: str | None
     mapping: dict
+    builtin: bool = False
 
 
 class ImportProfilePatch(BaseModel):
     name: str | None = None
     description: str | None = None
     mapping: dict | None = None
+
+
+class ImportProfileCreate(BaseModel):
+    name: str
+    description: str | None = None
+    mapping: dict
+
+
+class ImportProfileArchive(BaseModel):
+    archived: bool = True
 
 
 class SourceFileOut(BaseModel):
@@ -47,6 +58,8 @@ class SourceFileMergeRequest(BaseModel):
     curve_mode: str | None = None
     from_depth: float | None = None
     to_depth: float | None = None
+    # Registry templates with many boreholes per file: which file borehole's rows to load.
+    source_borehole_code: str | None = None
 
 
 class SourceFileProcessOut(BaseModel):

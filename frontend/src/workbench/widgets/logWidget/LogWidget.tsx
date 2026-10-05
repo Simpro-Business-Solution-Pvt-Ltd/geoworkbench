@@ -75,6 +75,9 @@ export function LogWidget({
     setHoveredObject,
     tooltipsEnabled,
     setTooltipsEnabled,
+    hiddenRuntimeCurves,
+    toggleRuntimeCurve,
+    resetRuntimeCurves,
   } = store;
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
   const [dragSelection, setDragSelection] = useState<DragSelection | null>(null);
@@ -136,15 +139,31 @@ export function LogWidget({
 
   const resolvePointerDepth = useCallback(
     (clientY: number) => {
-      const body = scrollRef.current?.querySelector<HTMLElement>(".track-body");
       const containerBounds = scrollRef.current?.getBoundingClientRect();
-      const fallbackTop = (containerBounds?.top ?? 0) + headerHeight - viewport.scrollTop;
-      const bodyBounds = body?.getBoundingClientRect();
+      const bodyTop = (containerBounds?.top ?? 0) + headerHeight - viewport.scrollTop;
       const pointer = controlPlane.resolvePointer(0, clientY, {
-        left: bodyBounds?.left ?? 0,
-        top: bodyBounds?.top ?? fallbackTop,
+        left: containerBounds?.left ?? 0,
+        top: bodyTop,
       });
       return { depth: pointer.depth, viewportBodyY: pointer.viewportY };
+    },
+    [controlPlane, headerHeight, viewport.scrollTop],
+  );
+
+  const resolvePointerFromClient = useCallback(
+    (clientX: number, clientY: number, trackBounds: { left: number }) => {
+      const containerBounds = scrollRef.current?.getBoundingClientRect();
+      const bodyTop = (containerBounds?.top ?? 0) + headerHeight - viewport.scrollTop;
+      const pointer = controlPlane.resolvePointer(clientX, clientY, {
+        left: trackBounds.left,
+        top: bodyTop,
+      });
+      return {
+        localX: pointer.localX,
+        localY: pointer.bodyY,
+        depth: pointer.depth,
+        viewportY: pointer.viewportY,
+      };
     },
     [controlPlane, headerHeight, viewport.scrollTop],
   );
@@ -224,8 +243,18 @@ export function LogWidget({
       visibleDepthSpan: viewport.visibleDepthSpan,
       widthForTrack,
       dispatchTrackEvent,
+      resolvePointerFromClient,
     }),
-    [controlPlane, data, dispatchTrackEvent, headerHeight, viewport.scale, viewport.visibleDepthSpan, widthForTrack],
+    [
+      controlPlane,
+      data,
+      dispatchTrackEvent,
+      headerHeight,
+      resolvePointerFromClient,
+      viewport.scale,
+      viewport.visibleDepthSpan,
+      widthForTrack,
+    ],
   );
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
@@ -275,6 +304,17 @@ export function LogWidget({
     () => buildLogWidgetControlPlaneDiagnostics(controlPlane.invariantSnapshot()),
     [controlPlane],
   );
+  const contextMenuCurveOptions = useMemo(() => {
+    if (!contextMenu || contextMenu.trackType !== "curve") return [];
+    const track = visibleTracks.find((item) => item.id === contextMenu.trackId);
+    return (track?.curves ?? [])
+      .filter((curve) => curve.visible)
+      .map((curve) => ({
+        key: curve.curveKey,
+        label: curve.label,
+        hidden: Boolean(hiddenRuntimeCurves[curve.curveKey]),
+      }));
+  }, [contextMenu, hiddenRuntimeCurves, visibleTracks]);
 
   return (
     <div className="log-widget">
@@ -306,9 +346,9 @@ export function LogWidget({
           className="track-row"
           style={{ height: viewport.contentHeight }}
           onMouseLeave={() => {
+            if (dragSelectionRef.current) return;
             setRuler(null);
             setHoveredObject(null);
-            setDragSelectionState(null);
           }}
         >
           {visibleTracks.map((track) => renderRegisteredTrack(data, track, trackContext))}
@@ -344,6 +384,7 @@ export function LogWidget({
               x={contextMenu.x}
               y={contextMenu.y}
               tooltipsEnabled={tooltipsEnabled}
+              curveOptions={contextMenuCurveOptions}
               onZoomIn={() => {
                 zoomAtDepth(contextMenu.depth, ZOOM_IN_FACTOR);
                 setContextMenu(null);
@@ -358,6 +399,14 @@ export function LogWidget({
               }}
               onToggleTooltips={() => {
                 setTooltipsEnabled(!tooltipsEnabled);
+                setContextMenu(null);
+              }}
+              onToggleCurve={(curveKey) => {
+                toggleRuntimeCurve(curveKey);
+                setContextMenu(null);
+              }}
+              onResetCurves={() => {
+                resetRuntimeCurves();
                 setContextMenu(null);
               }}
               diagnosticsVisible={diagnosticsVisible}

@@ -25,7 +25,8 @@ class Settings(BaseSettings):
     ai_base_url: str | None = "http://192.168.1.23:1234/v1"
     ai_model: str = "google/gemma-4-12b-qat"
     ai_timeout_seconds: float = 45
-    auth_token_hours: int = 12
+    auth_token_hours: float = 24
+    auth_session_refresh_threshold_minutes: int = 30
     mobile_otp_minutes: int = 10
     web_base_url: str = "http://127.0.0.1:5173"
     entra_tenant_id: str | None = None
@@ -39,6 +40,21 @@ class Settings(BaseSettings):
     push_apns_key_id: str | None = None
     push_apns_team_id: str | None = None
     push_apns_bundle_id: str | None = None
+    redis_url: str | None = None
+    cache_enabled: bool = False
+    cache_prefix: str = "geoworkbench"
+    cache_environment: str = "development"
+    cache_schema_version: str = "v1"
+    cache_default_ttl_seconds: int = 60
+    cache_borehole_list_ttl_seconds: int = 30
+    cache_workbench_ttl_seconds: int = 60
+    cache_curve_window_ttl_seconds: int = 180
+    cache_ai_summary_ttl_seconds: int = 300
+    cache_connect_timeout_seconds: float = 1.0
+    cache_socket_timeout_seconds: float = 1.0
+    cache_failure_cooldown_seconds: float = 30.0
+    realtime_redis_enabled: bool = False
+    realtime_channel: str = "geoworkbench:realtime:v1"
 
     model_config = SettingsConfigDict(env_prefix="GEOWORKBENCH_", env_file=".env")
 

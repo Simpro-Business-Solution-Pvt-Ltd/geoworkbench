@@ -77,7 +77,7 @@ export type TrackPointerEvent = {
   localX: number;
   localY: number;
   object: TrackObject;
-  nativeEvent: React.MouseEvent;
+  nativeEvent: React.MouseEvent | React.PointerEvent;
 };
 
 export function emptyTrackObject(depth: number): TrackObject {

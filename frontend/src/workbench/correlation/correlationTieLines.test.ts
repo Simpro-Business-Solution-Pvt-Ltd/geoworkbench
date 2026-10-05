@@ -15,16 +15,18 @@ describe("correlation tie lines", () => {
       "depth",
     );
 
-    expect(lines).toHaveLength(2);
+    expect(lines).toHaveLength(4);
     expect(lines[0]).toMatchObject({
       seamName: "A",
+      marker: "top",
       fromColumn: 0,
       toColumn: 1,
       status: "strong",
     });
-    expect(lines[0].fromY).toBeCloseTo(50.5);
-    expect(lines[0].toY).toBeCloseTo(53);
-    expect(lines[1]).toMatchObject({ fromColumn: 1, toColumn: 2, status: "review" });
+    expect(lines[0].fromY).toBeCloseTo(50);
+    expect(lines[0].toY).toBeCloseTo(52);
+    expect(lines[1]).toMatchObject({ marker: "bottom", fromColumn: 0, toColumn: 1, status: "strong" });
+    expect(lines[2]).toMatchObject({ marker: "top", fromColumn: 1, toColumn: 2, status: "review" });
   });
 
   it("flags large adjacent seam offsets for review", () => {
@@ -34,7 +36,8 @@ describe("correlation tie lines", () => {
       "depth",
     );
 
-    expect(lines[0]).toMatchObject({ status: "review", offset: 22 });
+    expect(lines[0]).toMatchObject({ marker: "top", status: "review", offset: 22 });
+    expect(lines[1]).toMatchObject({ marker: "bottom", status: "review", offset: 22 });
   });
 
   it("pairs repeated seam names by depth order instead of fanning every duplicate", () => {
@@ -47,10 +50,40 @@ describe("correlation tie lines", () => {
       "depth",
     );
 
+    expect(lines).toHaveLength(4);
+    expect(lines.map((line) => line.id)).toEqual([
+      "1:2:BAND:0:top",
+      "1:2:BAND:0:bottom",
+      "1:2:BAND:1:top",
+      "1:2:BAND:1:bottom",
+    ]);
+    expect(lines[0].fromY).toBeCloseTo(10);
+    expect(lines[0].toY).toBeCloseTo(11.5);
+  });
+
+  it("ties a seam logged band by band at its real top and bottom", () => {
+    // MGCA-08 stores LK-3 SECTION-5 as one record; MGCA-08-UAT stores the same seam as four bands.
+    const lines = buildSeamTieLines(
+      [
+        borehole("BH-1", [seam("LK-3 SECTION-5", 93.07, 94.61)]),
+        borehole("BH-2", [
+          seam("LK-3 SECTION-5", 93.07, 93.53),
+          seam("LK-3 SECTION-5", 93.53, 93.7),
+          seam("LK-3 SECTION-5", 93.7, 94.28),
+          seam("LK-3 SECTION-5", 94.28, 94.61),
+        ]),
+      ],
+      { min: 0, max: 200 },
+      "depth",
+    );
+
     expect(lines).toHaveLength(2);
-    expect(lines.map((line) => line.id)).toEqual(["1:2:BAND:0", "1:2:BAND:1"]);
-    expect(lines[0].fromY).toBeCloseTo(10.25);
-    expect(lines[0].toY).toBeCloseTo(11.75);
+    const [top, bottom] = lines;
+    expect(top).toMatchObject({ marker: "top", offset: 0, status: "strong" });
+    expect(bottom).toMatchObject({ marker: "bottom", status: "strong" });
+    expect(bottom.offset).toBeCloseTo(0);
+    expect(bottom.fromY).toBeCloseTo(bottom.toY);
+    expect(bottom.toY).toBeCloseTo((94.61 / 200) * 100);
   });
 });
 

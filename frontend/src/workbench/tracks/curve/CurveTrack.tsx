@@ -17,20 +17,28 @@ type Props = {
 
 export function CurveTrack({ data, track, context }: Props) {
   const { scale } = context;
-  const { hoveredObject, tooltipsEnabled } = useWorkbenchStore();
+  const { hoveredObject, tooltipsEnabled, hiddenRuntimeCurves } = useWorkbenchStore();
   const { configuredCurves, curves } = useCurveWindowData({
     data,
     track,
     visibleDepthSpan: context.visibleDepthSpan,
   });
+  const runtimeVisibleConfiguredCurves = useMemo(
+    () => configuredCurves.filter((curve) => !hiddenRuntimeCurves[curve.curveKey]),
+    [configuredCurves, hiddenRuntimeCurves],
+  );
+  const runtimeVisibleCurves = useMemo(
+    () => curves.filter((curve) => !hiddenRuntimeCurves[curve.curve.key]),
+    [curves, hiddenRuntimeCurves],
+  );
   const renderModels = useMemo(
     () =>
-      buildCurveRenderModels(curves, scale, {
+      buildCurveRenderModels(runtimeVisibleCurves, scale, {
         minYPixelSpacing: numericRendererSetting(track, "minYPixelSpacing", 1.5),
       }),
-    [curves, scale, track],
+    [runtimeVisibleCurves, scale, track],
   );
-  const hit = curveHitBelongsToTrack(hoveredObject, curves) ? hoveredObject : null;
+  const hit = curveHitBelongsToTrack(hoveredObject, runtimeVisibleCurves) ? hoveredObject : null;
 
   return (
     <TrackFrame
@@ -45,7 +53,9 @@ export function CurveTrack({ data, track, context }: Props) {
               <span className="curve-header-min">{formatScaleValue(curve.scale.min)}</span>
               <span className="curve-header-line">
                 <i style={{ background: curve.color }} />
-                <b style={{ color: curve.color }}>{curve.label}</b>
+                <b style={{ color: hiddenRuntimeCurves[curve.curveKey] ? "var(--gw-muted)" : curve.color }}>
+                  {curve.label}
+                </b>
                 <small>{curve.unit}</small>
               </span>
               <span className="curve-header-max">{formatScaleValue(curve.scale.max)}</span>
@@ -53,7 +63,7 @@ export function CurveTrack({ data, track, context }: Props) {
           ))}
         </div>
       }
-      hitTest={({ depth }) => buildCurveSampleHit(curves, scale, depth)}
+      hitTest={({ depth }) => buildCurveSampleHit(runtimeVisibleCurves, scale, depth)}
     >
       <svg className="curve-svg" preserveAspectRatio="none" viewBox="0 0 100 100">
         {renderModels.map((model) => {
@@ -78,6 +88,7 @@ export function CurveTrack({ data, track, context }: Props) {
           <b>{hit.sample.depth.toFixed(2)} m</b>
           {(hit.relatedSamples ?? [hit])
             .filter((item) => configuredCurves.find((config) => config.curveKey === item.curve.key)?.tooltipEnabled !== false)
+            .filter((item) => runtimeVisibleConfiguredCurves.some((config) => config.curveKey === item.curve.key))
             .map((item) => (
               <span key={item.curve.key} className={item.curve.key === hit.curve.key ? "nearest" : ""}>
                 <i style={{ background: item.curve.color }} />

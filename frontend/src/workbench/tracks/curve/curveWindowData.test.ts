@@ -10,8 +10,9 @@ import {
 } from "./curveWindowData";
 
 describe("curveWindowData", () => {
-  it("keeps windowed curve samples explicitly opt-in", () => {
-    expect(shouldUseWindowedCurveSamples(track())).toBe(false);
+  it("uses windowed curve samples by default unless explicitly configured for workbench samples", () => {
+    expect(shouldUseWindowedCurveSamples(track())).toBe(true);
+    expect(shouldUseWindowedCurveSamples(track({ renderer: { sampleSource: "workbench" } }))).toBe(false);
     expect(shouldUseWindowedCurveSamples(track({ renderer: { sampleSource: "visible-window" } }))).toBe(true);
   });
 

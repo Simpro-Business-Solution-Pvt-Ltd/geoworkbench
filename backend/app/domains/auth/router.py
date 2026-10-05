@@ -68,9 +68,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenOut:
 
 
 @router.get("/entra/login")
-def entra_login() -> RedirectResponse:
+def entra_login(return_to: str | None = None) -> RedirectResponse:
     try:
-        url = service.entra_authorization_url()
+        url = service.entra_authorization_url(return_to)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return RedirectResponse(url)
@@ -85,19 +85,20 @@ def entra_callback(
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     settings = get_settings()
+    return_to = service.entra_state_return_to(state)
     if error:
         query = urlencode({"auth_error": error_description or error})
-        return RedirectResponse(f"{settings.web_base_url}/?{query}")
+        return RedirectResponse(f"{settings.web_base_url}{return_to}?{query}")
     if not code or not state:
         query = urlencode({"auth_error": "Missing Entra callback code or state"})
-        return RedirectResponse(f"{settings.web_base_url}/?{query}")
+        return RedirectResponse(f"{settings.web_base_url}{return_to}?{query}")
     try:
         _, session = service.login_with_entra_code(db, code, state)
     except ValueError as exc:
         query = urlencode({"auth_error": str(exc)})
-        return RedirectResponse(f"{settings.web_base_url}/?{query}")
+        return RedirectResponse(f"{settings.web_base_url}{return_to}?{query}")
     query = urlencode({"auth_token": session.token, "auth_provider": "entra"})
-    return RedirectResponse(f"{settings.web_base_url}/?{query}")
+    return RedirectResponse(f"{settings.web_base_url}{return_to}?{query}")
 
 
 @router.get("/me", response_model=SessionOut)

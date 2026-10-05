@@ -53,4 +53,26 @@ describe("import audit facts", () => {
     expect(facts).toContainEqual({ label: "Curves", value: "2" });
     expect(facts).toContainEqual({ label: "Depth", value: "250.00-620.00m" });
   });
+it("reports how many boreholes a registry-template file holds", () => {
+    const facts = sourceFileAuditFacts({
+      id: 3,
+      borehole_id: 16,
+      source_import_id: null,
+      file_type: "excel",
+      original_name: "Lithology_10BH.xlsx",
+      storage_path: "uploads/Lithology_10BH.xlsx",
+      status: "parsed",
+      file_metadata: {
+        parse_summary: {
+          parser: "excel_template",
+          template_key: "Reliance Lithology v1",
+          summary: { lithology_interval_count: 781, borehole_row_counts: { "MGCA-08": 781, "MGCA-09": 946 } },
+        },
+      },
+    } as SourceFile);
+
+    expect(facts).toContainEqual({ label: "Boreholes in file", value: "2" });
+    expect(facts).toContainEqual({ label: "Template", value: "Reliance Lithology v1" });
+    expect(facts.find((fact) => fact.label === "Depth")).toBeUndefined();
+  });
 });
