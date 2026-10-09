@@ -1,254 +1,182 @@
-# Reliance UAT Server Package
+# Reliance UAT Server Update
 
-This note describes how to deploy a GeoWorkbench UAT package to a Windows Server with IIS in front of FastAPI.
+These instructions update the existing Windows Server deployment: WinSW service
+`GeoWorkbenchApi`, backend on `127.0.0.1:8081`, IIS files in
+`C:\inetpub\geoworkbench`, and external PostgreSQL. Run server commands in
+Administrator PowerShell. Node.js and Docker are not required on this server.
+
+## What This Release Updates
+
+- Import template creation, mapping, sample testing, versioning and archiving.
+- Import into the selected borehole; template snapshot retained from preview to merge.
+- Correlation zoom and seam top/bottom matching across grouped seam bands.
+- Log widget zoom scroll positioning and windowed curve loading.
+- Field PWA interval validation, RQD percentage conversion, offline interval outbox,
+  and uploaded-file history.
+- Recovery percentage retained when mapped through a registry template.
+
+This update uses the existing database, users, boreholes, layouts and uploaded
+files. The merged changes add no Alembic migration. Do not run data cleanup,
+database restore, or bulk import as part of this application update.
 
 ## Package Contents
 
-The deployment zip is prepared with:
+- `backend/`: committed backend source and dependencies in `pyproject.toml`.
+- `frontend-dist/`: built web app and field PWA, icons, manifest, service worker, and IIS config.
+- `scripts/deploy-windows-release.ps1`: update the existing service and IIS files.
+- `scripts/rollback-windows-release.ps1`: restore the previous service and frontend.
+- `scripts/uat-smoke.ps1`: authenticated API and optional IIS/PWA checks.
+- `docs/`: application wiki.
+- `RELEASE.json`: branch, exact source commit and build date.
+- `FILE-HASHES.json`: SHA-256 hashes of release files.
 
-- `backend/` - FastAPI application, Alembic migrations, backend scripts, and backend dependency metadata.
-- `frontend-dist/` - production Vite build to serve from IIS.
-- `scripts/uat-smoke.ps1` - post-deployment smoke test.
-- `docs/` - user, UAT, architecture, and deployment wiki.
-- `mobile/app-debug.apk` - Android UAT build for field workflow testing, when available.
-- `DEPLOYMENT-INSTRUCTIONS.md` - package-local copy of these steps.
+The zip excludes server secrets, Python environments, database backups, customer
+datasets, runtime uploads/exports and release packages. Android APKs are included
+only when explicitly requested during packaging. The field PWA is included by default.
 
-The package intentionally excludes:
+## 1. Extract Into a New Folder
 
-- `.git`
-- Python virtual environments
-- `node_modules`
-- local build caches
-- local database files
-- runtime upload/export data
-- Reliance source datasets
-
-Keep customer data as a separate controlled package and import it into the server database after the application is deployed.
-
-## Server Prerequisites
-
-- Windows Server with IIS.
-- IIS URL Rewrite and Application Request Routing.
-- Python 3.11 or newer.
-- PostgreSQL reachable from the app server.
-- Node.js is not required on the server if `frontend-dist/` is already built.
-- NSSM or another Windows Service wrapper for FastAPI.
-- Optional: LM Studio or another OpenAI-compatible local model endpoint for AI summaries.
-
-## Suggested Server Paths
-
-```text
-D:\GeoWorkbench\releases\geoworkbench-uat-<commit>
-D:\GeoWorkbench\current
-D:\GeoWorkbench\data\uploads
-D:\GeoWorkbench\data\exports
-D:\GeoWorkbench\data\reliance
-D:\GeoWorkbench\logs
-```
-
-`current` can be a copy of the active release folder, or a junction managed during release refreshes.
-
-## Backend Environment
-
-Create `D:\GeoWorkbench\current\backend\.env` on the server. Do not commit this file.
+Keep the running release. Extract the supplied zip into a **new** folder below
+`C:\GeoWorkbench\release`; existing older folders under `releases` can stay where
+they are. Use the actual zip filename in these commands:
 
 ```powershell
-GEOWORKBENCH_DATABASE_URL=postgresql+psycopg://postgres:<password>@<db-host>:5432/geoworkbench_uat
-GEOWORKBENCH_UPLOAD_ROOT=D:\GeoWorkbench\data\uploads
-GEOWORKBENCH_EXPORT_ROOT=D:\GeoWorkbench\data\exports
-GEOWORKBENCH_CORS_ORIGINS=["https://geowb.simproapps.in","http://localhost:5173"]
-GEOWORKBENCH_WEB_BASE_URL=https://geowb.simproapps.in
-
-GEOWORKBENCH_AI_PROVIDER=local_openai
-GEOWORKBENCH_AI_BASE_URL=http://<local-ai-host>:1234/v1
-GEOWORKBENCH_AI_MODEL=google/gemma-4-12b-qat
-GEOWORKBENCH_AI_TIMEOUT_SECONDS=90
-
-GEOWORKBENCH_ENTRA_TENANT_ID=<tenant-id>
-GEOWORKBENCH_ENTRA_CLIENT_ID=<client-id>
-GEOWORKBENCH_ENTRA_CLIENT_SECRET=<client-secret>
-GEOWORKBENCH_ENTRA_REDIRECT_URI=https://geowb.simproapps.in/api/auth/entra/callback
-GEOWORKBENCH_ENTRA_DEFAULT_ROLE=central_geologist
-
-GEOWORKBENCH_PUSH_PROVIDER=disabled
+$zip = 'C:\GeoWorkbench\geoworkbench-uat-<release-name>.zip'
+$release = Join-Path 'C:\GeoWorkbench\release' ([IO.Path]::GetFileNameWithoutExtension($zip))
+if (Test-Path -LiteralPath $release) { throw 'Choose a new release folder.' }
+Expand-Archive -LiteralPath $zip -DestinationPath $release
+Get-Content -LiteralPath (Join-Path $release 'RELEASE.json')
 ```
 
-For the first UAT server, local file storage is acceptable if `UPLOAD_ROOT` and `EXPORT_ROOT` are durable and backed up. Object storage can be added later.
+The extracted folder should contain `backend`, `frontend-dist`, and `scripts`
+directly. Do not copy or move an old `.venv`: create a new one for the new backend.
 
-## Deploy Or Refresh
-
-1. Stop the existing FastAPI service.
+## 2. Check the Paths Before Updating
 
 ```powershell
-Stop-Service GeoWorkbenchApi
+& (Join-Path $release 'scripts\deploy-windows-release.ps1') `
+  -ReleasePath $release -CheckOnly
 ```
 
-2. Extract the package to a new release folder.
+This reads `C:\GeoWorkbench\service\GeoWorkbenchApi.xml`, checks the package's
+frontend assets and PWA manifest, and identifies the existing backend and `.env`.
+It changes nothing. The script supports paths containing spaces.
+
+It uses `.env` already in the new release, if present. Otherwise it copies `.env`
+from the current service's backend. If your environment is stored elsewhere,
+pass `-EnvSource 'C:\path\to\server.env'`.
+
+The existing `.env` must retain the PostgreSQL URL, durable upload/export paths,
+Entra configuration and server AI endpoint. Do not replace it with a developer
+environment. The database and uploaded files should already have their normal backups.
+
+## 3. Apply the Update
+
+Redis is not installed on the current server, so use `-DisableRedis`:
 
 ```powershell
-Expand-Archive .\geoworkbench-uat-<commit>.zip D:\GeoWorkbench\releases\geoworkbench-uat-<commit>
+& (Join-Path $release 'scripts\deploy-windows-release.ps1') `
+  -ReleasePath $release -DisableRedis
 ```
 
-3. Copy or create the server `.env`.
+The script:
+
+1. Copies the current server `.env` into the new release if necessary.
+2. Creates a Python 3.11 `.venv` and installs the backend dependencies.
+3. Disables Redis caching and Redis realtime distribution in the new `.env`.
+4. Checks the PostgreSQL connection before stopping the current service.
+5. Backs up the existing WinSW XML and IIS frontend into
+   `C:\GeoWorkbench\deployment-backups\<timestamp>-<commit>`.
+6. Stops `GeoWorkbenchApi` and confirms port 8081 has been released.
+7. Updates the existing WinSW XML executable, working directory and Uvicorn arguments.
+8. Starts the service and checks API/database health.
+9. Copies the built frontend to `C:\inetpub\geoworkbench`, publishing `index.html` last.
+
+The script preserves existing WinSW settings and the existing IIS `web.config`.
+It also retains the effective old data roots when they were not explicitly set
+in `.env`, because older source-file/export records can use relative paths.
+Keep the old data root available; this update does not move stored files.
+Old hashed JS/CSS files remain available for already-open browser tabs. If backend
+health or file copying fails, it attempts to restore the previous service config
+and frontend. No database migrations or data imports are performed.
+
+If IIS configuration needs replacement, use `-ReplaceIisConfig` explicitly. The
+packaged `web.config` contains SPA fallback, API/health/corebox proxy rules, MIME
+types and cache headers. Existing IIS URL Rewrite and ARR must remain installed.
+
+Python 3.11 must be available through `py -3.11`; pip needs access to your package
+index. If port 8081 is still occupied, the script reports its PID and stops; it
+does not kill a manually running backend process.
+
+## 4. Verify the Server
+
+Use an existing authorized local account. These commands prompt for its password
+and check existing data; they do not create boreholes or change interpretations.
 
 ```powershell
-Copy-Item D:\GeoWorkbench\current\backend\.env D:\GeoWorkbench\releases\geoworkbench-uat-<commit>\backend\.env
+Get-Service GeoWorkbenchApi
+Get-Content 'C:\GeoWorkbench\service\GeoWorkbenchApi.xml'
+
+& (Join-Path $release 'scripts\uat-smoke.ps1') `
+  -BaseUrl 'http://127.0.0.1:8081' -Username 'geologist'
+
+& (Join-Path $release 'scripts\uat-smoke.ps1') `
+  -BaseUrl 'https://geowb.simproapps.in' -Username 'geologist' -CheckFrontend
 ```
 
-4. Point `current` to the new release. If not using junctions, copy the extracted release to `D:\GeoWorkbench\current`.
+The direct API check confirms the new realtime, preferences and template-test
+routes exist. Both checks verify login, current user, boreholes, workbench,
+import/export templates, export readiness, AI summary and correlation observations.
+The public-site check also verifies the web/PWA HTML, referenced production assets,
+manifest, icons and service worker. Add `-RequireAi` if model availability must pass.
 
-```powershell
-Remove-Item D:\GeoWorkbench\current -Force
-New-Item -ItemType Junction -Path D:\GeoWorkbench\current -Target D:\GeoWorkbench\releases\geoworkbench-uat-<commit>
-```
+If the API passes directly but the public check fails, inspect the IIS proxy or
+static-file configuration. If the API routes are missing directly, verify the
+service XML points to the newly extracted backend.
 
-5. Create/update Python virtual environment and install backend dependencies.
+Backend logs follow the log configuration in the existing WinSW XML, usually in
+`C:\GeoWorkbench\service` or its configured log folder. A failed service start
+should be diagnosed there before trying another backend instance on port 8081.
 
-```powershell
-cd D:\GeoWorkbench\current\backend
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -e .
-```
+## Web and Field PWA Addresses
 
-6. Run migrations.
+- Central web application: `https://geowb.simproapps.in/`
+- Field capture PWA: `https://geowb.simproapps.in/field`
+- Install manifest: `https://geowb.simproapps.in/manifest.webmanifest`
 
-```powershell
-alembic upgrade head
-```
+The deployed field URL is `/field`. On iPhone, open it in Safari and select
+Share > Add to Home Screen. It provides borehole creation/selection, interval and
+operational parameter capture, photos and file uploads. Offline intervals are
+stored on the device; file uploads require the app to stay open and a connection.
 
-7. Configure IIS site root to:
+Refresh existing browser tabs after deployment. If a device still shows the old
+build, reload with cache disabled or reopen the installed PWA while online.
 
-```text
-D:\GeoWorkbench\current\frontend-dist
-```
-
-If the IIS site is already configured to a fixed web root such as `C:\inetpub\geoworkbench`, copy the contents of the release frontend build into that folder instead:
-
-```powershell
-Stop-WebSite -Name GeoWorkbench
-Remove-Item C:\inetpub\geoworkbench\* -Recurse -Force
-Copy-Item D:\GeoWorkbench\current\frontend-dist\* C:\inetpub\geoworkbench -Recurse -Force
-Start-WebSite -Name GeoWorkbench
-```
-
-The live IIS web root must contain `index.html`, `assets\`, `branding\`, `manifest.webmanifest`, `sw.js`, and `web.config`.
-The PWA manifest starts at `/field`, so the same IIS site serves both the central web app at `/` and the no-app-store field app at `/field`.
-
-8. Configure IIS reverse proxy:
-
-```text
-/api/*   -> http://127.0.0.1:8081/api/*
-/health  -> http://127.0.0.1:8081/health
-/assets/corebox/* -> http://127.0.0.1:8081/assets/corebox/*
-```
-
-The frontend package includes `frontend-dist\web.config` for SPA fallback and static MIME mappings, including `.webmanifest`.
-If `https://geowb.simproapps.in/manifest.webmanifest` returns 404, confirm IIS URL Rewrite is installed and the site is serving from `frontend-dist`.
-
-9. Start the FastAPI service.
-
-```powershell
-Start-Service GeoWorkbenchApi
-```
-
-If creating the service for the first time with NSSM, use:
-
-```text
-Path: D:\GeoWorkbench\current\backend\.venv\Scripts\python.exe
-Arguments: -m uvicorn app.main:app --host 127.0.0.1 --port 8081
-Startup directory: D:\GeoWorkbench\current\backend
-```
-
-## Import Reliance Data
-
-Before importing Reliance data into an existing UAT database, remove old demo/test geology data.
-This keeps PBH/CTSJ/SPNG/synthetic boreholes out of the customer review environment while preserving users, roles, import templates, export templates, and settings.
-
-Preview the cleanup first:
-
-```powershell
-cd D:\GeoWorkbench\current\backend
-.\.venv\Scripts\Activate.ps1
-python scripts\cleanup_uat_data.py
-```
-
-Apply the cleanup:
-
-```powershell
-python scripts\cleanup_uat_data.py --apply
-```
-
-Default cleanup targets:
-
-- `DEMO-COAL`
-- `DEMO-COAL-BLOCK`
-- `RAHAM-COAL`
-- standalone boreholes starting with `PBH-`, `CTSJ-`, `IMPORT-DEMO-`, or `SPNG-`
-
-It does not delete local users or Entra-created users.
-
-Copy the customer data package to:
-
-```text
-C:\GeoWorkbench\data
-```
-
-If the original zips are used, extract them below that folder. The import script can now accept the outer folder and will find the nested workbook/LAS folder automatically.
-
-```text
-C:\GeoWorkbench\data\Data_10BH
-C:\GeoWorkbench\data\LAS
-```
-
-Then run:
-
-```powershell
-cd C:\GeoWorkbench\current\backend
-.\.venv\Scripts\Activate.ps1
-python scripts\import_reliance_data.py `
-  --data-root C:\GeoWorkbench\data\Data_10BH `
-  --las-root C:\GeoWorkbench\data\LAS
-```
-
-This path imports through the backend model and keeps the server database independent from local developer backups.
-
-## Verify
-
-Run from the repository/package root:
-
-```powershell
-.\scripts\uat-smoke.ps1 -BaseUrl https://geowb.simproapps.in -RequireAi
-```
-
-Minimum manual checks:
-
-- Open the web URL.
-- Open `https://geowb.simproapps.in/field` on a mobile browser.
-- Confirm `https://geowb.simproapps.in/manifest.webmanifest` returns JSON.
-- Confirm `https://geowb.simproapps.in/health` returns `{"status":"ok"}`.
-- Login with a local user or Entra ID.
-- Confirm Reliance boreholes are listed.
-- Open dashboard map and switch basemaps.
-- Open workbench for one borehole.
-- Open import/export centers.
-- Open correlation.
-- Open Wiki and UAT Test Cases.
-- Install/open the PWA on a mobile browser.
-- Install the Android APK for field workflow testing.
+Automated checks do not replace visual UAT for drag zoom, correlation layout,
+display editing or device camera behavior. Those remain to be verified on the server.
 
 ## Rollback
 
-Keep the previous release folder until smoke testing passes.
-
-To roll back:
+Keep the previous release and the backup folder printed during deployment.
+Use that exact backup path:
 
 ```powershell
-Stop-Service GeoWorkbenchApi
-Remove-Item D:\GeoWorkbench\current -Force
-New-Item -ItemType Junction -Path D:\GeoWorkbench\current -Target D:\GeoWorkbench\releases\<previous-release>
-Start-Service GeoWorkbenchApi
+& (Join-Path $release 'scripts\rollback-windows-release.ps1') `
+  -BackupPath 'C:\GeoWorkbench\deployment-backups\<printed-backup-folder>'
 ```
 
-Database rollback is not automatic. Take a PostgreSQL backup before migrations and before bulk Reliance imports.
+This restores the service XML and frontend, and restarts the previous backend.
+The database and uploaded files are retained. It does not reverse user edits made
+after the update. Run the server smoke check again after rollback.
+
+## Rebuilding the Package
+
+From a clean, committed developer checkout:
+
+```powershell
+& 'D:\Source\geoworkbench\scripts\package-uat.ps1'
+```
+
+The script builds the frontend, archives committed source, writes release metadata
+and file hashes, and creates the zip under `release-packages`. That folder is ignored
+by Git. Run the frontend/backend tests before handing over a new release.
