@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.storage_paths import local_file_reference
 from app.db.models import Borehole, LithologyInterval, SeamInterval, SourceImport, ImportProfile, SourceFile
 from app.domains.imports.schemas import SourceFileCreate
 from app.services.excel_import import normalize_excel_workbook, import_excel_workbook, profile_excel_workbook
@@ -314,7 +315,7 @@ def upload_source_file(
         borehole_id=borehole_id,
         file_type=file_type,
         original_name=clean_name,
-        storage_path=str(target_path.relative_to(settings.repo_root)),
+        storage_path=local_file_reference(target_path, settings.repo_root),
         status="uploaded",
         file_metadata={
             "content_type": file.content_type,

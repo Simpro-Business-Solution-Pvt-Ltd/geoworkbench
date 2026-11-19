@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
+from app.core.storage_paths import local_file_reference
 from app.db.models import AiSuggestion, Borehole, Curve, ExportJob, ExportProfile
 from app.services.curve_dictionary import curve_dictionary_mapping
 
@@ -235,7 +236,7 @@ def _export_dir(borehole: Borehole) -> Path:
 
 def _relative_to_repo(path: Path) -> str:
     settings = get_settings()
-    return str(path.relative_to(settings.repo_root))
+    return local_file_reference(path, settings.repo_root)
 
 
 def _profile_for_export(db: Session, export_type: str, export_profile_id: int | None) -> ExportProfile | None:
