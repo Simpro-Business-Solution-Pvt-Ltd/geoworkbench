@@ -482,6 +482,13 @@ def validate_core_image_depth_mapping(borehole: Borehole) -> list[ValidationFind
 
 def replace_validation_issues(borehole: Borehole, findings: list[ValidationFinding]) -> None:
     borehole_id = borehole.id
+    retired_issue_ids = {
+        issue.id for issue in borehole.validation_issues if issue.id is not None
+    }
+    if retired_issue_ids:
+        for suggestion in borehole.ai_suggestions:
+            if suggestion.validation_issue_id in retired_issue_ids:
+                suggestion.validation_issue_id = None
     borehole.validation_issues.clear()
     for finding in findings:
         borehole.validation_issues.append(
