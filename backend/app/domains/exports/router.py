@@ -7,18 +7,53 @@ from app.db.session import get_db
 from app.domains.exports import service
 from app.domains.exports.schemas import (
     ExportJobOut,
+    ExportProfileCreate,
     ExportProfileOut,
     ExportProfilePatch,
     ExportReadinessOut,
     ExportRequest,
+    ExportSourceFieldOut,
 )
 
 router = APIRouter()
 
 
+def _profile_out(profile) -> ExportProfileOut:
+    out = ExportProfileOut.model_validate(profile)
+    out.builtin = service.is_builtin_export_profile(profile)
+    return out
+
+
 @router.get("/profiles", response_model=list[ExportProfileOut])
 def list_export_profiles(db: Session = Depends(get_db)) -> list[ExportProfileOut]:
-    return service.list_export_profiles(db)
+    return [_profile_out(profile) for profile in service.list_export_profiles(db)]
+
+
+@router.get("/profiles/source-fields", response_model=list[ExportSourceFieldOut])
+def list_export_source_fields() -> list[dict]:
+    return service.export_source_fields()
+
+
+@router.post("/profiles", response_model=ExportProfileOut, status_code=201)
+def create_export_profile(payload: ExportProfileCreate, db: Session = Depends(get_db)) -> ExportProfileOut:
+    try:
+        profile = service.create_export_profile(
+            db,
+            export_type=payload.export_type,
+            name=payload.name,
+            description=payload.description,
+            mapping=payload.mapping,
+        )
+        publish_workbench_event(
+            "workbench.export_profile.updated",
+            borehole_id=None,
+            entity="export_profile",
+            operation="created",
+            payload={"profile_id": profile.id, "export_type": profile.export_type},
+        )
+        return _profile_out(profile)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.patch("/profiles/{profile_id}", response_model=ExportProfileOut)
@@ -40,9 +75,13 @@ def update_export_profile(
             operation="updated",
             payload={"profile_id": profile.id, "export_type": profile.export_type},
         )
-        return profile
-    except ValueError as exc:
+        return _profile_out(profile)
+    except service.ExportProfileNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except service.ExportProfileReadOnly as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/boreholes/{borehole_id}/readiness", response_model=ExportReadinessOut)

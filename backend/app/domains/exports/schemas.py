@@ -29,12 +29,27 @@ class ExportProfileOut(BaseModel):
     export_type: str
     description: str | None
     mapping: dict
+    builtin: bool = False
 
 
 class ExportProfilePatch(BaseModel):
     name: str | None = None
     description: str | None = None
     mapping: dict | None = None
+
+
+class ExportProfileCreate(BaseModel):
+    export_type: str
+    name: str
+    description: str | None = None
+    mapping: dict
+
+
+class ExportSourceFieldOut(BaseModel):
+    key: str
+    label: str
+    unit: str | None = None
+    group: str | None = None
 
 
 class ExportRequest(BaseModel):

@@ -8,8 +8,24 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.core.storage_paths import local_file_reference
-from app.db.models import AiSuggestion, Borehole, Curve, ExportJob, ExportProfile
+from app.db.models import Borehole, Curve, ExportJob, ExportProfile
 from app.services.curve_dictionary import curve_dictionary_mapping
+
+SUPPORTED_EXPORT_TYPES = {"corrected_lithology_xlsx", "corrected_lithology_csv", "curves_las", "curves_csv"}
+
+LITHOLOGY_EXPORT_TYPES = {"corrected_lithology_xlsx", "corrected_lithology_csv"}
+
+CURVE_EXPORT_TYPES = {"curves_las", "curves_csv"}
+
+ATTRIBUTE_SOURCE_PREFIX = "lithology.attributes."
+
+
+class ExportProfileNotFound(ValueError):
+    pass
+
+
+class ExportProfileReadOnly(ValueError):
+    pass
 
 
 def default_export_profiles() -> list[ExportProfile]:
@@ -131,6 +147,124 @@ def _has_legacy_csv_column_mapping(mapping: dict) -> bool:
     return isinstance(columns, list) and any(isinstance(item, str) for item in columns)
 
 
+# Single source of truth for the fields the interval writers can export,
+# kept in sync with _interval_value below.
+EXPORT_SOURCE_FIELDS: list[dict] = [
+    {"key": "borehole.code", "label": "Borehole code", "unit": None, "group": "Borehole"},
+    {"key": "borehole.title", "label": "Borehole title", "unit": None, "group": "Borehole"},
+    {"key": "lithology.source_row", "label": "Source row", "unit": "row", "group": "Depth"},
+    {"key": "lithology.from_depth", "label": "From depth", "unit": "m", "group": "Depth"},
+    {"key": "lithology.to_depth", "label": "To depth", "unit": "m", "group": "Depth"},
+    {"key": "lithology.thickness", "label": "Thickness", "unit": "m", "group": "Depth"},
+    {
+        "key": "lithology.lithology_code",
+        "label": "Lithology code",
+        "unit": None,
+        "group": "Lithology",
+    },
+    {"key": "lithology.lithology_label", "label": "Lithology label", "unit": None, "group": "Lithology"},
+    {"key": "lithology.logged_color", "label": "Logged colour", "unit": None, "group": "Lithology"},
+    {"key": "lithology.seam_name", "label": "Seam name", "unit": None, "group": "Lithology"},
+    {
+        "key": "lithology.recovery",
+        "label": "Recovery length",
+        "unit": "m",
+        "group": "Quality",
+    },
+    {"key": "lithology.recovery_percent", "label": "Recovery", "unit": "%", "group": "Quality"},
+    {"key": "lithology.rqd_percent", "label": "RQD", "unit": "%", "group": "Quality"},
+    {
+        "key": "lithology.structural_features",
+        "label": "Structural features",
+        "unit": None,
+        "group": "Observations",
+    },
+    {"key": "lithology.remark", "label": "Remarks", "unit": None, "group": "Observations"},
+]
+
+
+def export_source_fields() -> list[dict]:
+    return [dict(item) for item in EXPORT_SOURCE_FIELDS]
+
+
+def builtin_export_profile_names() -> set[str]:
+    return {profile.name for profile in default_export_profiles()}
+
+
+def is_builtin_export_profile(profile: ExportProfile) -> bool:
+    return profile.name in builtin_export_profile_names()
+
+
+def _clean_export_profile_name(db: Session, name: str | None, *, exclude_id: int | None = None) -> str:
+    cleaned = (name or "").strip()
+    if not cleaned:
+        raise ValueError("Export template name is required.")
+    if cleaned in builtin_export_profile_names():
+        raise ValueError(f'"{cleaned}" is a built-in template name. Duplicate it instead.')
+    clash = db.scalar(select(ExportProfile).where(ExportProfile.name == cleaned))
+    if clash is not None and clash.id != exclude_id:
+        raise ValueError(f'An export template named "{cleaned}" already exists.')
+    return cleaned
+
+
+def validate_export_mapping(export_type: str, mapping: dict | None) -> dict:
+    if export_type not in SUPPORTED_EXPORT_TYPES:
+        raise ValueError(f"Unsupported export type: {export_type}")
+    template = dict(mapping or {})
+
+    if export_type in LITHOLOGY_EXPORT_TYPES:
+        columns = template.get("columns")
+        if not isinstance(columns, list):
+            raise ValueError("Template columns must be a list of source/target pairs.")
+        seen_targets: set[str] = set()
+        cleaned_columns: list[dict] = []
+        for index, item in enumerate(columns):
+            if isinstance(item, str):
+                source = item.strip()
+                target = source
+            elif isinstance(item, dict):
+                source = str(item.get("source") or "").strip()
+                target = str(item.get("target") or item.get("label") or source).strip()
+            else:
+                raise ValueError(f"Column {index + 1} must be a source/target pair.")
+            if not source:
+                raise ValueError(f"Column {index + 1} needs a source field.")
+            if not target:
+                raise ValueError(f"Column {index + 1} needs an output column name.")
+            is_attribute = source.startswith(ATTRIBUTE_SOURCE_PREFIX) and len(source) > len(ATTRIBUTE_SOURCE_PREFIX)
+            if not is_attribute and source not in {field["key"] for field in EXPORT_SOURCE_FIELDS}:
+                raise ValueError(f"Column {index + 1} source \"{source}\" is not an exportable field.")
+            if target in seen_targets:
+                raise ValueError(f"Output column name \"{target}\" is used more than once.")
+            seen_targets.add(target)
+            cleaned_columns.append({"source": source, "target": target})
+        template["columns"] = cleaned_columns
+
+    if export_type in CURVE_EXPORT_TYPES:
+        curves = template.get("curves")
+        if curves is not None:
+            if not isinstance(curves, list) or not all(isinstance(item, str) and item.strip() for item in curves):
+                raise ValueError("Curve selection must be a list of curve keys.")
+            template["curves"] = [item.strip() for item in curves]
+
+    return template
+
+
+def create_export_profile(db: Session, *, export_type: str, name: str, description: str | None, mapping: dict) -> ExportProfile:
+    template = validate_export_mapping(export_type, mapping)
+    template["version"] = 1
+    profile = ExportProfile(
+        name=_clean_export_profile_name(db, name),
+        export_type=export_type,
+        description=(description or "").strip() or None,
+        mapping=template,
+    )
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
 def list_export_profiles(db: Session) -> list[ExportProfile]:
     ensure_default_export_profiles(db)
     return list(db.scalars(select(ExportProfile).order_by(ExportProfile.export_type, ExportProfile.name)))
@@ -146,13 +280,19 @@ def update_export_profile(
 ) -> ExportProfile:
     profile = db.get(ExportProfile, profile_id)
     if profile is None:
-        raise ValueError("Export profile not found")
+        raise ExportProfileNotFound("Export profile not found")
+    if is_builtin_export_profile(profile):
+        raise ExportProfileReadOnly("Built-in export templates are read-only. Duplicate to start a new template.")
     if name is not None:
-        profile.name = name
+        profile.name = _clean_export_profile_name(db, name, exclude_id=profile.id)
     if description is not None:
         profile.description = description
     if mapping is not None:
-        profile.mapping = mapping
+        template = validate_export_mapping(profile.export_type, mapping)
+        current = profile.mapping or {}
+        # Every saved change is a new version, mirroring the import template registry.
+        template["version"] = int(current.get("version", 1)) + 1
+        profile.mapping = template
     db.add(profile)
     db.commit()
     db.refresh(profile)
