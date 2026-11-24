@@ -3402,6 +3402,12 @@ button.active {
   font-size: 13px;
 }
 
+.workflow-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .workflow-panel-pager {
   display: inline-flex;
   gap: 5px;
@@ -8592,6 +8598,73 @@ h2 {
   color: var(--gw-danger, #d93a3a);
   font-size: 12px;
   font-weight: 700;
+}
+
+.export-column-list {
+  display: grid;
+  gap: 8px;
+}
+
+.export-column-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface-alt);
+  padding: 9px 10px;
+}
+
+.export-column-row label {
+  display: grid;
+  gap: 5px;
+  color: var(--gw-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.export-column-row select,
+.export-column-row input {
+  width: 100%;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: var(--gw-surface);
+  color: var(--gw-text);
+  padding: 7px 8px;
+  font: inherit;
+}
+
+.export-column-index {
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 99px;
+  background: var(--gw-accent-soft);
+  color: var(--gw-text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.export-column-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.export-column-actions button {
+  border: 1px solid var(--gw-border);
+  background: var(--gw-surface);
+  color: var(--gw-text);
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.export-column-actions button:disabled {
+  opacity: 0.4;
 }
 
 .template-sample-grid {

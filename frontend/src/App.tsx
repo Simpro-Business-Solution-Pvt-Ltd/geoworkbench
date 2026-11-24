@@ -57,10 +57,12 @@ import {
   uploadSourceFile,
   resetDisplayLayout,
   updateDisplayLayout,
+  createExportProfile,
   updateExportProfile,
   updateImportProfile,
   createImportProfile,
   setImportProfileArchived,
+  setExportProfileArchived,
   apiErrorMessage,
   updateCurrentUserPreferences,
   updateAiSuggestionStatus,
@@ -90,7 +92,7 @@ import { DisplayRuntime } from "./workbench/display/DisplayRuntime";
 import { useWorkbenchStore } from "./workbench/display/workbenchStore";
 import { ExportCenter } from "./workbench/exports/ExportCenter";
 import { ImportCenter } from "./workbench/imports/ImportCenter";
-import type { TemplateSavePayload } from "./workbench/imports/TemplateEditorDialog";
+import type { ExportTemplateSavePayload, TemplateSavePayload } from "./workbench/imports/TemplateEditorDialog";
 import {
   DEFAULT_USER_PREFERENCES,
   formatDateTimeWithPreferences,
@@ -647,12 +649,24 @@ export function App() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.importProfiles }),
   });
   const saveExportProfile = useMutation({
-    mutationFn: (payload: { profileId: number; name: string; description: string; mapping: Record<string, unknown> }) =>
-      updateExportProfile(payload.profileId, {
-        name: payload.name,
-        description: payload.description,
-        mapping: payload.mapping,
-      }),
+    mutationFn: (payload: ExportTemplateSavePayload) =>
+      payload.profileId === null
+        ? createExportProfile({
+            export_type: payload.exportType,
+            name: payload.name,
+            description: payload.description,
+            mapping: payload.mapping,
+          })
+        : updateExportProfile(payload.profileId, {
+            name: payload.name,
+            description: payload.description,
+            mapping: payload.mapping,
+          }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.exportProfiles }),
+  });
+  const archiveExportProfile = useMutation({
+    mutationFn: (payload: { profileId: number; archived: boolean; mapping: Record<string, unknown> }) =>
+      setExportProfileArchived(payload.profileId, payload.archived, payload.mapping),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.exportProfiles }),
   });
   const uploadFile = useMutation({
@@ -1253,9 +1267,24 @@ export function App() {
           creating={createExport.isPending}
           approving={approveExport.isPending}
           savingProfile={saveExportProfile.isPending}
+          archivingProfile={archiveExportProfile.isPending}
+          profileError={
+            saveExportProfile.error
+              ? apiErrorMessage(saveExportProfile.error)
+              : archiveExportProfile.error
+                ? apiErrorMessage(archiveExportProfile.error)
+                : null
+          }
           onCreate={(payload) => createExport.mutate(payload)}
           onApprove={() => approveExport.mutate()}
-          onSaveExportProfile={(payload) => saveExportProfile.mutate(payload)}
+          onSaveExportProfile={(payload, onSaved) => {
+            archiveExportProfile.reset();
+            saveExportProfile.mutate(payload, { onSuccess: onSaved });
+          }}
+          onArchiveExportProfile={(profileId, archived, mapping) => {
+            saveExportProfile.reset();
+            archiveExportProfile.mutate({ profileId, archived, mapping });
+          }}
           onOpenWorkbench={() => setView("workbench")}
         />
       )}

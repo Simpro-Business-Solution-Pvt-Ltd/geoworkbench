@@ -4,6 +4,7 @@ export const queryKeys = {
   boreholes: ["boreholes"] as const,
   importProfiles: ["importProfiles"] as const,
   exportProfiles: ["exportProfiles"] as const,
+  exportSourceFields: ["exportSourceFields"] as const,
   diagnosticsHealth: ["diagnosticsHealth"] as const,
   aiProvider: ["aiProvider"] as const,
   roles: ["roles"] as const,

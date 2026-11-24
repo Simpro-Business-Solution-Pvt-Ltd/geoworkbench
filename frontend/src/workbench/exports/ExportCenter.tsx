@@ -1,9 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { exportDownloadUrl } from "../../api/client";
+import { useQuery } from "@tanstack/react-query";
+
+import { exportDownloadUrl, listExportSourceFields } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import type { BoreholeWorkbench, ExportJob, ExportProfile, ExportReadiness } from "../../api/types";
-import { mappingRowsFromTemplate, safeMappingFromText } from "../templates/templateMappingSummary";
+import { mappingRowsFromTemplate } from "../templates/templateMappingSummary";
+import { TemplateEditorDialog, type ExportTemplateSavePayload } from "../imports/TemplateEditorDialog";
 import { exportAuditFacts } from "./exportJobAudit";
+import { curvesMappingForType, defaultExportColumns } from "./exportTemplateModel";
+
+type ExportEditorTarget = {
+  profile: ExportProfile | null;
+  seedMapping?: Record<string, unknown> | null;
+  seedName?: string;
+};
 
 type Props = {
   data: BoreholeWorkbench;
@@ -13,6 +24,8 @@ type Props = {
   creating: boolean;
   approving: boolean;
   savingProfile: boolean;
+  archivingProfile: boolean;
+  profileError: string | null;
   onCreate: (payload: {
     export_type: string;
     export_profile_id?: number | null;
@@ -22,12 +35,8 @@ type Props = {
     sections?: string[] | null;
   }) => void;
   onApprove: () => void;
-  onSaveExportProfile: (payload: {
-    profileId: number;
-    name: string;
-    description: string;
-    mapping: Record<string, unknown>;
-  }) => void;
+  onSaveExportProfile: (payload: ExportTemplateSavePayload, onSaved: () => void) => void;
+  onArchiveExportProfile: (profileId: number, archived: boolean, mapping: Record<string, unknown>) => void;
   onOpenWorkbench: () => void;
 };
 
@@ -114,13 +123,16 @@ export function ExportCenter({
   exportProfiles,
   creating,
   savingProfile,
+  archivingProfile,
+  profileError,
   onCreate,
   onSaveExportProfile,
+  onArchiveExportProfile,
   onOpenWorkbench,
 }: Props) {
   const [format, setFormat] = useState("corrected_lithology_xlsx");
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
-  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
+  const [exportEditorTarget, setExportEditorTarget] = useState<ExportEditorTarget | null>(null);
   const [stage, setStage] = useState("central_corrected");
   const [fromDepth, setFromDepth] = useState("0");
   const [toDepth, setToDepth] = useState(String(data.total_depth));
@@ -146,6 +158,21 @@ export function ExportCenter({
     () => sectionOptions.filter((item) => sections[item.key]).map((item) => item.key),
     [sectionOptions, sections],
   );
+  const exportSourceFields = useQuery({
+    queryKey: queryKeys.exportSourceFields,
+    queryFn: listExportSourceFields,
+    enabled: Boolean(exportEditorTarget),
+    staleTime: 10 * 60_000,
+  });
+  const openNewExportEditor = () => {
+    setExportEditorTarget({
+      profile: null,
+      seedMapping: format.startsWith("corrected_lithology")
+        ? { columns: defaultExportColumns(exportSourceFields.data ?? []) }
+        : { curves: curvesMappingForType(format, data.curves) },
+      seedName: defaultProfileName(format),
+    });
+  };
   const hasBlockingReadinessIssue = readiness?.checks.some((check) => check.status === "fail") ?? false;
   const readinessTone = readiness?.ready ? "ready" : hasBlockingReadinessIssue ? "blocked" : "warning";
   const toggleSection = (key: keyof typeof sections) =>
@@ -285,13 +312,18 @@ export function ExportCenter({
           <section className="workflow-panel export-field-mapping-panel">
             <div className="workflow-panel-header">
               <strong>Export Field Mapping</strong>
-              <button
-                type="button"
-                disabled={!selectedProfile}
-                onClick={() => setMappingDialogOpen(true)}
-              >
-                Edit Template
-              </button>
+              <div className="workflow-panel-actions">
+                <button type="button" onClick={openNewExportEditor}>
+                  New Template
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedProfile}
+                  onClick={() => setExportEditorTarget({ profile: selectedProfile })}
+                >
+                  Edit Template
+                </button>
+              </div>
             </div>
             <div className="export-mapping-grid compact">
               {mappingRows.map((row) => (
@@ -351,13 +383,34 @@ export function ExportCenter({
           </div>
         </section>
       </div>
-      {mappingDialogOpen && selectedProfile && (
-        <ExportProfileDialog
-          profile={selectedProfile}
-          curves={data.curves}
+      {exportEditorTarget && exportSourceFields.data && (
+        <TemplateEditorDialog
+          key={
+            exportEditorTarget.profile
+              ? `profile-${exportEditorTarget.profile.id}`
+              : `new-${exportEditorTarget.seedName ?? ""}`
+          }
+          kind="export"
+          exportProfile={exportEditorTarget.profile ?? undefined}
+          exportSeedMapping={exportEditorTarget.seedMapping}
+          exportSeedName={exportEditorTarget.seedName}
+          exportType={format}
+          exportSourceFields={exportSourceFields.data}
+          exportCurves={data.curves}
+          canManage
           saving={savingProfile}
-          onClose={() => setMappingDialogOpen(false)}
-          onSave={onSaveExportProfile}
+          archiving={archivingProfile}
+          saveError={profileError}
+          onClose={() => setExportEditorTarget(null)}
+          onExportSave={(payload) => onSaveExportProfile(payload, () => setExportEditorTarget(null))}
+          onExportArchive={onArchiveExportProfile}
+          onExportDuplicate={(profile) =>
+            setExportEditorTarget({
+              profile: null,
+              seedMapping: { ...profile.mapping, version: undefined, status: undefined },
+              seedName: `${profile.name} copy`,
+            })
+          }
         />
       )}
     </section>
@@ -369,162 +422,11 @@ function optionalNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function ExportProfileDialog({
-  profile,
-  curves,
-  saving,
-  onClose,
-  onSave,
-}: {
-  profile: ExportProfile;
-  curves: BoreholeWorkbench["curves"];
-  saving: boolean;
-  onClose: () => void;
-  onSave: (payload: {
-    profileId: number;
-    name: string;
-    description: string;
-    mapping: Record<string, unknown>;
-  }) => void;
-}) {
-  const [name, setName] = useState(profile.name);
-  const [description, setDescription] = useState(profile.description ?? "");
-  const [mappingText, setMappingText] = useState(JSON.stringify(profile.mapping, null, 2));
-  const [error, setError] = useState<string | null>(null);
-  const isCurveTemplate = profile.export_type === "curves_las" || profile.export_type === "curves_csv";
-
-  useEffect(() => {
-    setName(profile.name);
-    setDescription(profile.description ?? "");
-    setMappingText(JSON.stringify(profile.mapping, null, 2));
-    setError(null);
-  }, [profile]);
-
-  const save = () => {
-    try {
-      const mapping = JSON.parse(mappingText) as Record<string, unknown>;
-      setError(null);
-      onSave({ profileId: profile.id, name: name.trim(), description: description.trim(), mapping });
-    } catch {
-      setError("Mapping JSON is not valid.");
-    }
-  };
-  const formatMapping = () => {
-    try {
-      setMappingText(JSON.stringify(JSON.parse(mappingText), null, 2));
-      setError(null);
-    } catch {
-      setError("Mapping JSON is not valid.");
-    }
-  };
-
-  const selectedCurves = selectedCurveKeys(mappingText);
-  const mappingPreviewRows = mappingRowsFromTemplate(safeMappingFromText(mappingText) ?? profile.mapping);
-  const setCurveKeys = (curveKeys: string[]) => {
-    setMappingText(JSON.stringify({ ...safeMapping(mappingText), curves: curveKeys }, null, 2));
-  };
-  const toggleCurve = (curveKey: string) => {
-    const nextKeys = selectedCurves.includes(curveKey)
-      ? selectedCurves.filter((key: string) => key !== curveKey)
-      : [...selectedCurves, curveKey];
-    setCurveKeys(nextKeys);
-  };
-
-  return (
-    <div className="mapping-dialog-backdrop" role="dialog" aria-modal="true">
-      <div className="mapping-dialog">
-        <header>
-          <div>
-            <strong>{profile.name}</strong>
-            <span>{profile.export_type.replaceAll("_", " ")}</span>
-          </div>
-          <button type="button" onClick={onClose}>
-            Close
-          </button>
-        </header>
-        <div className="mapping-dialog-body">
-          <section className="template-mapping-preview import-profile-editor">
-            <label>
-              Template name
-              <input value={name} onChange={(event) => setName(event.target.value)} />
-            </label>
-            <label>
-              Description
-              <input value={description} onChange={(event) => setDescription(event.target.value)} />
-            </label>
-            <label>
-              Mapping JSON
-              <textarea value={mappingText} spellCheck={false} onChange={(event) => setMappingText(event.target.value)} />
-            </label>
-            <div className="template-mapping-preview-list">
-              <div className="workflow-panel-header compact">
-                <strong>Mapping Preview</strong>
-                <span>{mappingPreviewRows.length} fields</span>
-              </div>
-              <div className="export-mapping-grid compact">
-                {mappingPreviewRows.map((row) => (
-                  <article key={`${row.source}:${row.target}:${row.detail ?? ""}`}>
-                    <strong>{row.source}</strong>
-                    <span>{row.target}</span>
-                    {row.detail && <small>{row.detail}</small>}
-                  </article>
-                ))}
-              </div>
-            </div>
-            {isCurveTemplate && (
-              <div className="curve-template-selector">
-                <div>
-                  <strong>Curves in selected borehole</strong>
-                  <span>Select none to export all curves.</span>
-                </div>
-                <div className="curve-template-actions">
-                  <button type="button" onClick={() => setCurveKeys(curves.map((curve) => curve.key))}>
-                    Use all curves
-                  </button>
-                  <button type="button" onClick={() => setCurveKeys([])}>
-                    Clear selection
-                  </button>
-                </div>
-                <div className="curve-template-grid">
-                  {curves.map((curve) => (
-                    <label key={curve.key}>
-                      <input
-                        type="checkbox"
-                        checked={selectedCurves.includes(curve.key)}
-                        onChange={() => toggleCurve(curve.key)}
-                      />
-                      <i style={{ background: curve.color }} />
-                      <span>{curve.label}</span>
-                      <code>{curve.key}</code>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-            {error && <span className="mapping-error">{error}</span>}
-            <div className="mapping-dialog-actions">
-              <button type="button" onClick={formatMapping}>
-                Format JSON
-              </button>
-              <button type="button" onClick={() => setMappingText(JSON.stringify(profile.mapping, null, 2))}>
-                Restore saved mapping
-              </button>
-              <button type="button" onClick={save} disabled={saving || !name.trim()}>
-                {saving ? "Saving..." : "Save template"}
-              </button>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
-  );
+function defaultProfileName(format: string): string {
+  if (format === "corrected_lithology_xlsx") return "Reliance XLSX Export";
+  if (format === "corrected_lithology_csv") return "Reliance CSV Export";
+  if (format === "curves_las") return "Reliance LAS Export";
+  return "Reliance Curve CSV Export";
 }
 
-function selectedCurveKeys(mappingText: string) {
-  const mapping = safeMapping(mappingText);
-  return Array.isArray(mapping.curves) ? mapping.curves.map(String) : [];
-}
 
-function safeMapping(mappingText: string): Record<string, unknown> {
-  return safeMappingFromText(mappingText) ?? {};
-}

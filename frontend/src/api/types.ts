@@ -449,6 +449,14 @@ export type ExportProfile = {
   export_type: string;
   description: string | null;
   mapping: Record<string, unknown>;
+  builtin: boolean;
+};
+
+export type ExportSourceField = {
+  key: string;
+  label: string;
+  unit: string | null;
+  group: string | null;
 };
 
 export type CorrelationObservation = {

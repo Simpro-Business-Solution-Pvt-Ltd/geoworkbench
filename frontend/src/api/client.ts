@@ -8,6 +8,7 @@ import type {
   DisplayLayout,
   ExportJob,
   ExportProfile,
+  ExportSourceField,
   CorrelationAiSummary,
   CorrelationObservation,
   ExportReadiness,
@@ -543,6 +544,35 @@ export function updateExportProfile(
   return request<ExportProfile>(`/exports/profiles/${profileId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export function createExportProfile(
+  payload: {
+    export_type: string;
+    name: string;
+    description: string | null;
+    mapping: Record<string, unknown>;
+  },
+): Promise<ExportProfile> {
+  return request<ExportProfile>("/exports/profiles", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function listExportSourceFields(): Promise<ExportSourceField[]> {
+  return request<ExportSourceField[]>("/exports/profiles/source-fields");
+}
+
+export function setExportProfileArchived(
+  profileId: number,
+  archived: boolean,
+  mapping: Record<string, unknown>,
+): Promise<ExportProfile> {
+  return request<ExportProfile>(`/exports/profiles/${profileId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ mapping: { ...mapping, status: archived ? "archived" : "active" } }),
   });
 }
 
