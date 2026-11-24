@@ -114,7 +114,15 @@ The generated export job should be treated as the audit point: it records what w
 Export templates map canonical fields to output columns or sections.
 The selected export template is used by the backend when generating the export file.
 
-Example:
+In Export Center, open the **Export Field Mapping** panel and use **New Template** or **Edit Template**. The visual builder covers the normal workflow, so no JSON editing is required:
+
+1. **Output fields (lithology Excel/CSV):** pick each source field from the grouped exportable field list (units shown where they apply), set the output column name, and order columns with Up/Down. Add or remove columns as needed. A new template starts from the standard Reliance column set, including Remarks.
+2. **Curves (LAS/CSV):** choose which curves to write; leave the list empty to export every curve on the borehole.
+3. **JSON tab (advanced):** the raw mapping is still available for advanced use, and changes carry over between the Builder and JSON tabs.
+
+Validation blocks saving an unnamed template, empty or unknown source fields, and duplicate output names. Saving creates or updates the template; **Duplicate** starts a new template from an existing one; **Archive** takes a template out of normal use without deleting it. Built-in templates are read-only, so use Duplicate to create a variant.
+
+Example of the stored mapping:
 
 ```json
 {
