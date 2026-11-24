@@ -119,6 +119,7 @@ def default_borehole_layout() -> dict:
                         "title": "Curves",
                         "visible": True,
                         "width": 260,
+                        "renderer": {"sampleSource": "visible-window", "maxWindowSamples": 1200},
                         "curves": [],
                     },
                     {

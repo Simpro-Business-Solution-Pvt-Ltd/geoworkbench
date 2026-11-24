@@ -71,8 +71,12 @@ Production import with external Postgres should run after setting `GEOWORKBENCH_
 ```powershell
 $env:GEOWORKBENCH_DATABASE_URL="postgresql+psycopg://user:password@server:5432/geoworkbench"
 alembic -c backend/alembic.ini upgrade head
-python backend/scripts/import_reliance_data.py
+python backend/scripts/import_reliance_data.py `
+  --data-root C:\GeoWorkbench\data\Data_10BH `
+  --las-root C:\GeoWorkbench\data\LAS
 ```
+
+The import script accepts either the folder that directly contains the Excel/LAS files or the parent extracted folder. It prints the resolved folders before importing.
 
 ## Notes For UAT
 

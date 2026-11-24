@@ -11,6 +11,8 @@ const _entraAuthority = 'https://login.microsoftonline.com/$_entraTenantId';
 const _androidRedirectUri =
     'msauth://com.example.geoworkbench_mobile/tJiJE8rvGkwLupt0szXiUw8Sndg%3D';
 const _entraScopes = <String>['https://graph.microsoft.com/user.read'];
+const _mobileAppTitle = 'Reliance GeoWorkbench Field';
+const _mobileAppSubtitle = 'Coal borehole field capture';
 
 void main() {
   runApp(const GeoWorkbenchMobileApp());
@@ -30,7 +32,7 @@ class _GeoWorkbenchMobileAppState extends State<GeoWorkbenchMobileApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'GeoWorkbench Field',
+      title: _mobileAppTitle,
       themeMode: _themeMode,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
@@ -515,17 +517,18 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
         title: Row(
           children: [
             SizedBox(
-              height: 32,
-              width: 118,
+              height: 34,
+              width: 134,
               child: Image.asset(
-                'assets/branding/simpro-logo.png',
+                'assets/branding/reliance-logo.png',
                 fit: BoxFit.contain,
+                alignment: Alignment.centerLeft,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'GeoWorkbench Field',
+                _mobileAppTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -677,6 +680,8 @@ class _FieldSyncScreenState extends State<FieldSyncScreen> {
                       ? 'Signing in...'
                       : 'Sign in to sync'),
                 ),
+                const SizedBox(height: 16),
+                const Center(child: _PoweredBySimpro()),
               ],
             ),
           ),
@@ -1204,13 +1209,17 @@ class _LoginHeroCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 46,
-                  height: 46,
+                  width: 58,
+                  height: 58,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(14),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(Icons.terrain, color: Colors.white),
+                  padding: const EdgeInsets.all(7),
+                  child: Image.asset(
+                    'assets/branding/reliance-roundel.png',
+                    fit: BoxFit.contain,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1218,7 +1227,7 @@ class _LoginHeroCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'GeoWorkbench Field',
+                        _mobileAppTitle,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
@@ -1226,7 +1235,7 @@ class _LoginHeroCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Secure mobile capture for borehole logging',
+                        _mobileAppSubtitle,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.white.withValues(alpha: 0.82),
                             ),
@@ -1281,6 +1290,36 @@ class _LoginHeroCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PoweredBySimpro extends StatelessWidget {
+  const _PoweredBySimpro();
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: 0.76,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Powered by',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(width: 8),
+          Image.asset(
+            'assets/branding/simpro-logo.png',
+            width: 78,
+            height: 24,
+            fit: BoxFit.contain,
+          ),
+        ],
       ),
     );
   }

@@ -293,6 +293,7 @@ def _configure_layout(layout: dict, curve_summaries: list[dict], *, has_core_ima
         if track["id"] == "rqd":
             track["visible"] = False
         if track["id"] == "curves":
+            track["renderer"] = {"sampleSource": "visible-window", "maxWindowSamples": 1200}
             track["curves"] = [
                 {
                     "curveKey": curve["key"],

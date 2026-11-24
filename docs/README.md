@@ -14,6 +14,7 @@ The `docs/` folder contains both current UAT documentation and earlier planning 
 | `docs/wiki/uat-demo-readiness.md` | UAT coverage, deployment evidence checklist, and smoke checklist |
 | `docs/wiki/deployment/windows-iis.md` | Windows/IIS deployment handover guide |
 | `docs/wiki/deployment/production-overview.md` | Production deployment shape and principles |
+| `docs/caching-implementation-and-verification-guide.md` | End-to-end caching implementation, security, invalidation, testing, rollout, and verification runbook |
 
 ## Developer References
 
@@ -24,6 +25,7 @@ The `docs/` folder contains both current UAT documentation and earlier planning 
 | `docs/wiki/architecture/workbench-interaction-architecture.md` | Log widget and interaction architecture direction |
 | `docs/wiki/architecture/system-workflows.md` | End-to-end system workflows |
 | `docs/wiki/architecture/refinement-guide.md` | Extension/refinement guide for future developers |
+| `docs/caching-implementation-and-verification-guide.md` | Cache policy and implementation guide for browser, PWA, API, Redis, realtime, and deployment layers |
 
 ## Background And Planning Material
 

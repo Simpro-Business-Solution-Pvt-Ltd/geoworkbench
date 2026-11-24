@@ -1,9 +1,10 @@
 param(
   [string]$BaseUrl = "http://127.0.0.1:8081",
   [string]$Username = "geologist",
-  [string]$Password = "geologist123",
+  [string]$Password,
   [string]$PreferredProjectCode = "RELIANCE-COAL",
-  [switch]$RequireAi
+  [switch]$RequireAi,
+  [switch]$CheckFrontend
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,6 +24,42 @@ function Invoke-GeoCheck {
 $root = $BaseUrl.TrimEnd("/")
 $api = "$root/api"
 
+if ($CheckFrontend) {
+  Invoke-GeoCheck "web and field PWA" {
+    $index = Invoke-WebRequest -Uri "$root/" -UseBasicParsing -TimeoutSec 20
+    $field = Invoke-WebRequest -Uri "$root/field" -UseBasicParsing -TimeoutSec 20
+    if ($index.Content -notmatch 'id="root"' -or $field.Content -notmatch 'id="root"') {
+      throw "Web or /field did not return the application HTML."
+    }
+    $assets = [regex]::Matches($index.Content, '(?:src|href)="(/assets/[^"?]+)"')
+    if ($assets.Count -lt 2) { throw "Production JS/CSS not referenced in the served HTML." }
+    foreach ($asset in $assets) {
+      $response = Invoke-WebRequest -Uri "$root$($asset.Groups[1].Value)" -UseBasicParsing -TimeoutSec 20
+      if ($response.Headers['Content-Type'] -match 'text/html') {
+        throw "Frontend asset returned HTML instead of JS/CSS: $($asset.Groups[1].Value)"
+      }
+    }
+    $manifest = Invoke-RestMethod -Uri "$root/manifest.webmanifest" -TimeoutSec 20
+    if ($manifest.start_url -ne "/field") { throw "PWA manifest must start at /field." }
+    Invoke-WebRequest -Uri "$root/sw.js" -UseBasicParsing -TimeoutSec 20 | Out-Null
+    foreach ($icon in $manifest.icons) {
+      Invoke-WebRequest -Uri "$root$($icon.src)" -UseBasicParsing -TimeoutSec 20 | Out-Null
+    }
+  } | Out-Null
+}
+
+if (-not $CheckFrontend) {
+  Invoke-GeoCheck "current backend routes" {
+    $schema = Invoke-RestMethod -Uri "$root/openapi.json" -TimeoutSec 20
+    if (-not $schema.paths) { throw "Backend OpenAPI schema was not returned." }
+    foreach ($path in @("/api/realtime/boreholes/{borehole_id}/events", "/api/auth/me/preferences", "/api/imports/profiles/test")) {
+      if (-not $schema.paths.PSObject.Properties[$path]) {
+        throw "Backend route missing: $path. The service may still point at an older release."
+      }
+    }
+  } | Out-Null
+}
+
 Invoke-GeoCheck "health" {
   $health = Invoke-RestMethod -Method Get -Uri "$root/health"
   if ($health.status -ne "ok") {
@@ -36,9 +73,16 @@ Invoke-GeoCheck "diagnostics" {
   if (-not $diagnostics.status) {
     throw "Diagnostics response did not include status"
   }
+  if ($diagnostics.database.status -ne "ok") { throw "Database health is not OK." }
   $diagnostics
 } | Out-Null
 
+if (-not $Password) {
+  $credential = Get-Credential -UserName $Username -Message "GeoWorkbench server smoke test login"
+  if (-not $credential) { throw "Login credential is required." }
+  $Username = $credential.UserName
+  $Password = $credential.GetNetworkCredential().Password
+}
 $login = Invoke-GeoCheck "login" {
   Invoke-RestMethod `
     -Method Post `

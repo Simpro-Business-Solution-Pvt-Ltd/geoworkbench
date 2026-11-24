@@ -18,6 +18,7 @@ export function sourceFileAuditFacts(item: SourceFile): ImportAuditFact[] {
   addFact(facts, "Template", templateText(summary));
   addFact(facts, "Rows", numericText(summary.lithology_intervals ?? nestedValue(summary, ["summary", "lithology_interval_count"]) ?? summary.row_count));
   addFact(facts, "Seams", numericText(summary.seam_intervals ?? nestedValue(summary, ["summary", "seam_interval_count"])));
+  addFact(facts, "Boreholes in file", boreholeCountText(parseSummary));
   addFact(facts, "Curves", curveCountText(summary));
   addFact(facts, "Depth", depthRangeText(summary.range ?? summary));
   addFact(facts, "Merge", labelValue(nestedValue(summary, ["merge_options", "interval_mode"]) ?? nestedValue(summary, ["merge_options", "curve_mode"])));
@@ -51,6 +52,14 @@ function templateText(summary: Record<string, unknown>): string | null {
     summary.template ??
     summary.template_key;
   return labelValue(value);
+}
+
+/** Registry templates can read many boreholes from one sheet; show how many when there is more than one. */
+function boreholeCountText(parseSummary: Record<string, unknown>): string | null {
+  const counts = nestedValue(parseSummary, ["summary", "borehole_row_counts"]);
+  if (!counts || typeof counts !== "object") return null;
+  const total = Object.keys(counts).length;
+  return total > 1 ? String(total) : null;
 }
 
 function curveCountText(summary: Record<string, unknown>): string | null {

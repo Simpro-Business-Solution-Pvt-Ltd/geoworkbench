@@ -3,25 +3,30 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
 
 from app.core.realtime import realtime_broker
-from app.db.session import get_db
+from app.db.session import SessionLocal
 from app.domains.auth import service as auth_service
 
 router = APIRouter()
 
 
+def authenticate_event_stream(
+    token: str = Query(..., min_length=1),
+) -> None:
+    # Authentication must release its connection before the long-lived SSE response.
+    with SessionLocal() as db:
+        try:
+            auth_service.get_session(db, token)
+        except ValueError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
 @router.get("/boreholes/{borehole_id}/events")
 async def borehole_events(
     borehole_id: int,
-    token: str = Query(..., min_length=1),
-    db: Session = Depends(get_db),
+    _: None = Depends(authenticate_event_stream),
 ) -> StreamingResponse:
-    try:
-        auth_service.get_session(db, token)
-    except ValueError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
     subscription = realtime_broker.subscribe(borehole_id)
 

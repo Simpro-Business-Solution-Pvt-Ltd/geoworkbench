@@ -62,7 +62,10 @@ export function useLogWidgetControlPlane({
   useLayoutEffect(() => {
     const target = pendingScrollTop.current;
     if (target === null || !scrollElement) return;
-    const maxScrollTop = controlPlaneRef.current.snapshot.viewport.maxScrollTop;
+    // Read this render's viewport, not controlPlaneRef: the ref is refreshed in a
+    // passive effect that runs after this layout effect, so it still holds the
+    // pre-zoom maxScrollTop (0 at full depth) and would clamp the scroll away.
+    const maxScrollTop = controlPlane.snapshot.viewport.maxScrollTop;
     const clamped = clampToBounds(target, 0, maxScrollTop);
     if (Math.abs(scrollElement.scrollTop - clamped) > 0.5) {
       scrollElement.scrollTop = clamped;

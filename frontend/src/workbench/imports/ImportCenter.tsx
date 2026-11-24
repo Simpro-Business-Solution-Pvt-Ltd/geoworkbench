@@ -1,9 +1,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import type { BoreholeWorkbench, ImportProfile, SourceFile } from "../../api/types";
-import { mappingRowsFromTemplate, safeMappingFromText } from "../templates/templateMappingSummary";
 import { sourceFileAuditFacts, sourceImportAuditFacts } from "./importAuditFacts";
 import { sourceFileWorkflow } from "./importWorkflowModel";
+import { TemplateEditorDialog, type TemplateSavePayload } from "./TemplateEditorDialog";
+
+type TemplateEditorTarget = {
+  profile: ImportProfile | null;
+  seedMapping?: Record<string, unknown> | null;
+  seedName?: string;
+};
 
 type Props = {
   data: BoreholeWorkbench;
@@ -30,14 +36,17 @@ type Props = {
       curve_mode?: string;
       from_depth?: number | null;
       to_depth?: number | null;
+      source_borehole_code?: string | null;
     },
   ) => void;
-  onSaveImportProfile: (payload: {
-    profileId: number;
-    name: string;
-    description: string;
-    mapping: Record<string, unknown>;
-  }) => void;
+  canManageTemplates: boolean;
+  archivingProfile: boolean;
+  profileError: string | null;
+  /** Last failed import/merge/process action, shown above the queue. */
+  actionError: string | null;
+  onDismissActionError: () => void;
+  onSaveTemplate: (payload: TemplateSavePayload, onSaved: () => void) => void;
+  onArchiveTemplate: (profileId: number, archived: boolean) => void;
   onOpenWorkbench: () => void;
 };
 
@@ -64,15 +73,22 @@ export function ImportCenter({
   onProcessSourceFile,
   onImportBoreholeFile,
   onMergeSourceFile,
-  onSaveImportProfile,
+  canManageTemplates,
+  archivingProfile,
+  profileError,
+  actionError,
+  onDismissActionError,
+  onSaveTemplate,
+  onArchiveTemplate,
   onOpenWorkbench,
 }: Props) {
-  const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
-  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
+  const [editorTarget, setEditorTarget] = useState<TemplateEditorTarget | null>(null);
   const [mergeSource, setMergeSource] = useState<SourceFile | null>(null);
   const [templatePage, setTemplatePage] = useState(0);
-  const selectedProfile =
-    importProfiles?.find((profile) => profile.id === selectedProfileId) ?? importProfiles?.[0] ?? null;
+  // Keep the open editor in sync with the latest saved profile (e.g. after archive).
+  const editorProfile = editorTarget?.profile
+    ? (importProfiles?.find((profile) => profile.id === editorTarget.profile?.id) ?? editorTarget.profile)
+    : null;
   const templateCards = (importProfiles ?? []).map((profile) => ({ type: "profile" as const, profile }));
   const templatePageSize = 4;
   const templatePageCount = Math.max(1, Math.ceil(templateCards.length / templatePageSize));
@@ -156,6 +172,11 @@ export function ImportCenter({
             <span>
               {importProfiles?.length ?? 0} profiles · page {safeTemplatePage + 1}/{templatePageCount}
             </span>
+            {canManageTemplates && (
+              <button type="button" className="template-new-button" onClick={() => setEditorTarget({ profile: null })}>
+                + New template
+              </button>
+            )}
             {templatePageCount > 1 && (
               <div className="workflow-panel-pager">
                 <button
@@ -180,14 +201,13 @@ export function ImportCenter({
               <button
                 type="button"
                 key={`profile:${item.profile.id}`}
-                className={`template-card ${selectedProfile?.id === item.profile.id ? "selected" : ""}`}
-                onClick={() => {
-                  setSelectedProfileId(item.profile.id);
-                  setMappingDialogOpen(true);
-                }}
+                className={`template-card ${editorProfile?.id === item.profile.id ? "selected" : ""} ${
+                  item.profile.mapping?.status === "archived" ? "planned" : ""
+                }`}
+                onClick={() => setEditorTarget({ profile: item.profile })}
               >
                 <strong>{item.profile.name}</strong>
-                <span>{item.profile.profile_type.replaceAll("_", " ")}</span>
+                <span>{templateCardTag(item.profile)}</span>
                 <small>{item.profile.description ?? "Mapping profile"}</small>
               </button>
             ))}
@@ -199,6 +219,14 @@ export function ImportCenter({
             <strong>Source Queue</strong>
             <span>{data.source_files.length} files</span>
           </div>
+          {actionError && (
+            <div className="import-action-error" role="alert">
+              <span>{actionError}</span>
+              <button type="button" onClick={onDismissActionError}>
+                Dismiss
+              </button>
+            </div>
+          )}
           <div className="workflow-table">
             {data.source_files.map((item) => {
               const workflow = sourceFileWorkflow(item);
@@ -279,17 +307,33 @@ export function ImportCenter({
           </div>
         </section>
       </div>
-      {mappingDialogOpen && selectedProfile && (
-        <TemplateMappingDialog
-          profile={selectedProfile}
+      {editorTarget && (
+        <TemplateEditorDialog
+          key={editorTarget.profile ? `profile-${editorTarget.profile.id}` : `new-${editorTarget.seedName ?? ""}`}
+          profile={editorProfile}
+          seedMapping={editorTarget.seedMapping}
+          seedName={editorTarget.seedName}
+          canManage={canManageTemplates}
           saving={savingProfile}
-          onClose={() => setMappingDialogOpen(false)}
-          onSave={onSaveImportProfile}
+          archiving={archivingProfile}
+          saveError={profileError}
+          defaultBoreholeCode={data.code}
+          onClose={() => setEditorTarget(null)}
+          onSave={(payload) => onSaveTemplate(payload, () => setEditorTarget(null))}
+          onArchive={onArchiveTemplate}
+          onDuplicate={(profile) =>
+            setEditorTarget({
+              profile: null,
+              seedMapping: { ...profile.mapping, version: undefined, status: undefined },
+              seedName: `${profile.name} copy`,
+            })
+          }
         />
       )}
       {mergeSource && (
         <MergeOptionsDialog
           sourceFile={mergeSource}
+          boreholeCode={data.code}
           merging={merging}
           onClose={() => setMergeSource(null)}
           onMerge={(options) => {
@@ -304,11 +348,13 @@ export function ImportCenter({
 
 function MergeOptionsDialog({
   sourceFile,
+  boreholeCode,
   merging,
   onClose,
   onMerge,
 }: {
   sourceFile: SourceFile;
+  boreholeCode: string;
   merging: boolean;
   onClose: () => void;
   onMerge: (options: {
@@ -316,6 +362,7 @@ function MergeOptionsDialog({
     curve_mode?: string;
     from_depth?: number | null;
     to_depth?: number | null;
+    source_borehole_code?: string | null;
   }) => void;
 }) {
   const isIntervalSource = sourceFile.file_type === "excel" || sourceFile.original_name.toLowerCase().endsWith(".xlsx");
@@ -326,6 +373,12 @@ function MergeOptionsDialog({
     sourceFile.original_name.toLowerCase().endsWith(".pdf");
   const parseSummary = sourceFile.file_metadata?.parse_summary as Record<string, unknown> | undefined;
   const summary = parseSummary?.summary as Record<string, unknown> | undefined;
+  // Registry templates can hold many boreholes; let the user pick whose rows to load.
+  const fileBoreholeCounts = parseSummary?.registry_template
+    ? Object.entries((summary?.borehole_row_counts as Record<string, number> | undefined) ?? {})
+    : [];
+  const matchingCode = fileBoreholeCounts.find(([code]) => code.toUpperCase() === boreholeCode.toUpperCase())?.[0];
+  const [sourceBoreholeCode, setSourceBoreholeCode] = useState(matchingCode ?? fileBoreholeCounts[0]?.[0] ?? "");
   const defaultFrom = numberOrBlank(summary?.min_depth);
   const defaultTo = numberOrBlank(summary?.max_depth);
   const [intervalMode, setIntervalMode] = useState("replace_overlapping_range");
@@ -346,6 +399,29 @@ function MergeOptionsDialog({
           </button>
         </header>
         <div className="merge-dialog-body">
+          {fileBoreholeCounts.length > 0 && (
+            <label>
+              Rows from file borehole
+              <select
+                value={sourceBoreholeCode}
+                onChange={(event) => {
+                  setSourceBoreholeCode(event.target.value);
+                  // The processed depth range belongs to the selected borehole; reset to "whole range".
+                  setFromDepth("");
+                  setToDepth("");
+                }}
+              >
+                {fileBoreholeCounts.map(([code, count]) => (
+                  <option key={code} value={code}>
+                    {code} · {count} rows{code === matchingCode ? " (matches this borehole)" : ""}
+                  </option>
+                ))}
+              </select>
+              <small className="template-editor-hint">
+                Loads only this borehole's rows into {boreholeCode}. Leave the depths blank for its whole range.
+              </small>
+            </label>
+          )}
           {isIntervalSource && (
             <label>
               Interval merge
@@ -390,6 +466,7 @@ function MergeOptionsDialog({
                 curve_mode: isCurveSource ? curveMode : undefined,
                 from_depth: isIntervalSource ? optionalNumber(fromDepth) : undefined,
                 to_depth: isIntervalSource ? optionalNumber(toDepth) : undefined,
+                source_borehole_code: fileBoreholeCounts.length ? sourceBoreholeCode || null : undefined,
               })
             }
           >
@@ -406,132 +483,18 @@ function numberOrBlank(value: unknown) {
 }
 
 function optionalNumber(value: string) {
+  // Blank means "no limit". Number("") is 0, which would merge a 0-0 m range.
+  if (!value.trim()) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function TemplateMappingDialog({
-  profile,
-  saving,
-  onClose,
-  onSave,
-}: {
-  profile: ImportProfile;
-  saving: boolean;
-  onClose: () => void;
-  onSave: (payload: {
-    profileId: number;
-    name: string;
-    description: string;
-    mapping: Record<string, unknown>;
-  }) => void;
-}) {
-  const [name, setName] = useState(profile.name);
-  const [description, setDescription] = useState(profile.description ?? "");
-  const [mappingText, setMappingText] = useState(JSON.stringify(profile.mapping, null, 2));
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setName(profile.name);
-    setDescription(profile.description ?? "");
-    setMappingText(JSON.stringify(profile.mapping, null, 2));
-    setError(null);
-  }, [profile]);
-
-  const save = () => {
-    try {
-      const mapping = JSON.parse(mappingText) as Record<string, unknown>;
-      setError(null);
-      onSave({ profileId: profile.id, name: name.trim(), description: description.trim(), mapping });
-    } catch {
-      setError("Mapping JSON is not valid.");
-    }
-  };
-  const formatMapping = () => {
-    try {
-      setMappingText(JSON.stringify(JSON.parse(mappingText), null, 2));
-      setError(null);
-    } catch {
-      setError("Mapping JSON is not valid.");
-    }
-  };
-
-  return (
-    <div className="mapping-dialog-backdrop" role="dialog" aria-modal="true">
-      <div className="mapping-dialog">
-        <header>
-          <div>
-            <strong>{profile.name}</strong>
-            <span>{profile.profile_type.replaceAll("_", " ")}</span>
-          </div>
-          <button type="button" onClick={onClose}>
-            Close
-          </button>
-        </header>
-        <div className="mapping-dialog-body">
-          <section className="template-mapping-preview import-profile-editor">
-            <label>
-              Template name
-              <input value={name} onChange={(event) => setName(event.target.value)} />
-            </label>
-            <label>
-              Description
-              <input value={description} onChange={(event) => setDescription(event.target.value)} />
-            </label>
-            <label>
-              Mapping JSON
-              <textarea
-                value={mappingText}
-                spellCheck={false}
-                onChange={(event) => setMappingText(event.target.value)}
-              />
-            </label>
-            {error && <span className="mapping-error">{error}</span>}
-            <div className="mapping-dialog-actions">
-              <button type="button" onClick={formatMapping}>
-                Format JSON
-              </button>
-              <button type="button" onClick={() => setMappingText(JSON.stringify(profile.mapping, null, 2))}>
-                Restore saved mapping
-              </button>
-              <button type="button" onClick={save} disabled={saving || !name.trim()}>
-                {saving ? "Saving..." : "Save template"}
-              </button>
-            </div>
-          </section>
-          <TemplateMappingPreview
-            profile={{ ...profile, name, description }}
-            mapping={safeMappingFromText(mappingText) ?? profile.mapping}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TemplateMappingPreview({ profile, mapping }: { profile: ImportProfile; mapping: Record<string, unknown> }) {
-  const mappingRows = mappingRowsFromTemplate(mapping);
-  return (
-    <div className="template-mapping-preview">
-      <div className="workflow-panel-header compact">
-        <strong>Mapping Preview</strong>
-        <span>{String(mapping.template_key ?? mapping.status ?? profile.profile_type)}</span>
-      </div>
-      {mappingRows.length ? (
-        <div className="export-mapping-grid compact">
-          {mappingRows.map((row) => (
-            <article key={`${row.source}:${row.target}:${row.detail ?? ""}`}>
-              <strong>{row.source}</strong>
-              <span>{row.target}</span>
-              {row.detail && <small>{row.detail}</small>}
-            </article>
-          ))}
-        </div>
-      ) : (
-        <pre>{JSON.stringify(mapping, null, 2)}</pre>
-      )}
-    </div>
-  );
+function templateCardTag(profile: ImportProfile) {
+  const type = profile.profile_type.replaceAll("_", " ");
+  if (profile.builtin) return `${type} · built-in`;
+  if (profile.mapping?.kind !== "tabular_intervals") return type;
+  const archived = profile.mapping?.status === "archived" ? " · archived" : "";
+  return `${type} · registry v${String(profile.mapping?.version ?? 1)}${archived}`;
 }
 
 function ImportAuditFacts({ facts }: { facts: Array<{ label: string; value: string }> }) {
@@ -564,6 +527,7 @@ function DiagnosticRows({ summary }: { summary: Record<string, unknown> }) {
   const template = valueText(nestedValue(summary, ["template", "key"]));
   const parser = valueText(summary.parser ?? summary.merge_mode);
   const message = valueText(summary.message);
+  const error = valueText(summary.error);
   const rowCount = valueText(nestedValue(summary, ["summary", "lithology_interval_count"]) ?? summary.row_count);
   const warnings = Array.isArray(summary.warnings) ? summary.warnings : [];
   return (
@@ -572,6 +536,7 @@ function DiagnosticRows({ summary }: { summary: Record<string, unknown> }) {
       {template && <span><b>Template</b>{template}</span>}
       {rowCount && <span><b>Rows</b>{rowCount}</span>}
       {message && <span className="full"><b>Message</b>{message}</span>}
+      {error && <span className="full warning"><b>Error</b>{error}</span>}
       {warnings.map((warning, index) => (
         <span key={`${warning}:${index}`} className="full warning"><b>Warning</b>{String(warning)}</span>
       ))}

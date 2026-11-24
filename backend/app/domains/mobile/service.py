@@ -103,7 +103,11 @@ def submit_field_data(db: Session, payload: MobileFieldSubmissionCreate) -> Fiel
     borehole = db.scalar(
         select(Borehole)
         .where(Borehole.id == payload.borehole_id)
-        .options(selectinload(Borehole.lithology_intervals), selectinload(Borehole.validation_issues))
+        .options(
+            selectinload(Borehole.lithology_intervals),
+            selectinload(Borehole.seam_intervals),
+            selectinload(Borehole.validation_issues),
+        )
     )
     if borehole is None:
         raise ValueError("Borehole not found")
@@ -148,6 +152,28 @@ def submit_field_data(db: Session, payload: MobileFieldSubmissionCreate) -> Fiel
                     ),
                 )
             )
+            # A seam named in the field becomes a seam record too, so it shows on the Seam
+            # track, in Correlation and in coal thickness (the Excel import does the same).
+            if item.seam_name and item.seam_name.strip() and item.to_depth > item.from_depth:
+                borehole.seam_intervals.append(
+                    SeamInterval(
+                        id=f"{borehole.code.lower()}-mobile-seam-{index}",
+                        source_row=None,
+                        name=item.seam_name.strip(),
+                        from_depth=item.from_depth,
+                        to_depth=item.to_depth,
+                        thickness=round(item.to_depth - item.from_depth, 3),
+                        lithology_code=item.lithology_code,
+                        lithology_label=item.lithology_label or item.lithology_code,
+                        attributes=merge_stage_metadata(
+                            {},
+                            FIELD_SUBMITTED,
+                            source_type="mobile_interval_form",
+                            source_name=payload.submission_type,
+                            actor=payload.submitted_by,
+                        ),
+                    )
+                )
     replace_validation_issues(borehole, validate_borehole(borehole))
     db.add(borehole)
     db.commit()

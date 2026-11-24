@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.core.realtime import publish_workbench_event
 from app.db.session import get_db
 from app.domains.auth import service as auth_service
 from app.domains.correlation import service
@@ -28,11 +29,19 @@ def create_correlation_observation(
     db: Session = Depends(get_db),
 ) -> CorrelationObservationOut:
     try:
-        return service.create_observation(
+        result = service.create_observation(
             db,
             payload,
             created_by=_username_from_authorization(db, authorization),
         )
+        publish_workbench_event(
+            "workbench.correlation_observation.created",
+            borehole_id=None,
+            entity="correlation_observation",
+            operation="created",
+            payload={"borehole_ids": sorted(payload.borehole_ids)},
+        )
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

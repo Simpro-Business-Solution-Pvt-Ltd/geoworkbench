@@ -54,6 +54,15 @@ export function sourceFileWorkflow(item: SourceFile): SourceFileWorkflow {
       tone: "blocked",
     };
   }
+  if (item.status === "failed") {
+    return {
+      nextStep: "Import failed",
+      detail: sourceFileError(item) ?? "Processing failed. Open Parse preview for details.",
+      canProcess: true,
+      canMerge: false,
+      tone: "blocked",
+    };
+  }
   if (item.status === "uploaded") {
     return {
       nextStep: "Process source",
@@ -70,6 +79,12 @@ export function sourceFileWorkflow(item: SourceFile): SourceFileWorkflow {
     canMerge: false,
     tone: "working",
   };
+}
+
+export function sourceFileError(item: SourceFile): string | null {
+  const parseSummary = item.file_metadata?.parse_summary as Record<string, unknown> | undefined;
+  const error = parseSummary?.error;
+  return typeof error === "string" && error.trim() ? error : null;
 }
 
 function mergeDetail(item: SourceFile) {

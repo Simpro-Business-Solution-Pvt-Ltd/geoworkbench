@@ -3,8 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.core.realtime import publish_workbench_event
 from app.db.session import get_db
+from app.domains.auth.router import admin_user
 from app.domains.imports import service
 from app.domains.imports.schemas import (
+    ImportProfileArchive,
+    ImportProfileCreate,
     ImportProfilePatch,
     ImportProfileOut,
     SourceFileCreate,
@@ -19,14 +22,49 @@ from app.domains.imports.schemas import (
 router = APIRouter()
 
 
+def _profile_out(profile) -> ImportProfileOut:
+    out = ImportProfileOut.model_validate(profile)
+    out.builtin = service.is_builtin_import_profile(profile)
+    return out
+
+
+def _publish_profile_event(profile, operation: str) -> None:
+    publish_workbench_event(
+        f"workbench.import_profile.{operation}",
+        borehole_id=None,
+        entity="import_profile",
+        operation=operation,
+        payload={"profile_id": profile.id, "profile_type": profile.profile_type},
+    )
+
+
 @router.get("/profiles", response_model=list[ImportProfileOut])
 def list_profiles(db: Session = Depends(get_db)) -> list[ImportProfileOut]:
-    return service.list_import_profiles(db)
+    return [_profile_out(profile) for profile in service.list_import_profiles(db)]
+
+
+@router.post("/profiles", response_model=ImportProfileOut)
+def create_profile(
+    payload: ImportProfileCreate,
+    db: Session = Depends(get_db),
+    _: object = Depends(admin_user),
+) -> ImportProfileOut:
+    try:
+        profile = service.create_import_profile(
+            db, name=payload.name, description=payload.description, mapping=payload.mapping
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _publish_profile_event(profile, "created")
+    return _profile_out(profile)
 
 
 @router.patch("/profiles/{profile_id}", response_model=ImportProfileOut)
 def update_profile(
-    profile_id: int, payload: ImportProfilePatch, db: Session = Depends(get_db)
+    profile_id: int,
+    payload: ImportProfilePatch,
+    db: Session = Depends(get_db),
+    _: object = Depends(admin_user),
 ) -> ImportProfileOut:
     try:
         profile = service.update_import_profile(
@@ -36,16 +74,58 @@ def update_profile(
             description=payload.description,
             mapping=payload.mapping,
         )
-        publish_workbench_event(
-            "workbench.import_profile.updated",
-            borehole_id=None,
-            entity="import_profile",
-            operation="updated",
-            payload={"profile_id": profile.id, "profile_type": profile.profile_type},
-        )
-        return profile
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        status = 404 if "not found" in str(exc) else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+    _publish_profile_event(profile, "updated")
+    return _profile_out(profile)
+
+
+@router.post("/profiles/{profile_id}/archive", response_model=ImportProfileOut)
+def archive_profile(
+    profile_id: int,
+    payload: ImportProfileArchive,
+    db: Session = Depends(get_db),
+    _: object = Depends(admin_user),
+) -> ImportProfileOut:
+    try:
+        profile = service.set_import_profile_archived(db, profile_id, payload.archived)
+    except ValueError as exc:
+        status = 404 if "not found" in str(exc) else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+    _publish_profile_event(profile, "archived" if payload.archived else "restored")
+    return _profile_out(profile)
+
+
+@router.post("/profiles/inspect-sample")
+def inspect_template_sample(
+    file: UploadFile = File(...),
+    _: object = Depends(admin_user),
+) -> dict:
+    """First rows of each sheet of a sample workbook, for the template builder."""
+    with service.temporary_upload(file) as path:
+        try:
+            return service.inspect_template_sample(path)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Could not read workbook: {exc}") from exc
+
+
+@router.post("/profiles/test")
+def test_template(
+    file: UploadFile = File(...),
+    mapping: str = Form(...),
+    borehole_code: str | None = Form(default=None),
+    _: object = Depends(admin_user),
+) -> dict:
+    """Dry run: read a sample with a draft template. Nothing is written."""
+    with service.temporary_upload(file) as path:
+        try:
+            return service.test_template_on_sample(path, mapping, borehole_code)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            # Unreadable or corrupt workbooks (zip/XML errors) are a user problem, not a 500.
+            raise HTTPException(status_code=400, detail=f"Could not read workbook: {exc}") from exc
 
 
 @router.get("/source-files", response_model=list[SourceFileOut])

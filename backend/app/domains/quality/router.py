@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.realtime import publish_workbench_event
 from app.db.session import get_db
 from app.domains.auth.router import admin_user, current_user
 from app.domains.quality import service
@@ -23,7 +24,14 @@ def update_default_quality_settings(
     db: Session = Depends(get_db),
     _: object = Depends(admin_user),
 ) -> QualitySettingsOut:
-    return service.update_default_quality_settings(db, payload.settings)
+    result = service.update_default_quality_settings(db, payload.settings)
+    publish_workbench_event(
+        "workbench.quality_settings.updated",
+        borehole_id=None,
+        entity="quality_settings",
+        operation="updated",
+    )
+    return result
 
 
 @router.post("/default/reset", response_model=QualitySettingsOut)
@@ -31,4 +39,11 @@ def reset_default_quality_settings(
     db: Session = Depends(get_db),
     _: object = Depends(admin_user),
 ) -> QualitySettingsOut:
-    return service.reset_default_quality_settings(db)
+    result = service.reset_default_quality_settings(db)
+    publish_workbench_event(
+        "workbench.quality_settings.reset",
+        borehole_id=None,
+        entity="quality_settings",
+        operation="reset",
+    )
+    return result
