@@ -323,6 +323,14 @@ class SourceFile(Base):
 
 class FieldSubmission(Base):
     __tablename__ = "field_submissions"
+    __table_args__ = (
+        Index(
+            "uq_field_submissions_borehole_client_id",
+            "borehole_id",
+            "client_submission_id",
+            unique=True,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     borehole_id: Mapped[int] = mapped_column(ForeignKey("boreholes.id"), index=True)
@@ -333,6 +341,13 @@ class FieldSubmission(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Stable client-generated id for an offline outbox item. Resending the same item
+    # (interrupted upload, replayed flush) returns the original submission instead of
+    # creating a duplicate.
+    client_submission_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    # When and where the geologist captured the data, as reported by the device clock.
+    device_captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    device_timezone: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
     borehole: Mapped[Borehole] = relationship(back_populates="field_submissions")
 

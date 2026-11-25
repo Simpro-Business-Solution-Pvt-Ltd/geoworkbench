@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import (
@@ -54,10 +55,12 @@ def _get_or_create_site(db: Session, payload: MobileBoreholeCreate) -> Site:
     return site
 
 
-def create_mobile_borehole(db: Session, payload: MobileBoreholeCreate) -> Borehole:
+def create_mobile_borehole(db: Session, payload: MobileBoreholeCreate) -> tuple[Borehole, bool]:
+    """Returns (borehole, created). Re-creating an existing code returns the
+    existing borehole without adding a second draft submission."""
     existing = db.scalar(select(Borehole).where(Borehole.code == payload.borehole_code))
     if existing is not None:
-        return existing
+        return existing, False
     site = _get_or_create_site(db, payload)
     total_depth = payload.current_depth or payload.total_depth or 0
     borehole = Borehole(
@@ -90,16 +93,30 @@ def create_mobile_borehole(db: Session, payload: MobileBoreholeCreate) -> Boreho
             submission_type="mobile_borehole_create",
             status="synced",
             submitted_by="mobile-app",
-            payload=payload.model_dump(),
+            payload=payload.model_dump(mode="json"),
         )
     )
     db.add(borehole)
     db.commit()
     db.refresh(borehole)
-    return borehole
+    return borehole, True
 
 
-def submit_field_data(db: Session, payload: MobileFieldSubmissionCreate) -> FieldSubmission:
+def find_submission_by_client_id(
+    db: Session, borehole_id: int, client_submission_id: str
+) -> FieldSubmission | None:
+    return db.scalar(
+        select(FieldSubmission).where(
+            FieldSubmission.borehole_id == borehole_id,
+            FieldSubmission.client_submission_id == client_submission_id,
+        )
+    )
+
+
+def submit_field_data(db: Session, payload: MobileFieldSubmissionCreate) -> tuple[FieldSubmission, bool]:
+    """Returns (submission, replayed). A replay re-sends the same outbox item after an
+    interrupted or lost response; it returns the original submission without
+    duplicating intervals or seam records."""
     borehole = db.scalar(
         select(Borehole)
         .where(Borehole.id == payload.borehole_id)
@@ -111,6 +128,10 @@ def submit_field_data(db: Session, payload: MobileFieldSubmissionCreate) -> Fiel
     )
     if borehole is None:
         raise ValueError("Borehole not found")
+    if payload.client_submission_id:
+        existing = find_submission_by_client_id(db, payload.borehole_id, payload.client_submission_id)
+        if existing is not None:
+            return existing, True
     if payload.current_depth is not None:
         borehole.total_depth = max(borehole.total_depth, payload.current_depth)
         borehole.workflow_status = "field_submitted"
@@ -120,7 +141,10 @@ def submit_field_data(db: Session, payload: MobileFieldSubmissionCreate) -> Fiel
         submission_type=payload.submission_type,
         status=payload.status,
         submitted_by=payload.submitted_by,
-        payload=payload.model_dump(),
+        payload=payload.model_dump(mode="json"),
+        client_submission_id=payload.client_submission_id,
+        device_captured_at=payload.device_captured_at,
+        device_timezone=payload.device_timezone,
     )
     borehole.field_submissions.append(submission)
 
@@ -176,15 +200,29 @@ def submit_field_data(db: Session, payload: MobileFieldSubmissionCreate) -> Fiel
                 )
     replace_validation_issues(borehole, validate_borehole(borehole))
     db.add(borehole)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # A concurrent request with the same client_submission_id committed first.
+        db.rollback()
+        existing = (
+            find_submission_by_client_id(db, payload.borehole_id, payload.client_submission_id)
+            if payload.client_submission_id
+            else None
+        )
+        if existing is None:
+            raise
+        return existing, True
     db.refresh(submission)
-    return submission
+    return submission, False
 
 
-def create_demo_copy(db: Session, payload: MobileDemoCopyCreate) -> Borehole:
+def create_demo_copy(db: Session, payload: MobileDemoCopyCreate) -> tuple[Borehole, bool]:
+    """Returns (borehole, created). Re-copying an existing code returns the
+    existing borehole without duplicating intervals, seams, or curves."""
     existing = db.scalar(select(Borehole).where(Borehole.code == payload.new_code))
     if existing is not None:
-        return existing
+        return existing, False
     source = db.scalar(
         select(Borehole)
         .where(Borehole.id == payload.source_borehole_id)
@@ -302,7 +340,7 @@ def create_demo_copy(db: Session, payload: MobileDemoCopyCreate) -> Borehole:
             submission_type="mobile_demo_copy",
             status="synced",
             submitted_by=payload.submitted_by,
-            payload=payload.model_dump(),
+            payload=payload.model_dump(mode="json"),
         )
     )
     db.add(borehole)
@@ -310,4 +348,4 @@ def create_demo_copy(db: Session, payload: MobileDemoCopyCreate) -> Borehole:
     replace_validation_issues(borehole, validate_borehole(borehole))
     db.commit()
     db.refresh(borehole)
-    return borehole
+    return borehole, True

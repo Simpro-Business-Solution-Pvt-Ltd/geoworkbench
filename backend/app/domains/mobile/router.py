@@ -16,24 +16,48 @@ from app.domains.imports.service import upload_source_file
 router = APIRouter()
 
 
+def _submission_out(
+    borehole,
+    field_submission_id: int | None,
+    message: str,
+    *,
+    submission=None,
+    validation_issue_count: int = 0,
+) -> MobileSubmissionOut:
+    return MobileSubmissionOut(
+        borehole=service._list_item(borehole),
+        field_submission_id=field_submission_id,
+        message=message,
+        server_received_at=submission.submitted_at if submission is not None else None,
+        device_captured_at=submission.device_captured_at if submission is not None else None,
+        device_timezone=submission.device_timezone if submission is not None else None,
+        validation_issue_count=validation_issue_count,
+    )
+
+
 @router.post("/boreholes", response_model=MobileSubmissionOut)
 def create_mobile_borehole(
     payload: MobileBoreholeCreate,
     db: Session = Depends(get_db),
     user=Depends(current_user),
 ) -> MobileSubmissionOut:
-    borehole = service.create_mobile_borehole(db, payload)
-    publish_workbench_event(
-        "workbench.mobile.borehole_created",
-        borehole_id=borehole.id,
-        entity="borehole",
-        operation="created_from_mobile",
-        payload={"code": borehole.code},
-    )
-    return MobileSubmissionOut(
-        borehole=service._list_item(borehole),
-        field_submission_id=borehole.field_submissions[-1].id if borehole.field_submissions else None,
-        message="Mobile borehole draft is ready for central review.",
+    borehole, created = service.create_mobile_borehole(db, payload)
+    submission = borehole.field_submissions[-1] if created else None
+    if created:
+        publish_workbench_event(
+            "workbench.mobile.borehole_created",
+            borehole_id=borehole.id,
+            entity="borehole",
+            operation="created_from_mobile",
+            payload={"code": borehole.code},
+        )
+    return _submission_out(
+        borehole,
+        submission.id if submission is not None else None,
+        "Mobile borehole draft is ready for central review."
+        if created
+        else "Borehole already exists; returning the existing draft.",
+        submission=submission,
     )
 
 
@@ -44,20 +68,25 @@ def submit_field_data(
     user=Depends(current_user),
 ) -> MobileSubmissionOut:
     try:
-        submission = service.submit_field_data(db, payload)
+        submission, replayed = service.submit_field_data(db, payload)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    publish_workbench_event(
-        "workbench.mobile.field_submission",
-        borehole_id=submission.borehole_id,
-        entity="field_submission",
-        operation="created",
-        payload={"field_submission_id": submission.id},
-    )
-    return MobileSubmissionOut(
-        borehole=service._list_item(submission.borehole),
-        field_submission_id=submission.id,
-        message="Field submission synced to central backend.",
+    if not replayed:
+        publish_workbench_event(
+            "workbench.mobile.field_submission",
+            borehole_id=submission.borehole_id,
+            entity="field_submission",
+            operation="created",
+            payload={"field_submission_id": submission.id},
+        )
+    return _submission_out(
+        submission.borehole,
+        submission.id,
+        "Field submission synced to central backend."
+        if not replayed
+        else "Replay ignored: this outbox item was already synced.",
+        submission=submission,
+        validation_issue_count=len(submission.borehole.validation_issues),
     )
 
 
@@ -68,20 +97,25 @@ def create_demo_copy(
     user=Depends(current_user),
 ) -> MobileSubmissionOut:
     try:
-        borehole = service.create_demo_copy(db, payload)
+        borehole, created = service.create_demo_copy(db, payload)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    publish_workbench_event(
-        "workbench.mobile.demo_copy_created",
-        borehole_id=borehole.id,
-        entity="borehole",
-        operation="created_from_mobile",
-        payload={"code": borehole.code},
-    )
-    return MobileSubmissionOut(
-        borehole=service._list_item(borehole),
-        field_submission_id=borehole.field_submissions[-1].id if borehole.field_submissions else None,
-        message="Demo borehole copy submitted from mobile workflow.",
+    submission = borehole.field_submissions[-1] if created else None
+    if created:
+        publish_workbench_event(
+            "workbench.mobile.demo_copy_created",
+            borehole_id=borehole.id,
+            entity="borehole",
+            operation="created_from_mobile",
+            payload={"code": borehole.code},
+        )
+    return _submission_out(
+        borehole,
+        submission.id if submission is not None else None,
+        "Demo borehole copy submitted from mobile workflow."
+        if created
+        else "Demo copy already exists; returning the existing borehole.",
+        submission=submission,
     )
 
 
