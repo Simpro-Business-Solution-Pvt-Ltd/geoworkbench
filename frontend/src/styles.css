@@ -241,6 +241,16 @@ textarea {
   font-weight: 800;
 }
 
+.field-warning {
+  margin: 0;
+  border: 1px solid rgb(217 119 6 / 40%);
+  border-radius: 10px;
+  background: rgb(217 119 6 / 10%);
+  color: #b45309;
+  padding: 10px;
+  font-weight: 800;
+}
+
 .field-topbar {
   position: sticky;
   top: 0;

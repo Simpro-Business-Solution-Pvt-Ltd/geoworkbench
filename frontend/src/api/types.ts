@@ -519,12 +519,25 @@ export type MobileFieldSubmissionCreate = {
   remarks?: string | null;
   payload?: Record<string, unknown> | null;
   apply_to_log?: boolean;
+  /** Stable id of the device outbox item; resending it is an idempotent replay. */
+  client_submission_id?: string | null;
+  /** Device capture moment, wall clock with local offset (e.g. "2026-11-25T09:30:00+05:30"). */
+  device_captured_at?: string | null;
+  /** IANA timezone of the device at capture (e.g. "Asia/Kolkata"). */
+  device_timezone?: string | null;
 };
 
 export type MobileSubmissionOut = {
   borehole: BoreholeListItem;
   field_submission_id: number | null;
   message: string;
+  /** Server receipt time for the submission. */
+  server_received_at: string | null;
+  /** Echoed device capture metadata ("captured X, received Y" without a round trip). */
+  device_captured_at: string | null;
+  device_timezone: string | null;
+  /** Open validation issues on the borehole after this submission (0 = clean). */
+  validation_issue_count: number;
 };
 
 export type BoreholeWorkbench = {

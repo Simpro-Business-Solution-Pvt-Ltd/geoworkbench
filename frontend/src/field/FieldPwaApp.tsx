@@ -1,7 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { checkFieldInterval, type FieldIntervalCheck, type FieldName } from "./fieldIntervalValidation";
-import { isConnectionError, newOutboxItem, readOutbox, writeOutbox, type OutboxItem } from "./fieldOutbox";
+import {
+  deviceCaptureMetadata,
+  isConnectionError,
+  isQuotaExceededError,
+  newClientSubmissionId,
+  newOutboxItem,
+  outboxCapacityWarning,
+  readOutbox,
+  writeOutbox,
+  type OutboxItem,
+} from "./fieldOutbox";
+import {
+  listPhotoQueue,
+  photoLabel,
+  queuePhoto,
+  removePhotoItem,
+  setPhotoItemState,
+  type PhotoQueueItem,
+} from "./fieldPhotoQueue";
 import {
   Camera,
   CheckCircle2,
@@ -62,8 +80,15 @@ export function FieldPwaApp() {
   const [uploads, setUploads] = useState<UploadStatus[]>([]);
   // Intervals waiting to be sent, kept on the device so a reload or closed app loses nothing.
   const [outbox, setOutbox] = useState<OutboxItem[]>(() => readOutbox(window.localStorage));
+  // Photos waiting to be uploaded, persisted in IndexedDB so they survive reloads and
+  // closed tabs too (blobs do not fit in localStorage).
+  const [photos, setPhotos] = useState<PhotoQueueItem[]>([]);
+  const [photoQueueReady, setPhotoQueueReady] = useState(false);
+  const [storageFull, setStorageFull] = useState(false);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const [online, setOnline] = useState(() => navigator.onLine);
   const flushing = useRef(false);
+  const flushingPhotos = useRef(false);
 
   const [projectCode, setProjectCode] = useState("RELIANCE-COAL");
   const [projectName, setProjectName] = useState("Reliance Coal Data");
@@ -117,8 +142,50 @@ export function FieldPwaApp() {
   }, [queryClient]);
 
   useEffect(() => {
-    writeOutbox(window.localStorage, outbox);
+    try {
+      writeOutbox(window.localStorage, outbox);
+      setStorageFull(false);
+    } catch (error) {
+      if (isQuotaExceededError(error)) {
+        setStorageFull(true);
+        setStatus("Device storage is full — the latest saved item may not persist. Send or discard saved items.");
+      }
+    }
   }, [outbox]);
+
+  const refreshStorageWarning = useCallback(async () => {
+    if (outboxCapacityWarning(readOutbox(window.localStorage))) {
+      setStorageWarning(outboxCapacityWarning(readOutbox(window.localStorage)));
+      return;
+    }
+    try {
+      const estimate = await navigator.storage?.estimate?.();
+      if (estimate && estimate.quota && estimate.usage !== undefined && estimate.usage / estimate.quota > 0.8) {
+        setStorageWarning("Device storage is nearly full. Saved photos and intervals may not persist; send or discard items.");
+        return;
+      }
+    } catch {
+      // estimate() unsupported; the outbox soft limit still applies
+    }
+    setStorageWarning(null);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void listPhotoQueue()
+      .then((items) => {
+        if (!active) return;
+        setPhotos(items);
+        setPhotoQueueReady(true);
+        void refreshStorageWarning();
+      })
+      .catch(() => {
+        if (active) setPhotoQueueReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [refreshStorageWarning]);
 
   useEffect(() => {
     const goOnline = () => setOnline(true);
@@ -215,7 +282,9 @@ export function FieldPwaApp() {
     onError: (error) => setStatus(error instanceof Error ? error.message : "Borehole creation failed"),
   });
 
-  const buildIntervalPayload = (): MobileFieldSubmissionCreate => ({
+  const buildIntervalPayload = (): MobileFieldSubmissionCreate => {
+    const capture = deviceCaptureMetadata();
+    return {
         borehole_id: selectedBoreholeId as number,
         submission_type: "field_pwa_interval",
         submitted_by: session?.user.display_name ?? session?.user.username ?? "field-pwa",
@@ -239,9 +308,15 @@ export function FieldPwaApp() {
         ],
         runtime_parameters: runtimeParameters.filter((item) => item.name.trim() && item.value.trim()),
         remarks: emptyToNull(remarks),
-        payload: { client: "field-pwa", captured_at: new Date().toISOString() },
+        payload: { client: "field-pwa", captured_at: capture.device_captured_at },
         apply_to_log: true,
-      });
+        // Stable per attempt: if the upload is interrupted and the device resends, the
+        // server recognizes the same outbox item and returns the original submission.
+        client_submission_id: newClientSubmissionId(),
+        device_captured_at: capture.device_captured_at,
+        device_timezone: capture.device_timezone,
+    };
+  };
 
   const refreshAfterSync = useCallback(
     (boreholeId: number) => {
@@ -260,20 +335,34 @@ export function FieldPwaApp() {
   };
 
   // Send waiting intervals oldest first. Each leaves the outbox only once the server confirms it.
+  // Replays are idempotent on the server (same client_submission_id), so an interrupted
+  // upload can never duplicate the interval.
   const flushOutbox = useCallback(async () => {
     if (flushing.current || !navigator.onLine) return;
     const waiting = readOutbox(window.localStorage).filter((item) => item.state === "waiting");
     if (!waiting.length) return;
     flushing.current = true;
     let sent = 0;
+    let flagged = 0;
     try {
       for (const item of waiting) {
         try {
-          await submitMobileFieldData(item.payload);
+          const result = await submitMobileFieldData(item.payload);
           sent += 1;
+          if (result.validation_issue_count > 0) flagged += 1;
           setOutbox((current) => current.filter((entry) => entry.id !== item.id));
           refreshAfterSync(item.boreholeId);
         } catch (error) {
+          if (isUnauthorizedError(error)) {
+            // Session expired mid-flush: nothing is lost, items stay saved until sign-in again.
+            setOutbox((current) =>
+              current.map((entry) => (entry.id === item.id ? { ...entry, lastError: "Sign-in expired" } : entry)),
+            );
+            setSession(null);
+            setAuthToken(null);
+            setStatus("Sign-in expired. Your saved items stay on this device; sign in again to finish sending.");
+            return;
+          }
           if (isConnectionError(error, navigator.onLine)) break;
           const reason = error instanceof Error ? error.message : "Rejected by the server";
           setOutbox((current) =>
@@ -283,13 +372,21 @@ export function FieldPwaApp() {
       }
     } finally {
       flushing.current = false;
-      if (sent) setStatus(`Connection back: ${sent} saved interval${sent === 1 ? "" : "s"} sent.`);
+      if (sent) {
+        setStatus(
+          flagged
+            ? `Connection back: ${sent} saved interval${sent === 1 ? "" : "s"} sent, but the server flagged ${flagged} with validation issue${flagged === 1 ? "" : "s"} — review on the workbench.`
+            : `Connection back: ${sent} saved interval${sent === 1 ? "" : "s"} sent.`,
+        );
+      }
     }
   }, [refreshAfterSync]);
 
   useEffect(() => {
     if (session && online) void flushOutbox();
   }, [session, online, flushOutbox]);
+
+
 
   const submitIntervalMutation = useMutation({
     // "always": fail at once when offline so the interval goes to the device outbox,
@@ -298,7 +395,14 @@ export function FieldPwaApp() {
     mutationFn: (payload: MobileFieldSubmissionCreate) => submitMobileFieldData(payload),
     onMutate: () => setStatus("Syncing interval..."),
     onSuccess: (result) => {
-      setStatus(result.message);
+      let message = result.message;
+      if (result.validation_issue_count > 0) {
+        message = `${message} Server flagged ${result.validation_issue_count} validation issue${result.validation_issue_count === 1 ? "" : "s"} (for example overlapping intervals) — review on the workbench.`;
+      }
+      if (result.device_captured_at && result.server_received_at) {
+        message = `${message} Captured ${formatTimestamp(result.device_captured_at)}${result.device_timezone ? ` ${result.device_timezone}` : ""}, received ${formatTimestamp(result.server_received_at)}.`;
+      }
+      setStatus(message);
       setActiveStep("attachments");
       void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
       if (selectedBoreholeId) {
@@ -358,16 +462,97 @@ export function FieldPwaApp() {
     },
   });
 
+  // Photos go through the device queue first, so a capture made offline (or while the
+  // upload is interrupted) is kept on the device and retried, not lost.
+  const queuePhotoForBorehole = (file: File) => {
+    void queuePhoto({ boreholeId: selectedBoreholeId, boreholeCode: selectedBorehole?.code ?? null, file })
+      .then((item) => {
+        setPhotos((current) => [...current, item].sort((a, b) => a.queuedAt.localeCompare(b.queuedAt)));
+        setStatus(
+          navigator.onLine
+            ? `Saved ${file.name} — uploading...`
+            : `No connection. ${file.name} saved on this device; it will upload when the connection returns.`,
+        );
+        void refreshStorageWarning();
+      })
+      .catch(() => {
+        setStatus(`Could not save ${file.name} on this device (storage may be full). Try again after freeing space.`);
+      });
+  };
+
+  const flushPhotoQueue = useCallback(async () => {
+    if (flushingPhotos.current || !navigator.onLine) return;
+    const waiting = photos.filter((item) => item.state === "waiting");
+    if (!waiting.length) return;
+    flushingPhotos.current = true;
+    let sent = 0;
+    try {
+      for (const item of waiting) {
+        try {
+          await uploadMobileFile({
+            borehole_id: item.boreholeId,
+            file_type: item.fileType,
+            file: new File([item.file], item.name, { type: item.file.type }),
+          });
+          sent += 1;
+          await removePhotoItem(item.id);
+          setPhotos((current) => current.filter((entry) => entry.id !== item.id));
+          void queryClient.invalidateQueries({ queryKey: ["field-attachments", item.boreholeId] });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.boreholes });
+        } catch (error) {
+          if (isUnauthorizedError(error)) {
+            await setPhotoItemState(item.id, "waiting", "Sign-in expired");
+            setSession(null);
+            setAuthToken(null);
+            setStatus("Sign-in expired. Saved photos stay on this device; sign in again to finish uploading.");
+            return;
+          }
+          if (isConnectionError(error, navigator.onLine)) break;
+          const reason = error instanceof Error ? error.message : "Upload rejected by the server";
+          await setPhotoItemState(item.id, "rejected", reason);
+          setPhotos((current) =>
+            current.map((entry) => (entry.id === item.id ? { ...entry, state: "rejected", lastError: reason } : entry)),
+          );
+        }
+      }
+    } finally {
+      flushingPhotos.current = false;
+      if (sent) setStatus(`${sent} saved photo${sent === 1 ? "" : "s"} uploaded.`);
+      void refreshStorageWarning();
+    }
+  }, [photos, queryClient, refreshStorageWarning]);
+
+  useEffect(() => {
+    if (session && online && photoQueueReady) void flushPhotoQueue();
+  }, [session, online, photoQueueReady, flushPhotoQueue]);
+
+  const discardPhoto = (id: string) => {
+    void (async () => {
+      if (!window.confirm("Discard this photo? It was not saved on the server.")) return;
+      await removePhotoItem(id);
+      setPhotos((current) => current.filter((entry) => entry.id !== id));
+      void refreshStorageWarning();
+    })();
+  };
+
   const uploadToSelectedBorehole = ({ file, fileType }: { file: File; fileType: string }) => {
     if (!selectedBoreholeId) {
       setStatus("Select a borehole before uploading.");
+      return;
+    }
+    if (fileType === "corebox_image") {
+      queuePhotoForBorehole(file);
       return;
     }
     uploadMutation.mutate({ file, fileType, boreholeId: selectedBoreholeId, key: `${Date.now()}-${file.name}` });
   };
 
   const pendingUploads = uploads.filter((item) => item.boreholeId === selectedBoreholeId);
+  const pendingPhotos = photos.filter((item) => item.boreholeId === selectedBoreholeId);
   const storedFiles = attachments.data ?? [];
+  const waitingCount =
+    outbox.filter((item) => item.state === "waiting").length +
+    photos.filter((item) => item.state === "waiting").length;
 
   if (!session) {
     return (
@@ -399,6 +584,12 @@ export function FieldPwaApp() {
               />
             </label>
             {loginError && <p className="field-error">{loginError}</p>}
+            {waitingCount > 0 && (
+              <p className="field-warning">
+                {waitingCount} saved item{waitingCount === 1 ? "" : "s"} on this device (intervals
+                {photos.some((photo) => photo.state === "waiting") ? " and photos" : ""}) will send after you sign in.
+              </p>
+            )}
             <button className="field-primary" type="submit" disabled={loginMutation.isPending}>
               {loginMutation.isPending ? "Signing in..." : "Sign in"}
               <ChevronRight size={18} />
@@ -445,11 +636,14 @@ export function FieldPwaApp() {
           <strong>{status}</strong>
           <span>
             {session.user.display_name || session.user.username}
-            {!online && " · Offline: new intervals are saved on this device"}
-            {outbox.length > 0 && ` · ${outbox.length} waiting to send`}
+            {!online && " · Offline: new intervals and photos are saved on this device"}
+            {waitingCount > 0 && ` · ${waitingCount} waiting to send`}
           </span>
         </div>
       </section>
+
+      {storageFull && <p className="field-error">Device storage is full — saved items may not persist. Send or discard items now.</p>}
+      {!storageFull && storageWarning && <p className="field-warning">{storageWarning}</p>}
 
       <nav className="field-steps" aria-label="Field workflow">
         {(["borehole", "interval", "attachments"] as FieldStep[]).map((step) => (
@@ -715,6 +909,28 @@ export function FieldPwaApp() {
                 <em>{upload.status}</em>
               </div>
             ))}
+            {pendingPhotos.map((photo) => (
+              <div key={photo.id} className={`field-outbox-item ${photo.state}`}>
+                <span>
+                  <b>{photoLabel(photo)}</b>
+                </span>
+                <small>
+                  Captured {formatTimestamp(photo.capturedAt)}
+                  {photo.capturedAtTz ? ` ${photo.capturedAtTz}` : ""}
+                  {online ? " · uploading now" : " · will upload when the connection returns"}
+                </small>
+                <em>
+                  {photo.state === "rejected"
+                    ? `Not accepted: ${photo.lastError ?? "upload error"}`
+                    : "saved on this device"}
+                </em>
+                {photo.state === "rejected" && (
+                  <button type="button" className="field-small-button" onClick={() => discardPhoto(photo.id)}>
+                    Discard
+                  </button>
+                )}
+              </div>
+            ))}
             {storedFiles.map((file) => (
               <div key={file.id}>
                 <FileUp size={16} />
@@ -827,7 +1043,17 @@ function OutboxPanel({
           <span>
             <b>{item.label}</b> · {item.boreholeCode ?? `borehole ${item.boreholeId}`}
           </span>
-          <em>{item.state === "rejected" ? `Not accepted: ${item.lastError ?? "server error"}` : "waiting"}</em>
+          <small>
+            Captured {formatTimestamp(item.payload.device_captured_at ?? item.queuedAt)}
+            {item.payload.device_timezone ? ` ${item.payload.device_timezone}` : ""}
+          </small>
+          <em>
+            {item.state === "rejected"
+              ? `Not accepted: ${item.lastError ?? "server error"}`
+              : item.lastError && item.lastError === "Sign-in expired"
+                ? "waiting — sign-in expired"
+                : "waiting"}
+          </em>
           {item.state === "rejected" && (
             <button
               type="button"
@@ -884,4 +1110,10 @@ function toNumber(value: string): number | null {
 function emptyToNull(value: string): string | null {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+/** Human-readable timestamp in the viewer's timezone, e.g. for "captured 9:30 AM, received 9:35 AM". */
+function formatTimestamp(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(undefined, { hour12: false });
 }

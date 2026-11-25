@@ -41,20 +41,90 @@ export function outboxLabel(payload: MobileFieldSubmissionCreate): string {
   return `${interval.from_depth}-${interval.to_depth} m${code}`;
 }
 
+/**
+ * Device capture metadata for an outbox item: the wall-clock moment the geologist
+ * captured the data (with the local UTC offset, so "09:30 IST" stays readable on any
+ * machine) and the device timezone. The server records its own receipt time separately.
+ */
+export function deviceCaptureMetadata(now: Date = new Date()): {
+  device_captured_at: string;
+  device_timezone: string | null;
+} {
+  return {
+    device_captured_at: isoWithLocalOffset(now),
+    device_timezone: deviceTimezone(),
+  };
+}
+
+export function isoWithLocalOffset(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absolute = Math.abs(offsetMinutes);
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` +
+    `${sign}${pad(Math.floor(absolute / 60))}:${pad(absolute % 60)}`
+  );
+}
+
+function deviceTimezone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function newClientSubmissionId(now: Date = new Date()): string {
+  return `${now.getTime()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function newOutboxItem(
   payload: MobileFieldSubmissionCreate,
   boreholeCode: string | null,
   now: Date = new Date(),
 ): OutboxItem {
+  const id = newClientSubmissionId(now);
+  // The payload may already carry a stable client id and capture metadata (generated
+  // when the geologist tapped sync); resends must keep exactly those, so the server
+  // recognizes the replay.
+  const capture = deviceCaptureMetadata(now);
   return {
-    id: `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+    id,
     boreholeId: payload.borehole_id,
     boreholeCode,
     label: outboxLabel(payload),
     queuedAt: now.toISOString(),
-    payload,
+    payload: {
+      ...payload,
+      client_submission_id: payload.client_submission_id ?? id,
+      device_captured_at: payload.device_captured_at ?? capture.device_captured_at,
+      device_timezone: payload.device_timezone ?? capture.device_timezone,
+    },
     state: "waiting",
   };
+}
+
+/** localStorage is limited to a few MB in every browser; warn well before the quota. */
+export const OUTBOX_SOFT_LIMIT_BYTES = 3_500_000;
+
+export function outboxStorageBytes(items: OutboxItem[]): number {
+  return JSON.stringify(items).length;
+}
+
+export function outboxCapacityWarning(items: OutboxItem[]): string | null {
+  if (outboxStorageBytes(items) < OUTBOX_SOFT_LIMIT_BYTES) return null;
+  const megabytes = (outboxStorageBytes(items) / 1_048_576).toFixed(1);
+  return `Device storage is filling up (${megabytes} MB of roughly 5 MB). Send or discard saved items before new captures are kept.`;
+}
+
+/** True when localStorage.setItem failed because the quota was exceeded. */
+export function isQuotaExceededError(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED")
+  );
 }
 
 /**
