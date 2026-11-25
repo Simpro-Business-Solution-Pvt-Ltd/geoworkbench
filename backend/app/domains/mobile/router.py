@@ -16,6 +16,21 @@ from app.domains.imports.service import upload_source_file
 router = APIRouter()
 
 
+def _original_device_captured_at(submission) -> str | None:
+    """The device capture time exactly as the field device sent it (with its local
+    UTC offset), read from the stored payload — the authoritative device record —
+    rather than the database column, which normalizes the instant to UTC. Returns
+    None when the submission carries no capture metadata (e.g. borehole-create or
+    demo-copy submissions)."""
+    if submission is None:
+        return None
+    payload = submission.payload
+    if not isinstance(payload, dict):
+        return None
+    value = payload.get("device_captured_at")
+    return value if isinstance(value, str) else None
+
+
 def _submission_out(
     borehole,
     field_submission_id: int | None,
@@ -29,7 +44,7 @@ def _submission_out(
         field_submission_id=field_submission_id,
         message=message,
         server_received_at=submission.submitted_at if submission is not None else None,
-        device_captured_at=submission.device_captured_at if submission is not None else None,
+        device_captured_at=_original_device_captured_at(submission),
         device_timezone=submission.device_timezone if submission is not None else None,
         validation_issue_count=validation_issue_count,
     )

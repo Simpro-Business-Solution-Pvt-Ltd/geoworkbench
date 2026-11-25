@@ -154,9 +154,11 @@ def test_device_capture_and_server_receipt_are_preserved(client):
     response = client.post("/api/mobile/field-submissions", headers=headers, json=body)
     assert response.status_code == 200, response.text
     body_out = response.json()
-    # The echoed capture time keeps the device wall clock (09:30); on Postgres the
-    # offset survives the round trip, on the SQLite test database it does not.
-    assert datetime.fromisoformat(body_out["device_captured_at"]).replace(tzinfo=None) == datetime(2026, 11, 25, 9, 30)
+    # The response echoes the device capture time as the exact captured string,
+    # offset included, from the stored payload — not the database-normalized
+    # instant — so "09:30 IST" stays readable on any machine on every backend
+    # database (the timestamptz column normalizes to UTC on Postgres).
+    assert body_out["device_captured_at"] == "2026-11-25T09:30:00+05:30"
     assert body_out["device_timezone"] == "Asia/Kolkata"
     # Server receipt time is recorded on the submission. The offset is present on
     # Postgres (timestamptz); the SQLite test database returns it naive.
@@ -177,7 +179,9 @@ def test_device_capture_and_server_receipt_are_preserved(client):
     replay = client.post("/api/mobile/field-submissions", headers=headers, json=body)
     assert replay.status_code == 200, replay.text
     assert replay.json()["device_timezone"] == "Asia/Kolkata"
-    assert datetime.fromisoformat(replay.json()["device_captured_at"]).replace(tzinfo=None) == datetime(2026, 11, 25, 9, 30)
+    # The replay returns the same literal captured string, so the device record
+    # is byte-stable across an interrupted/replayed sync.
+    assert replay.json()["device_captured_at"] == "2026-11-25T09:30:00+05:30"
 
 
 def test_overlapping_interval_reports_validation_issue_count(client):

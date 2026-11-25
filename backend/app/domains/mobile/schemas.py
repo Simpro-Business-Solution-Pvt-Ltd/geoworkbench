@@ -79,9 +79,12 @@ class MobileSubmissionOut(BaseModel):
     # Server receipt time for the submission (None when the endpoint created no
     # submission, e.g. a duplicate borehole-code lookup).
     server_received_at: datetime | None = None
-    # Echoed device capture metadata so the field device can show "captured X,
-    # received Y" without an extra round trip.
-    device_captured_at: datetime | None = None
+    # Device capture time exactly as the field device sent it, with its local UTC
+    # offset (e.g. "2026-11-25T09:30:00+05:30"), so the device wall clock stays
+    # readable on any machine. Echoed from the stored payload (the authoritative
+    # device record), not the database-normalized capture instant, so it is
+    # identical on every backend database.
+    device_captured_at: str | None = None
     device_timezone: str | None = None
     # Open validation issues on the borehole after this submission (0 = clean),
     # so the device can flag conflicts such as overlapping intervals.
