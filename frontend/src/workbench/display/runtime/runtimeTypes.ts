@@ -6,6 +6,7 @@ import type {
   ExportReadiness,
   ImportProfile,
   LithologyInterval,
+  LithologyIntervalPatchRequest,
   DisplayLayout,
   DisplayWidget,
 } from "../../../api/types";
@@ -48,7 +49,7 @@ export type DisplayRuntimeProps = {
   onProcessSourceFile: (sourceFileId: number) => void;
   onImportBoreholeFile: (sourceFileId: number) => void;
   onMergeSourceFile: (sourceFileId: number) => void;
-  onSaveInterval: (intervalId: string, patch: Partial<LithologyInterval>) => void;
+  onSaveInterval: (intervalId: string, patch: LithologyIntervalPatchRequest) => void;
   onSelectImage: (image: CoreImage) => void;
   runtimeLayoutSaving?: boolean;
   runtimeLayoutCloning?: boolean;

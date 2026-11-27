@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from app.domains.imports.schemas import SourceFileOut
 
 
@@ -64,6 +64,7 @@ class LithologyIntervalOut(BaseModel):
 
 
 class LithologyIntervalPatch(BaseModel):
+    change_reason: str
     lithology_code: str | None = None
     lithology_label: str | None = None
     seam_name: str | None = None
@@ -75,6 +76,16 @@ class LithologyIntervalPatch(BaseModel):
     rqd: float | None = None
     logged_color: str | None = None
     structural_features: str | None = None
+    evidence_core_photo_id: str | None = None
+    evidence_curve_key: str | None = None
+    evidence_depth: float | None = None
+
+    @field_validator("change_reason")
+    @classmethod
+    def _reason_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("change_reason must not be empty")
+        return v
 
 
 class SeamIntervalOut(BaseModel):
@@ -218,6 +229,7 @@ class CorrectionAuditOut(BaseModel):
     changed_by: str
     changed_at: datetime
     change_reason: str | None
+    evidence_reference: dict | None = None
     before_values: dict
     after_values: dict
 

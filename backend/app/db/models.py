@@ -196,6 +196,7 @@ class CorrectionAudit(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     change_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_reference: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     before_values: Mapped[dict] = mapped_column(JSON)
     after_values: Mapped[dict] = mapped_column(JSON)
 

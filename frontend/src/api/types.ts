@@ -132,6 +132,24 @@ export type LithologyInterval = {
   attributes?: Record<string, unknown> | null;
 };
 
+export type LithologyIntervalPatchRequest = {
+  change_reason: string;
+  lithology_code?: string;
+  lithology_label?: string;
+  seam_name?: string;
+  remark?: string;
+  from_depth?: number;
+  to_depth?: number;
+  recovery?: number;
+  recovery_percent?: number;
+  rqd?: number;
+  logged_color?: string;
+  structural_features?: string;
+  evidence_core_photo_id?: string;
+  evidence_curve_key?: string;
+  evidence_depth?: number;
+};
+
 export type SeamInterval = {
   id: string;
   name: string;
@@ -360,6 +378,7 @@ export type CorrectionAudit = {
   changed_by: string;
   changed_at: string;
   change_reason: string | null;
+  evidence_reference: Record<string, unknown> | null;
   before_values: Record<string, unknown>;
   after_values: Record<string, unknown>;
 };

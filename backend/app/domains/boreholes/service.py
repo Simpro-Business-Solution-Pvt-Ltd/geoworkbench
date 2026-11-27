@@ -433,7 +433,23 @@ def update_lithology_interval(
     if interval is None:
         raise ValueError("Interval not found")
 
-    updates = patch.model_dump(exclude_unset=True)
+    change_reason = patch.change_reason
+    evidence = _build_evidence_reference(patch)
+
+    interval_fields = [
+        "lithology_code",
+        "lithology_label",
+        "seam_name",
+        "remark",
+        "from_depth",
+        "to_depth",
+        "recovery",
+        "recovery_percent",
+        "rqd",
+        "logged_color",
+        "structural_features",
+    ]
+    updates = {k: v for k, v in patch.model_dump(exclude_unset=True).items() if k in interval_fields}
     before_values = {field: getattr(interval, field) for field in updates}
     before_attributes = dict(interval.attributes or {})
     for field, value in updates.items():
@@ -453,6 +469,8 @@ def update_lithology_interval(
                 borehole_id=interval.borehole_id,
                 interval_id=interval.id,
                 changed_by=actor,
+                change_reason=change_reason,
+                evidence_reference=evidence,
                 before_values={**before_values, "attributes": before_attributes},
                 after_values={**after_values, "attributes": interval.attributes},
             )
@@ -461,6 +479,17 @@ def update_lithology_interval(
     db.commit()
     db.refresh(interval)
     return interval
+
+
+def _build_evidence_reference(patch: LithologyIntervalPatch) -> dict | None:
+    ref: dict = {}
+    if patch.evidence_core_photo_id:
+        ref["core_photo_id"] = patch.evidence_core_photo_id
+    if patch.evidence_curve_key:
+        ref["curve_key"] = patch.evidence_curve_key
+    if patch.evidence_depth is not None:
+        ref["depth"] = patch.evidence_depth
+    return ref or None
 
 
 def find_core_image_for_depth(db: Session, borehole_id: int, depth: float) -> CoreImage | None:

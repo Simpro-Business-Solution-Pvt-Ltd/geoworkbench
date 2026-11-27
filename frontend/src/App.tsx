@@ -76,6 +76,7 @@ import type {
   BoreholeListItem,
   DisplayLayout,
   LithologyInterval,
+  LithologyIntervalPatchRequest,
   Permission,
   QualitySettings,
   QualitySettingsPayload,
@@ -507,7 +508,7 @@ export function App() {
   }, [boreholes.data?.length, boreholeId, displayChoice, session?.user.id, boreholes.data, session]);
 
   const saveInterval = useMutation({
-    mutationFn: (payload: { intervalId: string; patch: Partial<LithologyInterval> }) =>
+    mutationFn: (payload: { intervalId: string; patch: LithologyIntervalPatchRequest }) =>
       updateInterval(payload.intervalId, payload.patch),
     onSuccess: (updated) => {
       setSelectedInterval(updated);

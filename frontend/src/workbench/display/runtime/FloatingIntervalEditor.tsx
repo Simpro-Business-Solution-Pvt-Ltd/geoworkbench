@@ -1,13 +1,13 @@
 import type { PointerEvent } from "react";
 import { useRef, useState } from "react";
 
-import type { LithologyInterval } from "../../../api/types";
+import type { LithologyInterval, LithologyIntervalPatchRequest } from "../../../api/types";
 
 type Props = {
   interval: LithologyInterval;
   intervalSaving: boolean;
   onClose: () => void;
-  onSaveInterval: (patch: Partial<LithologyInterval>) => void;
+  onSaveInterval: (patch: LithologyIntervalPatchRequest) => void;
 };
 
 export function FloatingIntervalEditor({ interval, intervalSaving, onClose, onSaveInterval }: Props) {
@@ -67,7 +67,13 @@ export function FloatingIntervalEditor({ interval, intervalSaving, onClose, onSa
         onSubmit={(event) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
+          const changeReason = String(form.get("change_reason") || "").trim();
+          if (!changeReason) {
+            form.reportValidity();
+            return;
+          }
           onSaveInterval({
+            change_reason: changeReason,
             from_depth: parseOptionalNumber(form.get("from_depth")),
             to_depth: parseOptionalNumber(form.get("to_depth")),
             lithology_code: String(form.get("lithology_code")),
@@ -79,6 +85,9 @@ export function FloatingIntervalEditor({ interval, intervalSaving, onClose, onSa
             rqd: parseOptionalPercent(form.get("rqd_percent")),
             structural_features: String(form.get("structural_features") || ""),
             remark: String(form.get("remark") || ""),
+            evidence_core_photo_id: String(form.get("evidence_core_photo_id") || "") || undefined,
+            evidence_curve_key: String(form.get("evidence_curve_key") || "") || undefined,
+            evidence_depth: parseOptionalNumber(form.get("evidence_depth")),
           });
         }}
       >
@@ -132,6 +141,24 @@ export function FloatingIntervalEditor({ interval, intervalSaving, onClose, onSa
           Remarks
           <textarea name="remark" defaultValue={interval.remark ?? ""} />
         </label>
+        <label>
+          Reason for correction *
+          <textarea name="change_reason" required placeholder="Why is this correction being made?" />
+        </label>
+        <div className="evidence-ref-fields">
+          <label>
+            Core photo ID
+            <input name="evidence_core_photo_id" placeholder="e.g. core-pbh62-box3" />
+          </label>
+          <label>
+            Curve key
+            <input name="evidence_curve_key" placeholder="e.g. GAMMA" />
+          </label>
+          <label>
+            Evidence depth (m)
+            <input name="evidence_depth" inputMode="decimal" placeholder="e.g. 12.5" />
+          </label>
+        </div>
         <div className="floating-editor-actions">
           <button type="button" onClick={onClose}>
             Cancel

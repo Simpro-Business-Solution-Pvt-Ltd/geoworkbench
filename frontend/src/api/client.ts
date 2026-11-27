@@ -13,6 +13,7 @@ import type {
   ExportReadiness,
   ImportProfile,
   LithologyInterval,
+  LithologyIntervalPatchRequest,
   MobileBoreholeCreate,
   MobileFieldSubmissionCreate,
   MobileSubmissionOut,
@@ -224,7 +225,7 @@ export function getCurveSampleWindow(
 
 export function updateInterval(
   intervalId: string,
-  patch: Partial<LithologyInterval>,
+  patch: LithologyIntervalPatchRequest,
 ): Promise<LithologyInterval> {
   return request<LithologyInterval>(`/boreholes/intervals/${intervalId}`, {
     method: "PATCH",
