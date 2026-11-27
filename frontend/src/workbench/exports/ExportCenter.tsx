@@ -225,7 +225,7 @@ export function ExportCenter({
                 >
                   {matchingProfiles.map((profile) => (
                     <option key={profile.id} value={profile.id}>
-                      {profile.name}
+                      {profile.name}{profile.mapping?.status === "archived" ? " · archived" : ""}
                     </option>
                   ))}
                 </select>
